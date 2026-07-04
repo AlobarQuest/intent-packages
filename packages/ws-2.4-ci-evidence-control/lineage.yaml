@@ -1,5 +1,5 @@
 package_id: ws-2.4-ci-evidence-control
-current_state: in_execution
+current_state: closed
 revisions:
 - revision: 1
   hash: 639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80
@@ -25,6 +25,24 @@ transitions:
   at: '2026-07-04T21:46:07.658802+00:00'
   actor: claude-code-interactive
   event_id: evt-108c5ea4d89142ecb31b63ea68cd1c22
+- kind: transition
+  from: in_execution
+  to: verification
+  at: '2026-07-04T21:54:03.363158+00:00'
+  actor: claude-code-interactive
+  event_id: evt-475cefba4dd2443784470185e8e7442e
+- kind: transition
+  from: verification
+  to: completed
+  at: '2026-07-04T21:54:03.535041+00:00'
+  actor: claude-code-interactive
+  event_id: evt-0b49c8de02ef4f2e8084e3d21bef87bb
+- kind: transition
+  from: completed
+  to: closed
+  at: '2026-07-04T21:54:03.705588+00:00'
+  actor: claude-code-interactive
+  event_id: evt-8bb56b4c03834348904bb5ad020e8153
 approvals:
 - revision: 1
   approved_hash: 639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80
