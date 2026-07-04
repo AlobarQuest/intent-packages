@@ -181,6 +181,93 @@ applicable_standards:
 """
 
 
+# A complete, valid infrastructure-change-profile package (WS-2.2 spec §4).
+_INFRASTRUCTURE_CHANGE_PACKAGE_YAML = """\
+schema_version: 1
+package_id: sample-infrastructure-change-package
+title: "A sample infrastructure-change profile package"
+revision: 1
+status: draft
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-03T00:00:00Z"
+supersedes: null
+profile: infrastructure-change
+profile_fields:
+  blast_radius: single-app
+  change_window: null
+  backup_evidence: "vps-backup recipe D run 2026-07-04"
+  rollback_plan: "restore from pre-change snapshot"
+outcome:
+  what: "The infrastructure-change profile validates end to end."
+  why: "To prove the profile validator works."
+  beneficiary: "The software factory."
+  success_signal: "validate returns no errors."
+scope:
+  included: ["the infrastructure-change profile"]
+  excluded: ["other profiles"]
+  non_goals: ["building the orchestrator"]
+  assumptions: ["python 3.12 available"]
+  open_questions: []
+sources:
+  - location: "WS-2.2 design spec"
+    authority_level: authoritative
+    required_version: "2026-07-04"
+    trust: trusted_instruction
+    sensitivity: internal
+constraints:
+  time_budget: null
+  technology: "Python 3.12+"
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+acceptance:
+  - id: AC-001
+    condition: "the change is healthy after applying"
+    evidence_type: automated_test
+    evidence: "health: /api/health 200 after change"
+    approver: policy
+deliverables:
+  artifacts: ["the validated package"]
+  destination: "packages/"
+  recipient: "devon"
+  definition_of_done: "validate passes"
+  operator_responsibilities: []
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+authority:
+  allowed: [repository_read, infra_mutation, test_execution]
+  requires_approval: [merge_to_main]
+  prohibited: [secret_write]
+  budgets:
+    max_attempts: null
+    max_llm_calls: null
+risk:
+  failure_modes: ["change breaks a dependent service"]
+  max_impact: "low"
+  stop_conditions: ["health check fails post-change"]
+  rollback: "restore from pre-change snapshot"
+  escalation_target: "devon"
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: "1.0"
+"""
+
+
 def _read_yaml(path: Path):
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
@@ -256,6 +343,37 @@ def software_delivery_package(tmp_path):
     package_hash = canonical.package_hash(loader.load_package(pkg_dir))
     lineage = {
         "package_id": "sample-software-delivery-package",
+        "current_state": "draft",
+        "revisions": [
+            {
+                "revision": 1,
+                "hash": package_hash,
+                "created_at": "2026-07-03T00:00:00Z",
+                "author": "claude-code-interactive",
+            }
+        ],
+        "transitions": [],
+        "approvals": [],
+        "grants": [],
+    }
+    _write_yaml(pkg_dir / "lineage.yaml", lineage)
+
+    return pkg_dir
+
+
+@pytest.fixture
+def infrastructure_change_package(tmp_path):
+    """Write a complete, valid packages/sample-infrastructure-change-package/ dir
+    (profile: infrastructure-change), mirroring the `valid_package` fixture."""
+    from intent_packages import canonical, loader
+
+    pkg_dir = tmp_path / "packages" / "sample-infrastructure-change-package"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "package.yaml").write_text(_INFRASTRUCTURE_CHANGE_PACKAGE_YAML, encoding="utf-8")
+
+    package_hash = canonical.package_hash(loader.load_package(pkg_dir))
+    lineage = {
+        "package_id": "sample-infrastructure-change-package",
         "current_state": "draft",
         "revisions": [
             {

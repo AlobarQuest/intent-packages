@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from intent_packages.profiles import software_delivery
+from intent_packages.profiles import infrastructure_change, software_delivery
 
 PROFILES: dict[str, Callable[[dict], list[str]]] = {
     "software-delivery": software_delivery.validate,
+    "infrastructure-change": infrastructure_change.validate,
 }
 
 
