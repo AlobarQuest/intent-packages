@@ -144,3 +144,50 @@ def test_approve_illegal_from_draft_raises(valid_package, monkeypatch, fake_regi
     lineage = ln.read(valid_package)
     assert lineage["current_state"] == "draft"
     assert lineage["approvals"] == []
+
+
+def test_reapprove_after_intent_edit_is_refused_no_reemit_no_new_approval(
+    valid_package, monkeypatch, fake_registry, edit_yaml
+):
+    """Security regression: once a package is approved, editing the intent
+    (changing the live package_hash away from the recorded approval's
+    approved_hash) must permanently block re-approval — do_approve must
+    refuse, not silently re-emit or re-stamp a new approval entry over the
+    drifted content. `do_approve` runs `validate_package` first (spec §8
+    step 1), which runs check H (hash_drift_errors) for any DRIFT_LOCKED
+    status including 'approved' — this test locks that end-to-end refusal
+    at the operations boundary, independent of validate's internals.
+    """
+    _use_fake_registry(monkeypatch, fake_registry)
+    _ready_for_review(valid_package)
+    emitter = StubEmitter(event_id="evt-approve-1")
+
+    do_approve(valid_package, emitter=emitter, approver="devon", commit=COMMIT, now=NOW)
+    assert len(emitter.calls) == 1
+
+    lineage_before = ln.read(valid_package)
+    assert len(lineage_before["approvals"]) == 1
+    original_approval = lineage_before["approvals"][0]
+
+    # Materially edit the intent after approval: status/current_state stay
+    # "approved", but the live package_hash now differs from approved_hash.
+    edit_yaml(
+        valid_package,
+        "package.yaml",
+        set_key=("title", "A materially edited title (post-approval)"),
+    )
+
+    with pytest.raises(OperationError) as exc_info:
+        do_approve(valid_package, emitter=emitter, approver="devon", commit=COMMIT, now=NOW)
+    message = str(exc_info.value)
+    assert "revise" in message or "intent" in message
+
+    # The security invariant: no re-emit, no new/replaced approval entry,
+    # status/current_state unchanged.
+    assert len(emitter.calls) == 1
+    lineage_after = ln.read(valid_package)
+    assert len(lineage_after["approvals"]) == 1
+    assert lineage_after["approvals"][0] == original_approval
+    assert lineage_after["current_state"] == "approved"
+    package = load_package(valid_package)
+    assert package["status"] == "approved"
