@@ -1,5 +1,5 @@
 package_id: ws-2.3-intent-authoring-skill-v2
-current_state: in_execution
+current_state: closed
 revisions:
 - revision: 1
   hash: d9717f02c970d76267b83d3b5315417e65425d539e66dc1faab3c405e5b069f2
@@ -24,6 +24,24 @@ transitions:
   at: '2026-07-04T14:24:51.283658+00:00'
   actor: claude-code-interactive
   event_id: evt-2a611961b8af474693a82533679bc59e
+- kind: transition
+  from: in_execution
+  to: verification
+  at: '2026-07-04T14:26:56.651253+00:00'
+  actor: claude-code-interactive
+  event_id: evt-df6ed957542942d78c81f5c6a5e590f8
+- kind: transition
+  from: verification
+  to: completed
+  at: '2026-07-04T14:26:56.861483+00:00'
+  actor: claude-code-interactive
+  event_id: evt-9e2714f8ab184c8c992a1afe9a16c3a2
+- kind: transition
+  from: completed
+  to: closed
+  at: '2026-07-04T14:26:57.036670+00:00'
+  actor: claude-code-interactive
+  event_id: evt-543ae470a2cd4a3b977b3c35a3e651bd
 approvals:
 - revision: 1
   approved_hash: d9717f02c970d76267b83d3b5315417e65425d539e66dc1faab3c405e5b069f2
