@@ -70,6 +70,37 @@ def test_current_revision_hash_returns_top_revision():
     assert ln.current_revision_hash(lineage) == "c" * 64
 
 
+def test_current_revision_hash_ignores_list_order():
+    lineage = {
+        "package_id": "ws-2.2-domain-profiles",
+        "current_state": "approved",
+        "revisions": [
+            {
+                "revision": 1,
+                "hash": "a" * 64,
+                "created_at": "2026-07-03T00:00:00Z",
+                "author": "claude-code-interactive",
+            },
+            {
+                "revision": 5,
+                "hash": "e" * 64,
+                "created_at": "2026-07-03T01:00:00Z",
+                "author": "claude-code-interactive",
+            },
+            {
+                "revision": 3,
+                "hash": "c" * 64,
+                "created_at": "2026-07-03T02:00:00Z",
+                "author": "claude-code-interactive",
+            },
+        ],
+        "transitions": [],
+        "approvals": [],
+        "grants": [],
+    }
+    assert ln.current_revision_hash(lineage) == "e" * 64
+
+
 def test_append_transition_uses_from_key_and_grows_list():
     lineage = _sample_lineage()
     ln.append_transition(
