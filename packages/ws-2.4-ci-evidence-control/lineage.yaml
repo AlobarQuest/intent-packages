@@ -1,10 +1,17 @@
 package_id: ws-2.4-ci-evidence-control
-current_state: draft
+current_state: ready_for_review
 revisions:
-  - revision: 1
-    hash: 639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80
-    created_at: "2026-07-04T21:39:23Z"
-    author: codex-interactive
-transitions: []
+- revision: 1
+  hash: 639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80
+  created_at: '2026-07-04T21:39:23Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-04T21:41:22.846653+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-04T21:41:22.846653+00:00'
+  actor: claude-code-interactive
+  event_id: null
 approvals: []
 grants: []

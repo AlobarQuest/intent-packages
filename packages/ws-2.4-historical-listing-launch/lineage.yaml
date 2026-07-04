@@ -1,10 +1,17 @@
 package_id: ws-2.4-historical-listing-launch
-current_state: draft
+current_state: ready_for_review
 revisions:
-  - revision: 1
-    hash: 3628762968958ad172287c5ace1dafbc22d8af0a42fb05dc02faf8f4ed9242c0
-    created_at: "2026-07-04T21:39:23Z"
-    author: codex-interactive
-transitions: []
+- revision: 1
+  hash: 3628762968958ad172287c5ace1dafbc22d8af0a42fb05dc02faf8f4ed9242c0
+  created_at: '2026-07-04T21:39:23Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-04T21:41:23.045477+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-04T21:41:23.045477+00:00'
+  actor: claude-code-interactive
+  event_id: null
 approvals: []
 grants: []
