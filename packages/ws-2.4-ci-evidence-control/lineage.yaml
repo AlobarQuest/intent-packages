@@ -1,5 +1,5 @@
 package_id: ws-2.4-ci-evidence-control
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80
@@ -13,5 +13,11 @@ transitions:
   at: '2026-07-04T21:41:22.846653+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80
+  approver: devon
+  approved_at: '2026-07-04T21:45:49.327792+00:00'
+  commit: b4b8db14ec049a5b391f0b767d3df5517a1fd209
+  event_id: evt-fb8e7fb770e94fa0a05754c6b1b2be7f
 grants: []
