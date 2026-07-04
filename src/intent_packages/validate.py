@@ -1,6 +1,7 @@
-"""Package validation (spec §6): structural + typing + identity + acceptance + trust checks.
+"""Package validation (spec §6): structural + typing + identity + acceptance +
+trust + cross-file semantic checks.
 
-`validate_package` runs, in this task, checks:
+`validate_package` runs checks:
   - K  (closed schema)  — no unknown keys at any level except the reserved
                            top-level `profile`/`profile_fields`.
   - J  (strict typing)  — no float/datetime/date/bytes anywhere; every
@@ -9,17 +10,29 @@
   - TR (trust)            — every sources[] entry declares a legal `trust`.
   - A  (acceptance)       — unique well-formed ids, enum evidence_type,
                            non-empty evidence, legal approver form.
+  - S/H/T/L (cross-file)  — status/lineage mirror, hash drift, authority
+                           envelope, lineage consistency; implemented in
+                           `checks_semantic.py` (kept out of this file so it
+                           doesn't grow unwieldy) and appended here.
 
-Task 8 appends the cross-file checks (S/H/T/O/L); this module is written so
-those can be added as additional `_check_*` calls in `validate_package`
-without disturbing the checks implemented here.
+`validate_package` returns hard ERRORS only (empty == valid; the CI gate
+exits non-zero on any error). Two things are deliberately warnings, not
+errors, and never appear in `validate_package`'s return value:
+  - non-empty `scope.open_questions` (check O) — `approve` enforces this as
+    a hard error later; here it is surfaced by `validate_warnings`.
+  - a missing registry (`registry.registry_dir() is None`) — degrades check
+    T's in-vocabulary check to a skip, and is separately noted by
+    `validate_warnings` so CI/other checkouts without a security-standards
+    checkout aren't misled into thinking authority terms were verified.
+The `validate` CLI prints `validate_warnings`' output to stderr; it never
+affects `validate_package`'s errors or the process exit code.
 """
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-from intent_packages import registry
+from intent_packages import checks_semantic, registry
 from intent_packages.loader import LoadError, load_package
 from intent_packages.schema import TOP_SCHEMA, _scan_forbidden_types, _walk
 
@@ -180,4 +193,41 @@ def validate_package(pkg_dir: str | Path) -> list[str]:
         _check_trust(pkg, errors)
         _check_acceptance(pkg, errors)
 
-    return [f"package.yaml: {e}" for e in errors]
+    result = [f"package.yaml: {e}" for e in errors]
+
+    if isinstance(pkg, dict):
+        result.extend(checks_semantic.cross_file_errors(pkg, pkg_dir))
+
+    return result
+
+
+def validate_warnings(pkg_dir: str | Path) -> list[str]:
+    """Non-fatal warnings `validate_package` deliberately excludes: open
+    questions remaining (check O — `approve` enforces this as a hard error;
+    this is the earlier, non-blocking heads-up) and registry absence (which
+    silently narrows check T). Returned separately so `validate_package`
+    keeps its "empty == valid" contract; the `validate` CLI prints these to
+    stderr without affecting the exit code."""
+    pkg_dir = Path(pkg_dir)
+    try:
+        pkg = load_package(pkg_dir)
+    except LoadError:
+        return []
+
+    warnings: list[str] = []
+    if isinstance(pkg, dict):
+        scope = pkg.get("scope")
+        open_questions = scope.get("open_questions") if isinstance(scope, dict) else None
+        if isinstance(open_questions, list) and open_questions:
+            warnings.append(
+                f"warning: {len(open_questions)} open question(s) — "
+                "approve will refuse until resolved"
+            )
+
+    if registry.registry_dir() is None:
+        warnings.append(
+            "note: registry not found; authority-vocabulary and "
+            "registered-approver checks skipped"
+        )
+
+    return warnings

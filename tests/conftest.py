@@ -214,7 +214,10 @@ def fake_registry(tmp_path):
         "schema: capability-vocabulary/v1\n"
         "terms:\n"
         '  repository_read: "read code/files in a repo working tree"\n'
-        '  merge_to_main: "merge PRs / push to a default branch"\n',
+        '  repository_write: "write code/files in a repo working tree"\n'
+        '  test_execution: "run a test suite"\n'
+        '  merge_to_main: "merge PRs / push to a default branch"\n'
+        '  secret_write: "write/rotate a secret"\n',
         encoding="utf-8",
     )
     (agents_path / "devon.yaml").write_text(

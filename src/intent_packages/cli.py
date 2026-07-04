@@ -1,6 +1,7 @@
 """CLI: validate / hash / transition / approve / revise / supersede / verify-approval."""
 
 import argparse
+import sys
 from pathlib import Path
 
 
@@ -27,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run_validate(parser: argparse.ArgumentParser, args) -> int:
-    from intent_packages.validate import validate_package
+    from intent_packages.validate import validate_package, validate_warnings
 
     if args.all:
         base = Path("packages")
@@ -37,6 +38,8 @@ def _run_validate(parser: argparse.ArgumentParser, args) -> int:
             return 0
         any_errors = False
         for pkg_dir in pkg_dirs:
+            for warning in validate_warnings(pkg_dir):
+                print(f"{pkg_dir}: {warning}", file=sys.stderr)
             errors = validate_package(pkg_dir)
             if errors:
                 any_errors = True
@@ -50,6 +53,8 @@ def _run_validate(parser: argparse.ArgumentParser, args) -> int:
     if not args.path:
         parser.error("validate requires a path, or --all")
 
+    for warning in validate_warnings(args.path):
+        print(warning, file=sys.stderr)
     errors = validate_package(args.path)
     for error in errors:
         print(error)
