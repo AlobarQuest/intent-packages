@@ -52,6 +52,26 @@ def hash_drift_errors(pkg: dict, lin: dict) -> list[str]:
     ]
 
 
+def _authority_duplicate_errors(membership: dict[str, list[str]]) -> list[str]:
+    """For each capability term, decide between the cross-list message (term
+    present in >=2 *distinct* lists) and the same-list message (term repeated
+    within a single list) — the two are mutually exclusive per term."""
+    errors: list[str] = []
+    for term, list_names in membership.items():
+        distinct_lists = sorted(set(list_names))
+        if len(distinct_lists) > 1:
+            errors.append(
+                f"authority: capability term {term!r} appears in more than one "
+                f"list ({', '.join(distinct_lists)})"
+            )
+        elif len(list_names) > 1:
+            errors.append(
+                f"authority.{distinct_lists[0]}: capability term {term!r} "
+                "is listed more than once"
+            )
+    return errors
+
+
 def authority_errors(pkg: dict) -> list[str]:
     """Check T: no capability term in more than one of allowed/
     requires_approval/prohibited (registry-independent); every term in the
@@ -65,18 +85,12 @@ def authority_errors(pkg: dict) -> list[str]:
         value = authority.get(list_name)
         lists[list_name] = value if isinstance(value, list) else []
 
-    errors: list[str] = []
-
     membership: dict[str, list[str]] = {}
     for list_name, terms in lists.items():
         for term in terms:
             membership.setdefault(term, []).append(list_name)
-    for term, list_names in membership.items():
-        if len(list_names) > 1:
-            errors.append(
-                f"authority: capability term {term!r} appears in more than one "
-                f"list ({', '.join(sorted(list_names))})"
-            )
+
+    errors = _authority_duplicate_errors(membership)
 
     vocabulary = registry.capability_vocabulary()
     if vocabulary is not None:

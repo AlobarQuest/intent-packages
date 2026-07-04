@@ -99,6 +99,25 @@ def _write_yaml(path: Path, data) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_registry_env(monkeypatch, tmp_path):
+    """Force `registry.registry_dir()` to resolve to None by default, so the
+    suite never depends on whatever security-standards checkout (or lack of
+    one) happens to exist on the host running the tests.
+
+    Points SECURITY_STANDARDS_DIR at a guaranteed-absent path (a
+    `registry/`-less subdir of this test's own tmp_path). Per
+    `registry.registry_dir()`, a set SECURITY_STANDARDS_DIR is authoritative
+    with no fallback, so this reliably yields a `None` registry everywhere.
+
+    Tests that want the registry present opt in via the `fake_registry`
+    fixture plus their own `monkeypatch.setenv("SECURITY_STANDARDS_DIR", ...)`
+    call in the test body — that call runs after fixture setup and so wins
+    over this default.
+    """
+    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(tmp_path / "no-registry-here"))
+
+
 @pytest.fixture
 def valid_package(tmp_path):
     """Write a complete, valid packages/sample-valid-package/ dir (package.yaml

@@ -71,6 +71,27 @@ def test_authority_term_in_two_lists_is_rejected(valid_package, edit_yaml):
     )
 
 
+def test_authority_term_duplicated_within_one_list_is_rejected(valid_package, edit_yaml):
+    # Same term twice in the SAME list (and nowhere else — merge_to_main is
+    # deliberately avoided since the fixture default already has it in
+    # requires_approval, which would make this a cross-list case instead)
+    # must get its own accurate, non-misleading message — not the cross-list
+    # "more than one list" wording, since only one list is involved.
+    edit_yaml(
+        valid_package,
+        "package.yaml",
+        set_nested=(("authority", "requires_approval"), ["merge_to_main", "merge_to_main"]),
+    )
+    errs = validate_package(valid_package)
+    assert any(
+        "authority.requires_approval" in e
+        and "merge_to_main" in e
+        and "listed more than once" in e
+        and "more than one" not in e
+        for e in errs
+    )
+
+
 def test_authority_out_of_vocab_term_is_rejected(
     valid_package, edit_yaml, fake_registry, monkeypatch
 ):
@@ -248,6 +269,25 @@ def test_lineage_grants_must_be_a_list(valid_package, edit_yaml):
     edit_yaml(valid_package, "lineage.yaml", set_key=("grants", "not-a-list"))
     errs = validate_package(valid_package)
     assert any("grants" in e and "must be a list" in e for e in errs)
+
+
+# ---------------------------------------------------------------------------
+# cross_file_errors plumbing — missing/unreadable lineage.yaml
+# ---------------------------------------------------------------------------
+
+
+def test_missing_lineage_yaml_is_reported_as_a_lineage_error(valid_package):
+    # No lineage.yaml at all: cross_file_errors' `except (LoadError, OSError)`
+    # branch must catch the read failure and surface a single, sensible
+    # lineage.yaml-prefixed error rather than raising or silently passing.
+    (valid_package / "lineage.yaml").unlink()
+
+    errs = validate_package(valid_package)
+    assert any(e.startswith("lineage.yaml:") for e in errs)
+    # Check T (registry-independent, no lineage needed) still runs — the
+    # valid package's authority envelope has no duplicate/cross-list terms,
+    # so no package.yaml errors should appear here.
+    assert not any(e.startswith("package.yaml:") for e in errs)
 
 
 # ---------------------------------------------------------------------------
