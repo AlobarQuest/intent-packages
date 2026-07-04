@@ -1,5 +1,5 @@
 package_id: ws-2.4-historical-listing-launch
-current_state: approved
+current_state: in_execution
 revisions:
 - revision: 1
   hash: 3628762968958ad172287c5ace1dafbc22d8af0a42fb05dc02faf8f4ed9242c0
@@ -13,6 +13,18 @@ transitions:
   at: '2026-07-04T21:41:23.045477+00:00'
   actor: claude-code-interactive
   event_id: null
+- kind: transition
+  from: approved
+  to: executable
+  at: '2026-07-04T21:46:07.792582+00:00'
+  actor: claude-code-interactive
+  event_id: evt-6d9a4c84ea5f4fc7b4acaf7e1bccabd5
+- kind: transition
+  from: executable
+  to: in_execution
+  at: '2026-07-04T21:46:07.936775+00:00'
+  actor: claude-code-interactive
+  event_id: evt-ea7f69529c14456ba9895673880272db
 approvals:
 - revision: 1
   approved_hash: 3628762968958ad172287c5ace1dafbc22d8af0a42fb05dc02faf8f4ed9242c0
