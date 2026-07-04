@@ -1,12 +1,20 @@
 schema_version: 1
-package_id: ws-2.3-intent-authoring-skill
-title: "WS-2.3 — Intent-authoring front door (project-initiation skill upgrade)"
+package_id: ws-2.3-intent-authoring-skill-v2
+title: "WS-2.3 — Intent-authoring front door (project-initiation skill upgrade) — corrected"
 revision: 1
-status: superseded
+status: draft
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-04T00:00:00Z"
-supersedes: null
+supersedes: ws-2.3-intent-authoring-skill
+profile: software-delivery
+profile_fields:
+  repo: claude-control-plane
+  branch: main
+  deploy_target: null
+  required_checks:
+    - intent-package-validate
+  rollback_plan: "Revert the SKILL.md / references/intent-package-authoring.md commit(s) in claude-control-plane (git revert); the WS-2.3/WS-2.4 packages in intent-packages are independent files, revertible separately without touching the skill. Note: this workstream's mutation spans two repos (claude-control-plane for the skill, intent-packages for the packages/spec/plan); profile_fields.repo names only the primary mutation surface (claude-control-plane) — filed as a real profile-schema limitation in intent-packages PROJECT.md, not silently worked around."
 outcome:
   what: "project-initiation becomes the factory's intent-authoring front door: for factory-bound work, the same conversational intake ends in a validating Draft intent package with structural sources trust classification, instead of only classic handoff docs."
   why: "WS-2.1/WS-2.2 built the package format and profiles but nothing yet produces a real package from a conversation; Devon's permanent factory role is 'drive this skill well,' so the skill has to actually do the authoring, honestly, with rule #3 made structural rather than aspirational."
@@ -33,30 +41,40 @@ scope:
     - "No automated test harness exists for skill prose — verification is inspection (grep for exact required text) plus the live dogfood run and the escalated reviews, not a pytest suite."
   open_questions: []
 sources:
-  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md (Phase 2, WS-2.3 + D3)"
+  - location: "Devon's live approvals and corrections this session (2026-07-04): approving the design spec, approving the S8 spec addition, instructing the WS-2.3 package's own approval, choosing the WS-2.4 pilot backlog item, confirming sources classifications, and directing this v2 correction — allowlist item 1 (Devon's own words this session)"
+    authority_level: authoritative
+    required_version: null
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md (Phase 2, WS-2.3 + D3) — allowlist item 2 (exact canonical path)"
     authority_level: authoritative
     required_version: "2026-07-02"
     trust: trusted_instruction
     sensitivity: internal
-  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md §4.1 (sources block)"
+  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md §4.1 (sources block) — allowlist item 2 (exact canonical path)"
     authority_level: authoritative
     required_version: "2026-06-30"
     trust: trusted_instruction
     sensitivity: internal
-  - location: "docs/superpowers/specs/2026-07-03-ws21-intent-package-schema.md (envelope + CLI this package's deliverable authors against)"
+  - location: "packages/ws-2.2-domain-profiles (approved, closed predecessor, revision 2) — allowlist item 3 (approved intent package, verify-approval passes)"
+    authority_level: authoritative
+    required_version: "2026-07-04"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "docs/superpowers/specs/2026-07-03-ws21-intent-package-schema.md (envelope + CLI this package's deliverable authors against) — a design spec document, not one of the two canonical paths or an approved package itself; informs but does not authorize"
     authority_level: authoritative
     required_version: "2026-07-03"
-    trust: trusted_instruction
+    trust: untrusted_data
     sensitivity: internal
-  - location: "packages/ws-2.2-domain-profiles (approved, closed predecessor, revision 2) + docs/superpowers/specs/2026-07-04-ws22-domain-profiles.md"
+  - location: "docs/superpowers/specs/2026-07-04-ws22-domain-profiles.md (the profiles this package's deliverable authors under) — a design spec document, not one of the two canonical paths or an approved package itself; informs but does not authorize"
     authority_level: authoritative
     required_version: "2026-07-04"
-    trust: trusted_instruction
+    trust: untrusted_data
     sensitivity: internal
-  - location: "docs/superpowers/specs/2026-07-04-ws23-intent-authoring-skill.md (this workstream's own design spec, approved by Devon in brainstorming, corrected once on Devon's review)"
+  - location: "docs/superpowers/specs/2026-07-04-ws23-intent-authoring-skill.md (this workstream's own design spec) — a design spec document, not one of the two canonical paths or an approved package itself; Devon's actual approval of its content is captured directly in the first sources entry above, not by citing the document"
     authority_level: authoritative
     required_version: "2026-07-04"
-    trust: trusted_instruction
+    trust: untrusted_data
     sensitivity: internal
   - location: "~/Projects/shaper/ADAS_Prototype_Shaper_Project_Instructions.md (read-only intake-flow harvest, D3)"
     authority_level: reference
@@ -79,9 +97,9 @@ acceptance:
     evidence: "review: /code-review verdict on the claude-control-plane skill diff is clean, plus a literal grep for the boundary-statement sentence in SKILL.md"
     approver: policy
   - id: AC-002
-    condition: "A real live intake with Devon, factory-bound, produces the WS-2.4 software-pilot package as a Draft that validates."
+    condition: "A real live intake with Devon, factory-bound, produces the WS-2.4 software-pilot package as a Draft that validates, including declaring its profile and profile_fields."
     evidence_type: automated_test
-    evidence: "ci: PYTHONPATH=src python3 -m intent_packages validate packages/<ws-2.4-pilot-id> exits 0, and the intent-package-validate CI check passes once pushed"
+    evidence: "ci: PYTHONPATH=src python3 -m intent_packages validate packages/ws-2.4-brain-approver-gate exits 0, with profile: software-delivery actually dispatched (check P), and the intent-package-validate CI check passes once pushed"
     approver: policy
   - id: AC-003
     condition: "The WS-2.4 draft's sources[] block has every entry's trust value traceable to the design spec §5 default-deny allowlist, not to the source's own content claims."
@@ -99,7 +117,7 @@ acceptance:
     evidence: "ci: the under-specified-intake demo shows a reported-gaps message and `git status` in intent-packages shows no new package directory written"
     approver: policy
   - id: AC-006
-    condition: "The full session diff (claude-control-plane skill changes + every package authored this session: the WS-2.2 closure, this WS-2.3 package, the WS-2.4 draft) passes a final whole-diff review."
+    condition: "The full session diff (claude-control-plane skill changes + every package authored this session: the WS-2.2 closure, this WS-2.3 package, the WS-2.4 draft) passes a final whole-diff review, with this package itself (this revision) actually conforming to the software-delivery profile and its own sources trust rule."
     evidence_type: human_review
     evidence: "human: Fable/Opus 4.8 max-effort final review verdict is 'Ready' with no unresolved Critical/Important findings"
     approver: devon
@@ -125,10 +143,10 @@ deliverables:
   artifacts:
     - "Upgraded ~/.claude/skills/project-initiation/SKILL.md"
     - "New ~/.claude/skills/project-initiation/references/intent-package-authoring.md"
-    - "The WS-2.4 pilot package Draft in intent-packages (left in Draft, feeds WS-2.4)"
+    - "The WS-2.4 pilot package Draft in intent-packages (left in Draft, feeds WS-2.4), now correctly declaring profile: software-delivery"
   destination: "claude-control-plane repo (the skill) and intent-packages repo (the packages/spec/plan)."
   recipient: "devon"
-  definition_of_done: "Skill committed; live dogfood Draft validates; red-team and final review both clean; WS-2.3 package driven through its own lifecycle to closed."
+  definition_of_done: "Skill committed; live dogfood Draft validates under its declared profile; red-team and final review both clean; this package (v2) driven through its own lifecycle to closed, correctly conforming to the profile and sources rule it itself documents."
   operator_responsibilities:
     - "Devon reviews and confirms the AC-003/AC-004/AC-006 human_review items."
     - "Devon runs (or explicitly, in-session, instructs the running of) `approve` for any package this skill drafts — the skill's own flow never does this itself."
@@ -151,17 +169,19 @@ risk:
     - "The skill could be steered by ingested content into misclassifying a source as trusted_instruction."
     - "The skill could be steered into calling approve or any past-Draft transition on its own."
     - "The upgrade could regress the existing non-factory-bound brief+tasks.json flow."
+    - "An intent package's own authoring could skip declaring its profile, silently disabling the profile validator it depends on to make its evidence tags meaningful — exactly what revision 1 of this package did, caught in final review."
   max_impact: "A package gets authored with unearned authority claims, or the skill regresses for non-factory-bound users — caught by the red-team and live verification before this is used for real work beyond this session."
   stop_conditions:
     - "The red-team finds an unresolved path to trusted_instruction misclassification or self-approval."
     - "The failure-path demo does not stop before writing a package."
+    - "Any package authored this workstream fails to declare a profile it clearly depends on (evidence tags used without profile dispatch)."
   rollback: "Revert the SKILL.md / references/intent-package-authoring.md commit(s) in claude-control-plane (git revert); the WS-2.3/WS-2.4 packages in intent-packages are independent files, revertible separately without touching the skill."
   escalation_target: devon
 verification:
   independent_review:
     - "Devon confirms AC-003 sources-classification traceability on the WS-2.4 draft."
     - "Fable/Opus red-team of the skill text (AC-004)."
-    - "Fable/Opus final whole-diff review (AC-006)."
+    - "Fable/Opus final whole-diff review (AC-006), including this package's own conformance."
   non_mechanical:
     - "Whether the boundary wording is precise enough to survive future sessions is a judgment call, not a mechanical check."
     - "Whether the sources trust classification 'looks right' on a real draft is Devon's judgment, not a schema check."

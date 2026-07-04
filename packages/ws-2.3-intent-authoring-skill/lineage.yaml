@@ -1,5 +1,5 @@
 package_id: ws-2.3-intent-authoring-skill
-current_state: in_execution
+current_state: superseded
 revisions:
 - revision: 1
   hash: 08177b443e6271c8111e04e18b2cc184d0d24169a02a80439be1753b41451ca0
@@ -24,6 +24,13 @@ transitions:
   at: '2026-07-04T13:33:32.661935+00:00'
   actor: claude-code-interactive
   event_id: evt-b1ae6f0ee6c14ab7bd0c6ee7fb58126f
+- kind: supersession
+  from: in_execution
+  to: superseded
+  at: '2026-07-04T14:21:35.612349+00:00'
+  actor: claude-code-interactive
+  event_id: evt-6fbef731fd2c4c988664bd012d5b3ba0
+  superseded_by: ws-2.3-intent-authoring-skill-v2
 approvals:
 - revision: 1
   approved_hash: 08177b443e6271c8111e04e18b2cc184d0d24169a02a80439be1753b41451ca0
