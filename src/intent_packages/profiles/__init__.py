@@ -23,6 +23,8 @@ def validate_profile(package: dict) -> list[str]:
     name = package.get("profile")
     if name is None:
         return []
+    if not isinstance(name, str):
+        return []  # _check_k_and_j already reports "profile: expected str"
     if name not in PROFILES:
         return [f"profile: unknown profile {name!r}; valid: {sorted(PROFILES)}"]
     return PROFILES[name](package)

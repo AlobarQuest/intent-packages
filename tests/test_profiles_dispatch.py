@@ -50,3 +50,17 @@ def test_validate_package_surfaces_unknown_profile_error(valid_package, edit_yam
     edit_yaml(valid_package, "package.yaml", set_key=("profile", "not-a-real-profile"))
     errs = validate_package(valid_package)
     assert any("not-a-real-profile" in e for e in errs)
+
+
+def test_profile_non_string_value_does_not_crash():
+    # A list/dict `profile` value is malformed (check K already flags it as
+    # "profile: expected str"), but validate_profile must not crash on it —
+    # it degrades to [] and lets check K's error stand alone.
+    assert profiles.validate_profile({"profile": ["not", "a", "string"]}) == []
+    assert profiles.validate_profile({"profile": {"not": "a string"}}) == []
+
+
+def test_validate_package_reports_non_string_profile_without_crashing(valid_package, edit_yaml):
+    edit_yaml(valid_package, "package.yaml", set_key=("profile", ["not", "a", "string"]))
+    errs = validate_package(valid_package)
+    assert any("profile" in e and "expected str" in e for e in errs)
