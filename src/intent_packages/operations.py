@@ -456,7 +456,8 @@ def verify_approval(
     checker = chain_checker if chain_checker is not None else default_chain_checker
     try:
         chain_ok = checker(h, package["revision"])
-    except Exception:  # noqa: BLE001 - any failure to consult the chain fails closed
+    except Exception:
+        # fail closed: any chain-check failure (incl. ChainUnavailable) => not verified
         return False
 
     return bool(chain_ok)

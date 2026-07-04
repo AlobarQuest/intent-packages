@@ -3,6 +3,7 @@ import subprocess
 
 import pytest
 
+from intent_packages import canonical, lineage, loader
 from intent_packages.operations import (
     ChainUnavailable,
     default_chain_checker,
@@ -72,6 +73,26 @@ def test_verify_approval_false_when_never_approved(valid_package, monkeypatch, f
     _ready_for_review(valid_package)
 
     assert verify_approval(valid_package, chain_checker=lambda h, r: True) is False
+
+
+def test_verify_approval_rejects_forged_non_human_approver(
+    valid_package, monkeypatch, fake_registry
+):
+    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
+
+    # Forge a lineage.yaml approvals entry directly (bypassing do_approve)
+    # with a registered but NON-human approver (interactive-dev-v1 profile
+    # per fake_registry). Hash matches, so only the approver-humanity check
+    # is under test.
+    h = canonical.package_hash(loader.load_package(valid_package))
+    lin = lineage.read(valid_package)
+    lineage.append_approval(
+        lin, 1, h, "claude-code-interactive", NOW, COMMIT, "evt-forged-1"
+    )
+    lin["current_state"] = "approved"
+    lineage.write(valid_package, lin)
+
+    assert verify_approval(valid_package, ledger_only=True) is False
 
 
 def test_verify_approval_false_on_hash_mismatch_after_edit(
