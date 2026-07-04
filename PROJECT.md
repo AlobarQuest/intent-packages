@@ -34,4 +34,4 @@ required_checks:
 
 ## Future plans
 
-- WS-2.2 (next): domain profiles (software-delivery + infrastructure-change) extending the universal envelope via `profile_fields` — the first real intent package `packages/ws-2.2-domain-profiles` is authored and Approved (dogfood ladder input).
+- WS-2.2 (done): domain profiles (software-delivery + infrastructure-change) shipped in `src/intent_packages/profiles/` — dispatch registry (check P), per-profile `profile_fields` schemas, and a shared tag-prefix evidence-vocabulary check (AC-004). Universal envelope proven unchanged (`tests/test_profiles_compat.py`). Next: WS-2.3, authored as the next intent package under `profile: software-delivery` (dogfood ladder).
