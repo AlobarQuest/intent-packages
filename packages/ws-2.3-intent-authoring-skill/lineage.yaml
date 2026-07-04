@@ -1,0 +1,10 @@
+package_id: ws-2.3-intent-authoring-skill
+current_state: draft
+revisions:
+- revision: 1
+  hash: 08177b443e6271c8111e04e18b2cc184d0d24169a02a80439be1753b41451ca0
+  created_at: "2026-07-04T13:29:26.543446+00:00"
+  author: claude-code-interactive
+transitions: []
+approvals: []
+grants: []
