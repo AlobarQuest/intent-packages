@@ -1,6 +1,7 @@
 """Task 4: AC-002 — the universal envelope is provably unchanged by the profiles
 module. A universal-only package (no `profile` key) must validate identically and
 hash identically to how it did before WS-2.2 landed."""
+
 from intent_packages import canonical, loader, profiles
 from intent_packages.validate import validate_package
 

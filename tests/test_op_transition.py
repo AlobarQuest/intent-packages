@@ -14,9 +14,7 @@ def _completed_package(pkg_dir, edit_yaml, *, follow_up_required):
     follow_up.required set directly, lineage current_state set to match, and
     the recorded revision hash updated so hash-drift check H doesn't fire
     (follow_up.required is part of the hashed intent core)."""
-    edit_yaml(
-        pkg_dir, "package.yaml", set_nested=(("follow_up", "required"), follow_up_required)
-    )
+    edit_yaml(pkg_dir, "package.yaml", set_nested=(("follow_up", "required"), follow_up_required))
     edit_yaml(pkg_dir, "package.yaml", set_key=("status", "completed"))
     new_hash = canonical.package_hash(load_package(pkg_dir))
     lin = ln.read(pkg_dir)
@@ -27,9 +25,7 @@ def _completed_package(pkg_dir, edit_yaml, *, follow_up_required):
 
 
 def test_legal_transition_flips_status_in_both_files_and_snapshots_hash(valid_package):
-    do_transition(
-        valid_package, "ready_for_review", emitter=NullEmitter(), now=NOW
-    )
+    do_transition(valid_package, "ready_for_review", emitter=NullEmitter(), now=NOW)
 
     package = load_package(valid_package)
     assert package["status"] == "ready_for_review"
@@ -37,9 +33,10 @@ def test_legal_transition_flips_status_in_both_files_and_snapshots_hash(valid_pa
     lineage = ln.read(valid_package)
     assert lineage["current_state"] == "ready_for_review"
 
-    # revision 1 was re-snapshotted at `now` with the recomputed hash
+    # revision 1 was re-snapshotted at `now` without rewriting its creation time
     rev1 = next(r for r in lineage["revisions"] if r["revision"] == 1)
-    assert rev1["created_at"] == NOW
+    assert rev1["created_at"] == "2026-07-03T00:00:00Z"
+    assert rev1["snapshotted_at"] == NOW
     assert len(rev1["hash"]) == 64
 
     # a transition entry was appended
@@ -68,9 +65,7 @@ def test_invalid_package_refuses_to_transition(valid_package, edit_yaml):
     edit_yaml(valid_package, "package.yaml", set_key=("owner", None))
 
     with pytest.raises(OperationError):
-        do_transition(
-            valid_package, "ready_for_review", emitter=NullEmitter(), now=NOW
-        )
+        do_transition(valid_package, "ready_for_review", emitter=NullEmitter(), now=NOW)
 
     lineage_before = ln.read(valid_package)
     assert lineage_before["current_state"] == "draft"
@@ -86,9 +81,7 @@ def test_set_status_in_file_preserves_comments_and_other_lines(valid_package):
     )
     path.write_text(text, encoding="utf-8")
 
-    do_transition(
-        valid_package, "ready_for_review", emitter=NullEmitter(), now=NOW
-    )
+    do_transition(valid_package, "ready_for_review", emitter=NullEmitter(), now=NOW)
 
     new_text = path.read_text(encoding="utf-8")
     assert "# a hand-authored comment" in new_text
@@ -107,9 +100,7 @@ def test_best_effort_emit_failure_still_completes_transition_with_null_event_id(
         def emit(self, action, ref, evidence):
             raise EmitError("boom")
 
-    do_transition(
-        valid_package, "ready_for_review", emitter=RaisingEmitter(), now=NOW
-    )
+    do_transition(valid_package, "ready_for_review", emitter=RaisingEmitter(), now=NOW)
 
     lineage = ln.read(valid_package)
     assert lineage["current_state"] == "ready_for_review"

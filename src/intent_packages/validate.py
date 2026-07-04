@@ -30,6 +30,7 @@ errors, and never appear in `validate_package`'s return value:
 The `validate` CLI prints `validate_warnings`' output to stderr; it never
 affects `validate_package`'s errors or the process exit code.
 """
+
 from __future__ import annotations
 
 import re
@@ -53,6 +54,8 @@ EVIDENCE_TYPES = frozenset(
 )
 EXTERNAL_APPROVER_EVIDENCE_TYPES = frozenset({"external_attestation", "human_review"})
 ACCEPTANCE_ID_RE = re.compile(r"^AC-[0-9]{3,}$")
+ISO_8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
+EXTERNAL_TARGET_RE = re.compile(r"^external:.+")
 
 
 def _check_k_and_j(pkg: object, errors: list[str]) -> None:
@@ -94,9 +97,7 @@ def _check_trust(pkg: dict, errors: list[str]) -> None:
             continue
         trust = src.get("trust")
         if trust not in TRUST_VALUES:
-            errors.append(
-                f"sources[{i}].trust: {trust!r} is not one of {sorted(TRUST_VALUES)}"
-            )
+            errors.append(f"sources[{i}].trust: {trust!r} is not one of {sorted(TRUST_VALUES)}")
 
 
 def _check_acceptance_id(item_id: object, path: str, seen_ids: set[str], errors: list[str]) -> None:
@@ -159,9 +160,7 @@ def _check_acceptance_item(
     if not isinstance(evidence, str) or not evidence.strip():
         errors.append(f"{path}.evidence: must be a non-empty string")
 
-    _check_acceptance_approver(
-        item.get("approver"), evidence_type, path, registry_present, errors
-    )
+    _check_acceptance_approver(item.get("approver"), evidence_type, path, registry_present, errors)
 
 
 def _check_acceptance(pkg: dict, errors: list[str]) -> None:
@@ -176,6 +175,21 @@ def _check_acceptance(pkg: dict, errors: list[str]) -> None:
 
     for i, item in enumerate(items):
         _check_acceptance_item(item, f"acceptance[{i}]", seen_ids, registry_present, errors)
+
+
+def _check_scalar_formats(pkg: dict, errors: list[str]) -> None:
+    created_at = pkg.get("created_at")
+    if isinstance(created_at, str) and not ISO_8601_RE.fullmatch(created_at):
+        errors.append("created_at: must be an ISO-8601 timestamp with timezone")
+
+    risk = pkg.get("risk")
+    target = risk.get("escalation_target") if isinstance(risk, dict) else None
+    if not isinstance(target, str):
+        return
+    if EXTERNAL_TARGET_RE.fullmatch(target):
+        return
+    if registry.registry_dir() is not None and not registry.is_registered_agent(target):
+        errors.append("risk.escalation_target: must be a registered agent id or external:<label>")
 
 
 def validate_package(pkg_dir: str | Path) -> list[str]:
@@ -195,6 +209,7 @@ def validate_package(pkg_dir: str | Path) -> list[str]:
         _check_package_id(pkg, pkg_dir, errors)
         _check_trust(pkg, errors)
         _check_acceptance(pkg, errors)
+        _check_scalar_formats(pkg, errors)
         errors.extend(profiles.validate_profile(pkg))
 
     result = [f"package.yaml: {e}" for e in errors]
@@ -227,11 +242,25 @@ def validate_warnings(pkg_dir: str | Path) -> list[str]:
                 f"warning: {len(open_questions)} open question(s) — "
                 "approve will refuse until resolved"
             )
+        if pkg.get("profile") is None:
+            acceptance = pkg.get("acceptance")
+            if isinstance(acceptance, list):
+                tagged = [
+                    i
+                    for i, item in enumerate(acceptance)
+                    if isinstance(item, dict)
+                    and isinstance(item.get("evidence"), str)
+                    and item["evidence"].startswith(tuple(profiles.KNOWN_EVIDENCE_PREFIXES))
+                ]
+                if tagged:
+                    warnings.append(
+                        "warning: recognized profile evidence tags appear without "
+                        f"a declared profile (acceptance indexes: {tagged})"
+                    )
 
     if registry.registry_dir() is None:
         warnings.append(
-            "note: registry not found; authority-vocabulary and "
-            "registered-approver checks skipped"
+            "note: registry not found; authority-vocabulary and registered-approver checks skipped"
         )
 
     return warnings

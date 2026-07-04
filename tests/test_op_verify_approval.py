@@ -86,9 +86,7 @@ def test_verify_approval_rejects_forged_non_human_approver(
     # is under test.
     h = canonical.package_hash(loader.load_package(valid_package))
     lin = lineage.read(valid_package)
-    lineage.append_approval(
-        lin, 1, h, "claude-code-interactive", NOW, COMMIT, "evt-forged-1"
-    )
+    lineage.append_approval(lin, 1, h, "claude-code-interactive", NOW, COMMIT, "evt-forged-1")
     lin["current_state"] = "approved"
     lineage.write(valid_package, lin)
 

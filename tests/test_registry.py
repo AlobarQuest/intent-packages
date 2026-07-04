@@ -2,7 +2,9 @@ def test_vocab_loaded(fake_registry, monkeypatch):
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
     from intent_packages import registry
 
-    assert "merge_to_main" in registry.capability_vocabulary()
+    vocabulary = registry.capability_vocabulary()
+    assert vocabulary is not None
+    assert "merge_to_main" in vocabulary
 
 
 def test_human_operator(fake_registry, monkeypatch):

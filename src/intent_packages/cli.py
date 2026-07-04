@@ -76,9 +76,7 @@ def _run_transition(args) -> int:
 
     now = datetime.now(UTC).isoformat()
     try:
-        do_transition(
-            args.path, args.to_state, emitter=FactoryEventsEmitter(), now=now
-        )
+        do_transition(args.path, args.to_state, emitter=FactoryEventsEmitter(), now=now)
     except (OperationError, EmitError) as exc:
         print(f"transition failed: {exc}", file=sys.stderr)
         return 1
@@ -127,9 +125,7 @@ def _run_supersede(args) -> int:
 
     now = datetime.now(UTC).isoformat()
     try:
-        do_supersede(
-            args.path, args.new_package_id, emitter=FactoryEventsEmitter(), now=now
-        )
+        do_supersede(args.path, args.new_package_id, emitter=FactoryEventsEmitter(), now=now)
     except (OperationError, EmitError) as exc:
         print(f"supersede failed: {exc}", file=sys.stderr)
         return 1
@@ -150,7 +146,7 @@ def _run_validate(parser: argparse.ArgumentParser, args) -> int:
     from intent_packages.validate import validate_package, validate_warnings
 
     if args.all:
-        base = Path("packages")
+        base = Path(__file__).resolve().parents[2] / "packages"
         pkg_dirs = sorted(p for p in base.glob("*") if p.is_dir()) if base.is_dir() else []
         if not pkg_dirs:
             print("no packages found under packages/")

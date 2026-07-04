@@ -102,7 +102,7 @@ def test_revise_emit_failure_is_best_effort(valid_package):
 
 
 def test_supersede_from_approved_sets_superseded_and_backref(
-    valid_package, monkeypatch, fake_registry
+    valid_package, replacement_package, monkeypatch, fake_registry
 ):
     _approve(valid_package, monkeypatch, fake_registry)
 
@@ -143,7 +143,9 @@ def test_supersede_illegal_from_draft_raises(valid_package):
     assert lineage["current_state"] == "draft"
 
 
-def test_supersede_emit_failure_is_best_effort(valid_package, monkeypatch, fake_registry):
+def test_supersede_emit_failure_is_best_effort(
+    valid_package, replacement_package, monkeypatch, fake_registry
+):
     _approve(valid_package, monkeypatch, fake_registry)
 
     do_supersede(

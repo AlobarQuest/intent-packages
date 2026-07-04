@@ -6,6 +6,7 @@ act on an invalid package), enacts the change against both `package.yaml` and
 `lineage.yaml`, and best-effort emits a factory event — a failed emit never
 blocks the operation, it just records `event_id: null`.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,7 +21,7 @@ from intent_packages.emitter import EmitError, Emitter, _events_python, _securit
 from intent_packages.loader import load_package
 from intent_packages.validate import validate_package
 
-_STATUS_LINE_RE = re.compile(r"^status:.*$", re.MULTILINE)
+_STATUS_LINE_RE = re.compile(r"^(status:)[^#\n]*(?P<comment>\s+#.*)?$", re.MULTILINE)
 _REVISION_LINE_RE = re.compile(r"^revision:.*$", re.MULTILINE)
 _CHAIN_VERIFY_TIMEOUT_SECONDS = 30
 
@@ -37,6 +38,25 @@ class ChainUnavailable(Exception):
     """
 
 
+def _has_matching_human_approval(approvals: object, approved_hash: str) -> bool:
+    if not isinstance(approvals, list):
+        return False
+    return any(
+        isinstance(approval, dict)
+        and approval.get("approved_hash") == approved_hash
+        and isinstance(approval.get("approver"), str)
+        and registry.is_human_operator(approval["approver"])
+        for approval in approvals
+    )
+
+
+def _approval_entries(lineage_data: dict) -> list:
+    approvals = lineage_data.get("approvals", [])
+    if not isinstance(approvals, list):
+        raise OperationError("lineage.yaml: approvals must be a list")
+    return approvals
+
+
 def set_status_in_file(pkg_dir: str | Path, new_status: str) -> None:
     """Replace the top-level `status:` line in package.yaml in place.
 
@@ -48,7 +68,11 @@ def set_status_in_file(pkg_dir: str | Path, new_status: str) -> None:
     """
     path = Path(pkg_dir) / "package.yaml"
     text = path.read_text(encoding="utf-8")
-    new_text, count = _STATUS_LINE_RE.subn(f"status: {new_status}", text, count=1)
+    new_text, count = _STATUS_LINE_RE.subn(
+        lambda match: f"status: {new_status}{match.group('comment') or ''}",
+        text,
+        count=1,
+    )
     if count != 1:
         raise OperationError("package.yaml: could not find a top-level `status:` line to update")
     path.write_text(new_text, encoding="utf-8")
@@ -65,9 +89,7 @@ def set_revision_in_file(pkg_dir: str | Path, new_revision: int) -> None:
     text = path.read_text(encoding="utf-8")
     new_text, count = _REVISION_LINE_RE.subn(f"revision: {new_revision}", text, count=1)
     if count != 1:
-        raise OperationError(
-            "package.yaml: could not find a top-level `revision:` line to update"
-        )
+        raise OperationError("package.yaml: could not find a top-level `revision:` line to update")
     path.write_text(new_text, encoding="utf-8")
 
 
@@ -95,9 +117,7 @@ def do_transition(
 
     errors = validate_package(pkg_dir)
     if errors:
-        raise OperationError(
-            "refusing to transition an invalid package:\n" + "\n".join(errors)
-        )
+        raise OperationError("refusing to transition an invalid package:\n" + "\n".join(errors))
 
     package = load_package(pkg_dir)
     lin = lineage.read(pkg_dir)
@@ -106,11 +126,7 @@ def do_transition(
     if not lifecycle.is_legal_transition(current, to_state):
         raise OperationError(f"illegal transition: {current!r} -> {to_state!r}")
 
-    if (
-        current == "completed"
-        and to_state == "closed"
-        and package["follow_up"]["required"]
-    ):
+    if current == "completed" and to_state == "closed" and package["follow_up"]["required"]:
         raise OperationError(
             "follow_up.required is true — route via follow_up_due, not directly to closed"
         )
@@ -174,9 +190,7 @@ def do_approve(
 
     errors = validate_package(pkg_dir)
     if errors:
-        raise OperationError(
-            "refusing to approve an invalid package:\n" + "\n".join(errors)
-        )
+        raise OperationError("refusing to approve an invalid package:\n" + "\n".join(errors))
 
     package = load_package(pkg_dir)
     lin = lineage.read(pkg_dir)
@@ -198,10 +212,8 @@ def do_approve(
 
     h = canonical.package_hash(package)
 
-    already_approved = any(
-        a["approved_hash"] == h and registry.is_human_operator(a["approver"])
-        for a in lin.get("approvals", [])
-    )
+    approvals = _approval_entries(lin)
+    already_approved = _has_matching_human_approval(approvals, h)
     if already_approved:
         if lin["current_state"] != "approved":
             lin["current_state"] = "approved"
@@ -312,6 +324,20 @@ def do_supersede(
         raise OperationError(f"illegal transition: {current!r} -> 'superseded'")
 
     package = load_package(pkg_dir)
+    replacement_dir = pkg_dir.parent / new_package_id
+    try:
+        replacement = load_package(replacement_dir)
+    except Exception as exc:
+        raise OperationError(
+            f"superseding package {new_package_id!r} could not be loaded: {exc}"
+        ) from exc
+    if replacement.get("package_id") != new_package_id:
+        raise OperationError("superseding package id does not match its directory")
+    if replacement.get("supersedes") != package.get("package_id"):
+        raise OperationError(
+            f"superseding package {new_package_id!r} must declare "
+            f"supersedes: {package.get('package_id')!r}"
+        )
 
     try:
         event_id = emitter.emit(
@@ -480,10 +506,10 @@ def verify_approval(
     h = canonical.package_hash(package)
 
     lin = lineage.read(pkg_dir)
-    ledger_ok = any(
-        a["approved_hash"] == h and registry.is_human_operator(a["approver"])
-        for a in lin.get("approvals", [])
-    )
+    approvals = lin.get("approvals", [])
+    if not isinstance(approvals, list):
+        return False
+    ledger_ok = _has_matching_human_approval(approvals, h)
     if not ledger_ok:
         return False
 

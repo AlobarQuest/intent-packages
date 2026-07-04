@@ -155,7 +155,8 @@ def test_snapshot_revision_replaces_existing_revision_in_place():
     assert lineage["revisions"][0] == {
         "revision": 1,
         "hash": "f" * 64,
-        "created_at": "2026-07-03T02:00:00Z",
+        "created_at": "2026-07-03T00:00:00Z",
+        "snapshotted_at": "2026-07-03T02:00:00Z",
         "author": "devon",
     }
 

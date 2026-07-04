@@ -120,9 +120,7 @@ class FactoryEventsEmitter:
                 argv, capture_output=True, text=True, env=env, timeout=EMIT_TIMEOUT_SECONDS
             )
         except subprocess.TimeoutExpired as exc:
-            raise EmitError(
-                f"factory_events emit timed out after {EMIT_TIMEOUT_SECONDS}s"
-            ) from exc
+            raise EmitError(f"factory_events emit timed out after {EMIT_TIMEOUT_SECONDS}s") from exc
 
         if result.returncode != 0:
             raise EmitError(f"factory_events emit failed: {result.stderr}")

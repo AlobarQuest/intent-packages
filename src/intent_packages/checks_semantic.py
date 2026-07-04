@@ -11,6 +11,7 @@ Every function here returns *bare* messages (no file prefix) except
 `cross_file_errors`, which prefixes each with the file it concerns
 (`package.yaml:` or `lineage.yaml:`) before returning.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,9 +26,7 @@ def status_mirror_errors(pkg: dict, lin: dict) -> list[str]:
     current_state = lin.get("current_state")
     if status == current_state:
         return []
-    return [
-        f"status: {status!r} does not match lineage current_state {current_state!r}"
-    ]
+    return [f"status: {status!r} does not match lineage current_state {current_state!r}"]
 
 
 def hash_drift_errors(pkg: dict, lin: dict) -> list[str]:
@@ -39,17 +38,17 @@ def hash_drift_errors(pkg: dict, lin: dict) -> list[str]:
     if status not in lifecycle.DRIFT_LOCKED:
         return []
 
-    live_hash = canonical.package_hash(pkg)
+    try:
+        live_hash = canonical.package_hash(pkg)
+    except canonical.CanonicalError as exc:
+        return [f"hash: cannot canonicalize invalid package: {exc}"]
     recorded_hash = lineage.current_revision_hash(lin)
     if live_hash == recorded_hash:
         return []
 
     if status in lifecycle.REVISE_LEGAL_FROM:
         return ["hash: intent changed since the recorded revision — run 'revise'"]
-    return [
-        "hash: intent materially changed after execution began — "
-        "create a superseding package"
-    ]
+    return ["hash: intent materially changed after execution began — create a superseding package"]
 
 
 def _authority_duplicate_errors(membership: dict[str, list[str]]) -> list[str]:
@@ -66,8 +65,7 @@ def _authority_duplicate_errors(membership: dict[str, list[str]]) -> list[str]:
             )
         elif len(list_names) > 1:
             errors.append(
-                f"authority.{distinct_lists[0]}: capability term {term!r} "
-                "is listed more than once"
+                f"authority.{distinct_lists[0]}: capability term {term!r} is listed more than once"
             )
     return errors
 
@@ -103,6 +101,23 @@ def authority_errors(pkg: dict) -> list[str]:
                 )
 
     return errors
+
+
+def dependency_errors(pkg: dict) -> list[str]:
+    """Validate capability dependencies against the same registry vocabulary
+    used by the authority envelope."""
+    dependencies = pkg.get("dependencies")
+    if not isinstance(dependencies, dict):
+        return []
+    required = dependencies.get("required_capabilities")
+    vocabulary = registry.capability_vocabulary()
+    if not isinstance(required, list) or vocabulary is None:
+        return []
+    return [
+        f"dependencies.required_capabilities[{i}]: unknown capability term {term!r}"
+        for i, term in enumerate(required)
+        if isinstance(term, str) and term not in vocabulary
+    ]
 
 
 def _check_revisions(lin: dict, errors: list[str]) -> dict[int, object]:
@@ -150,7 +165,9 @@ def _check_transitions(lin: dict, errors: list[str]) -> None:
         if tr.get("kind") in ("revision", "supersession"):
             continue
         src, dst = tr.get("from"), tr.get("to")
-        if not lifecycle.is_legal_transition(src, dst):
+        if not isinstance(src, str) or not isinstance(dst, str):
+            errors.append(f"transitions[{i}]: from/to must be lifecycle state strings")
+        elif not lifecycle.is_legal_transition(src, dst):
             errors.append(f"transitions[{i}]: {src!r} -> {dst!r} is not a legal transition")
 
 
@@ -171,8 +188,7 @@ def _check_approvals(lin: dict, revision_hashes: dict[int, object], errors: list
             continue
         if appr.get("approved_hash") != revision_hashes[rev_num]:
             errors.append(
-                f"approvals[{i}].approved_hash does not match "
-                f"revisions[revision={rev_num}].hash"
+                f"approvals[{i}].approved_hash does not match revisions[revision={rev_num}].hash"
             )
 
 
@@ -205,7 +221,7 @@ def cross_file_errors(pkg: dict, pkg_dir: str | Path) -> list[str]:
     error rather than raising — check T (registry-only, no lineage needed)
     still runs.
     """
-    errors = [f"package.yaml: {e}" for e in authority_errors(pkg)]
+    errors = [f"package.yaml: {e}" for e in [*authority_errors(pkg), *dependency_errors(pkg)]]
 
     try:
         lin = lineage.read(pkg_dir)

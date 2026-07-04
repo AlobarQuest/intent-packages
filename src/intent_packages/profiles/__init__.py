@@ -5,6 +5,7 @@ A profile extends the universal intent-package envelope (WS-2.1) via the reserve
 `validate_profile()` is called from `validate.validate_package()` as one more check
 (check P) after the universal checks pass.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -15,6 +16,9 @@ PROFILES: dict[str, Callable[[dict], list[str]]] = {
     "software-delivery": software_delivery.validate,
     "infrastructure-change": infrastructure_change.validate,
 }
+KNOWN_EVIDENCE_PREFIXES = frozenset(
+    {"ci:", "gate:", "scan:", "review:", "health:", "human:", "plan:", "backup:"}
+)
 
 
 def validate_profile(package: dict) -> list[str]:
@@ -27,7 +31,10 @@ def validate_profile(package: dict) -> list[str]:
     """
     name = package.get("profile")
     if name is None:
-        return []
+        errors = []
+        if "profile_fields" in package:
+            errors.append("profile_fields: requires a declared profile")
+        return errors
     if not isinstance(name, str):
         return []  # _check_k_and_j already reports "profile: expected str"
     if name not in PROFILES:

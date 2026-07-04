@@ -5,6 +5,7 @@ file re-parses cleanly under `loader.load_yaml_strict` — callers must pass
 all timestamp/hash values as strings (never datetimes); this module never
 converts them.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,9 +20,7 @@ def read(pkg_dir: str | Path) -> dict:
 
 
 def write(pkg_dir: str | Path, lineage: dict) -> None:
-    text = yaml.safe_dump(
-        lineage, sort_keys=False, default_flow_style=False, allow_unicode=True
-    )
+    text = yaml.safe_dump(lineage, sort_keys=False, default_flow_style=False, allow_unicode=True)
     (Path(pkg_dir) / "lineage.yaml").write_text(text, encoding="utf-8")
 
 
@@ -67,6 +66,8 @@ def snapshot_revision(
     revisions = lineage.setdefault("revisions", [])
     for i, existing in enumerate(revisions):
         if existing["revision"] == revision:
+            entry["created_at"] = existing.get("created_at", at)
+            entry["snapshotted_at"] = at
             revisions[i] = entry
             return
     revisions.append(entry)

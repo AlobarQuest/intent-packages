@@ -1,5 +1,6 @@
 """Task 2: the software-delivery profile — profile_fields schema + evidence-tag/
 evidence_type consistency checks (WS-2.2 spec §3)."""
+
 from intent_packages.validate import validate_package
 
 
@@ -75,9 +76,7 @@ def test_required_checks_element_must_be_non_empty_string(software_delivery_pack
         set_nested=(("profile_fields", "required_checks"), ["ci:validate.yml", "  "]),
     )
     errs = validate_package(software_delivery_package)
-    assert any(
-        "profile_fields.required_checks[1]" in e and "non-empty" in e for e in errs
-    )
+    assert any("profile_fields.required_checks[1]" in e and "non-empty" in e for e in errs)
 
 
 def test_profile_fields_wrong_type_is_not_mislabeled_as_missing(
@@ -96,9 +95,7 @@ def test_evidence_without_a_recognized_tag_is_rejected(software_delivery_package
         set_nested=(("acceptance", 0, "evidence"), "no tag here at all"),
     )
     errs = validate_package(software_delivery_package)
-    assert any(
-        "acceptance[0].evidence" in e and "recognized producer tag" in e for e in errs
-    )
+    assert any("acceptance[0].evidence" in e and "recognized producer tag" in e for e in errs)
 
 
 def test_each_valid_tag_is_accepted(software_delivery_package, edit_yaml):

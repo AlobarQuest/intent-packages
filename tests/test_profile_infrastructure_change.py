@@ -1,5 +1,6 @@
 """Task 3: the infrastructure-change profile — profile_fields schema + evidence-tag/
 evidence_type consistency checks (WS-2.2 spec §4)."""
+
 from intent_packages.validate import validate_package
 
 
@@ -20,9 +21,7 @@ def test_blast_radius_must_be_a_legal_enum_value(infrastructure_change_package, 
         set_nested=(("profile_fields", "blast_radius"), "the-whole-internet"),
     )
     errs = validate_package(infrastructure_change_package)
-    assert any(
-        "profile_fields.blast_radius" in e and "the-whole-internet" in e for e in errs
-    )
+    assert any("profile_fields.blast_radius" in e and "the-whole-internet" in e for e in errs)
 
 
 def test_change_window_may_be_null(infrastructure_change_package, edit_yaml):
@@ -69,9 +68,7 @@ def test_evidence_without_a_recognized_tag_is_rejected(infrastructure_change_pac
         set_nested=(("acceptance", 0, "evidence"), "no tag here at all"),
     )
     errs = validate_package(infrastructure_change_package)
-    assert any(
-        "acceptance[0].evidence" in e and "recognized producer tag" in e for e in errs
-    )
+    assert any("acceptance[0].evidence" in e and "recognized producer tag" in e for e in errs)
 
 
 def test_each_valid_tag_is_accepted(infrastructure_change_package, edit_yaml):

@@ -4,6 +4,7 @@ Pure data module: no IO, no dependencies on other project modules. Later
 tasks (validate, transition, approve/revise/supersede) read these constants
 rather than re-deriving them.
 """
+
 from __future__ import annotations
 
 STATES: frozenset[str] = frozenset(
@@ -29,17 +30,11 @@ STATES: frozenset[str] = frozenset(
 LEGAL_TRANSITIONS: dict[str, frozenset[str]] = {
     "draft": frozenset({"needs_clarification", "ready_for_review", "cancelled"}),
     "needs_clarification": frozenset({"draft", "ready_for_review", "cancelled"}),
-    "ready_for_review": frozenset(
-        {"approved", "rejected", "needs_clarification", "cancelled"}
-    ),
+    "ready_for_review": frozenset({"approved", "rejected", "needs_clarification", "cancelled"}),
     "approved": frozenset({"executable", "superseded", "cancelled"}),
     "executable": frozenset({"in_execution", "blocked", "superseded", "cancelled"}),
-    "in_execution": frozenset(
-        {"verification", "blocked", "failed", "superseded", "cancelled"}
-    ),
-    "verification": frozenset(
-        {"completed", "in_execution", "failed", "blocked", "superseded"}
-    ),
+    "in_execution": frozenset({"verification", "blocked", "failed", "superseded", "cancelled"}),
+    "verification": frozenset({"completed", "in_execution", "failed", "blocked", "superseded"}),
     "completed": frozenset({"follow_up_due", "closed"}),
     "follow_up_due": frozenset({"closed"}),
     "blocked": frozenset({"executable", "in_execution", "cancelled"}),

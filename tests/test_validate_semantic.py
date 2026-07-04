@@ -5,6 +5,7 @@ stays `== []` through `test_validate_structure.test_valid_package_has_no_errors`
 each test here mutates one specific thing and asserts the resulting error
 (or, for O/registry, the warning) names the right fields/wording.
 """
+
 from intent_packages.validate import validate_package, validate_warnings
 
 # ---------------------------------------------------------------------------
@@ -66,9 +67,7 @@ def test_authority_term_in_two_lists_is_rejected(valid_package, edit_yaml):
         set_nested=(("authority", "prohibited"), ["secret_write", "merge_to_main"]),
     )
     errs = validate_package(valid_package)
-    assert any(
-        "merge_to_main" in e and "more than one" in e for e in errs
-    )
+    assert any("merge_to_main" in e and "more than one" in e for e in errs)
 
 
 def test_authority_term_duplicated_within_one_list_is_rejected(valid_package, edit_yaml):
@@ -105,9 +104,7 @@ def test_authority_out_of_vocab_term_is_rejected(
         ),
     )
     errs = validate_package(valid_package)
-    assert any(
-        "not_a_real_term" in e and "registry PR" in e for e in errs
-    )
+    assert any("not_a_real_term" in e and "registry PR" in e for e in errs)
 
 
 def test_authority_unknown_term_skipped_when_registry_absent(

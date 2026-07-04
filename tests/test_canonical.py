@@ -43,8 +43,8 @@ def test_key_sort_uses_utf16_code_unit_order_not_codepoint_order():
     # unit (0xD83D) is less than U+FFFF's single code unit (0xFFFF) -- so RFC
     # 8785's UTF-16-code-unit key ordering puts it FIRST, even though its
     # codepoint value (0x1F600) is numerically larger than 0xFFFF.
-    out = jcs({"\U0001F600": 1, "￿": 2})
-    assert out.index("\U0001F600") < out.index("￿")
+    out = jcs({"\U0001f600": 1, "￿": 2})
+    assert out.index("\U0001f600") < out.index("￿")
 
 
 def test_ascii_key_order_unchanged_by_utf16_sort():

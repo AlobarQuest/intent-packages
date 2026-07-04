@@ -68,9 +68,7 @@ def test_approve_with_open_questions_raises(valid_package, monkeypatch, fake_reg
     _ready_for_review(valid_package)
 
     with pytest.raises(OperationError):
-        do_approve(
-            valid_package, emitter=StubEmitter(), approver="devon", commit=COMMIT, now=NOW
-        )
+        do_approve(valid_package, emitter=StubEmitter(), approver="devon", commit=COMMIT, now=NOW)
 
     lineage = ln.read(valid_package)
     assert lineage["current_state"] == "ready_for_review"
@@ -137,9 +135,7 @@ def test_approve_illegal_from_draft_raises(valid_package, monkeypatch, fake_regi
     _use_fake_registry(monkeypatch, fake_registry)
 
     with pytest.raises(OperationError):
-        do_approve(
-            valid_package, emitter=StubEmitter(), approver="devon", commit=COMMIT, now=NOW
-        )
+        do_approve(valid_package, emitter=StubEmitter(), approver="devon", commit=COMMIT, now=NOW)
 
     lineage = ln.read(valid_package)
     assert lineage["current_state"] == "draft"
