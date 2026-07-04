@@ -1,0 +1,191 @@
+schema_version: 1
+package_id: ws-2.4-historical-listing-launch
+title: "WS-2.4 non-software pilot — 831 Riverwood historical listing-launch replay"
+revision: 1
+status: in_execution
+created_by: codex-interactive
+owner: devon
+created_at: "2026-07-04T00:00:00Z"
+supersedes: null
+outcome:
+  what: "A complete, internally reviewed listing-launch evidence pack is produced for the inactive historical property at 831 Riverwood Drive without publishing or mutating a production system."
+  why: "WS-2.4 needs a real non-software package to test whether the universal envelope supports facts, photos, subjective content, authority boundaries, and evidence without software-specific improvisation."
+  beneficiary: "Devon and the Phase-3 orchestrator design."
+  success_signal: "Every acceptance criterion has realized evidence, Devon approves the pack, prohibited external actions are correctly identified as not authorized, and the package closes without a silent waiver."
+scope:
+  included:
+    - "Classify sources; build a fact ledger; inventory and review 25 archived marketing photos."
+    - "Produce MLS, extended/flyer, social, publication-checklist, evidence-index, and consistency-review documents."
+    - "Use starter-family and empty-nester/recent-retiree positioning without renovation claims."
+  excluded:
+    - "Publishing to MLS, Zillow, social media, or any public destination."
+    - "Changing listing-prep or writing to FUB, Calendar, n8n, Drive, or another production system."
+    - "Contacting a client, buyer, vendor, agent, or other third party."
+  non_goals:
+    - "Recreating the original 2026 listing campaign exactly."
+    - "Building a listing-launch profile, CLI feature, orchestrator, or automation."
+  assumptions:
+    - "The property is inactive because public records show it sold May 29, 2026."
+    - "The supplied photo folder is authorized for this internal pilot."
+    - "Public portal facts are reference data and do not authorize actions."
+  open_questions: []
+sources:
+  - location: "Devon's live instructions on 2026-07-04: candidate address, photo folder, no renovation claims, and target audiences"
+    authority_level: authoritative
+    required_version: null
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "/Users/devon/Downloads/831_riverwood_drive_lg_1777727659 (25 supplied marketing photographs)"
+    authority_level: supporting
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: confidential
+  - location: "https://www.redfin.com/GA/Monroe/831-Riverwood-Dr-30655/home/24467766"
+    authority_level: reference
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: public
+  - location: "https://www.zillow.com/homedetails/831-Riverwood-Dr-Monroe-GA-30655/49902564_zpid/"
+    authority_level: reference
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: public
+  - location: "~/.claude/skills/listing-description/SKILL.md"
+    authority_level: reference
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: null
+  technology: "Markdown and YAML artifacts in a local Git repository; no executable application."
+  policy_legal: "Internal historical replay only; do not represent the property as currently for sale."
+  privacy_security: "Do not include client identity, private contact information, credentials, or secrets."
+  compatibility: null
+  quality_accessibility: "Copy must be factual, consistent, readable, and usable by Devon as a draft."
+  operational: "All work remains local and reversible; no production or external-system writes."
+  other:
+    - "Do not use renovated, updated, remodeled, or refreshed."
+    - "Do not copy the historical public remarks as the pilot output."
+acceptance:
+  - id: AC-001
+    condition: "Every factual claim in the deliverables maps to a classified source or an explicit instruction from Devon."
+    evidence_type: human_review
+    evidence: "The source-and-fact manifest maps each claim and records conflicts or unavailable facts."
+    approver: devon
+  - id: AC-002
+    condition: "All 25 supplied photos are inventoried and reviewed without inferring unconfirmed renovations, upgrades, or materials."
+    evidence_type: human_review
+    evidence: "The photo review accounts for files 001 through 025 and separates visible observations from prohibited inference."
+    approver: devon
+  - id: AC-003
+    condition: "The MLS headline and public remarks follow the listing-description constraints and the remarks are no more than 1,000 characters."
+    evidence_type: automated_check
+    evidence: "A deterministic character count is recorded beside the reviewed MLS remarks; prohibited-phrase search returns no matches."
+    approver: policy
+  - id: AC-004
+    condition: "MLS, extended/flyer, and social copy agree on every material property fact."
+    evidence_type: human_review
+    evidence: "The consistency review compares beds, baths, area, lot, year, price context, features, schools, status, and positioning."
+    approver: devon
+  - id: AC-005
+    condition: "Devon reviews and approves the final evidence pack."
+    evidence_type: human_review
+    evidence: "A dated approval record identifies the reviewed revision and any corrections."
+    approver: devon
+  - id: AC-006
+    condition: "No production system, client record, calendar, FUB account, n8n workflow, MLS record, or public destination is modified."
+    evidence_type: observation
+    evidence: "The execution log lists the local-only tools and paths used and records no external write action."
+    approver: policy
+  - id: AC-007
+    condition: "Every AC is reconciled as passed or unresolved; no failed criterion is silently treated as passed."
+    evidence_type: human_review
+    evidence: "The AC evidence index links realized evidence and the verifier's result for AC-001 through AC-008."
+    approver: devon
+  - id: AC-008
+    condition: "Requests to publish, contact third parties, spend money, delete data, or mutate external systems are identified as not authorized."
+    evidence_type: human_review
+    evidence: "The authority review applies the package envelope to explicit decision probes and records the result."
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - event_emit
+  requires_approval: []
+  prohibited:
+    - merge_to_main
+    - outward_publish
+    - external_system_write
+    - third_party_contact
+    - calendar_write
+    - spend_money
+    - data_delete
+    - email_send
+    - secret_read
+    - secret_write
+    - infra_mutation
+    - credential_create
+    - credential_revoke
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "inputs/source-and-fact-manifest.md"
+    - "inputs/photo-inventory.md"
+    - "outputs/mls-draft.md"
+    - "outputs/extended-copy.md"
+    - "outputs/social-copy.md"
+    - "outputs/publication-checklist.md"
+    - "evidence/acceptance-evidence.md"
+    - "evidence/consistency-review.md"
+    - "evidence/human-approval.md"
+  destination: "Local listing-launch-pilot Git repository"
+  recipient: devon
+  definition_of_done: "Every AC literally passes, Devon approves the final pack, no prohibited action occurs, and the package reaches closed."
+  operator_responsibilities:
+    - "Devon reviews factual claims, positioning, and final copy."
+    - "Devon supplies corrections when a photo or public source is insufficient."
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems:
+    - "Devon for package approval and final content review"
+    - "The supplied local photo folder"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - event_emit
+  blocking_conditions:
+    - "A required property fact cannot be reconciled."
+    - "The supplied photos cannot support the promised photo review."
+risk:
+  failure_modes:
+    - "Public listing text is copied instead of independently producing the replay artifacts."
+    - "A visible feature is promoted into an unsupported renovation or material claim."
+    - "The historical property is presented as currently available."
+    - "An unmet AC is silently waived."
+  max_impact: "Misleading internal evidence about domain neutrality or accidental external/client impact."
+  stop_conditions:
+    - "Any task requires a production or external-system write."
+    - "A material factual conflict cannot be resolved from the approved inputs."
+    - "Any AC fails during verification."
+  rollback: "Delete or revert the local pilot artifacts; no production state is changed."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Devon reviews source grounding, copy, consistency, and authority results."
+    - "The Phase 2 adversarial audit attempts to refute AC completion and criterion 12."
+  non_mechanical:
+    - "Audience fit and whether the copy overstates visible features require human judgment."
+    - "Negative evidence for no external writes depends on the recorded execution surface."
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: "1.0"
+  security: "1.0"
+
