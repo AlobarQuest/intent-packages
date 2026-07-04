@@ -1,0 +1,129 @@
+schema_version: 1
+package_id: ws-2.2-domain-profiles
+title: "WS-2.2 — Domain profiles for intent packages"
+revision: 1
+status: approved
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-03T00:00:00Z"
+supersedes: null
+outcome:
+  what: "Domain profiles (software-delivery and infrastructure-change) exist that extend the WS-2.1 universal intent-package envelope via profile_fields, without modifying the universal schema."
+  why: "The universal envelope is deliberately domain-neutral; profiles add the domain-specific structure and validation each golden path needs, so a software package and an infra-change package can each be authored and mechanically checked."
+  beneficiary: "The software factory and Devon — the intent-authoring flow (WS-2.3) and the pilots (WS-2.4) build on these profiles."
+  success_signal: "A software-delivery package and an infrastructure-change package each validate under their profile and under the unchanged universal validator (schema_version still 1)."
+scope:
+  included:
+    - "A software-delivery profile (fields + profile validator layered on the universal envelope)."
+    - "An infrastructure-change profile (fields + profile validator)."
+    - "Profile registration/dispatch so `validate` applies the right profile when a package declares `profile:`."
+  excluded:
+    - "The real-estate listing-launch profile and any pilot packages (WS-2.4)."
+    - "The conversational intent-authoring skill (WS-2.3)."
+    - "Any orchestrator / work-unit execution machinery (Phase 3)."
+  non_goals:
+    - "Modifying the universal envelope or its hash/lifecycle semantics."
+    - "Introducing a package database."
+  assumptions:
+    - "The WS-2.1 universal schema, lifecycle, and CLI are stable and are the base every profile extends."
+    - "Profile-specific fields live under the reserved `profile`/`profile_fields` keys the universal validator already tolerates."
+  open_questions: []
+sources:
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md (Phase 2, WS-2.2)"
+    authority_level: authoritative
+    required_version: "2026-07-02"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "docs/superpowers/specs/2026-07-03-ws21-intent-package-schema.md (universal envelope this extends)"
+    authority_level: authoritative
+    required_version: "2026-07-03"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md §4 (profile model)"
+    authority_level: supporting
+    required_version: "2026-06-30"
+    trust: trusted_instruction
+    sensitivity: internal
+constraints:
+  time_budget: null
+  technology: "Python 3.12+, zero-install PYTHONPATH module; extend the WS-2.1 validator, do not fork it."
+  policy_legal: "Follow the portfolio code/security/project standards; reference registry capability terms, never invent a parallel vocabulary."
+  privacy_security: "No secrets in tracked files (BWS write-guard)."
+  compatibility: "Profiles must not change any universal-envelope field, enum, or hash input — the universal package must validate identically before and after."
+  quality_accessibility: null
+  operational: "Profile validation runs inside the existing `validate` CLI + CI gate."
+  other:
+    - "A package with no `profile` declared must continue to validate under the universal envelope alone."
+acceptance:
+  - id: AC-001
+    condition: "The software-delivery and infrastructure-change profiles each validate their own example package with no errors."
+    evidence_type: automated_test
+    evidence: "pytest for each profile's validator passes on a valid example package under that profile."
+    approver: policy
+  - id: AC-002
+    condition: "The universal envelope is unchanged: schema_version remains 1 and an existing universal-only package validates byte-identically to before WS-2.2."
+    evidence_type: automated_test
+    evidence: "The WS-2.1 universal validation test-suite still passes unmodified; a universal-only package's hash is unchanged."
+    approver: policy
+  - id: AC-003
+    condition: "Profiles are domain-neutral additions: a package declaring `profile: software-delivery` gets software-specific checks, while one declaring no profile is unaffected."
+    evidence_type: human_review
+    evidence: "Devon reviews the two profiles and confirms no software/infra assumption leaked into the universal envelope."
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+  requires_approval:
+    - merge_to_main
+  prohibited:
+    - secret_write
+    - infra_mutation
+  budgets:
+    max_attempts: null
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "A software-delivery profile module + tests."
+    - "An infrastructure-change profile module + tests."
+    - "Profile dispatch wired into the `validate` CLI."
+  destination: "The intent-packages repo (a new profiles module + the two example packages)."
+  recipient: "devon"
+  definition_of_done: "Both profiles validate their examples, the universal suite is unchanged, and CI validates all packages including profiled ones."
+  operator_responsibilities:
+    - "Devon reviews and approves the profile design (AC-003) and merges the PR."
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+    - "Confirmation that software-delivery and infrastructure-change are the two profiles to build first (vs listing-launch)."
+  required_people_systems:
+    - "The WS-1.2 agent registry (capability + approver vocabulary the authority envelope references)."
+  required_capabilities:
+    - repository_write
+    - test_execution
+  blocking_conditions: []
+risk:
+  failure_modes:
+    - "A profile leaks a domain assumption into the universal envelope, breaking domain-neutrality."
+    - "Profile validation diverges from the universal validator's error/actionability conventions."
+  max_impact: "Rework of the profile layer; the universal envelope stays intact (compatibility constraint prevents envelope damage)."
+  stop_conditions:
+    - "The universal validation suite starts failing (envelope was modified)."
+  rollback: "Revert the profiles module; the universal envelope and CLI are unaffected."
+  escalation_target: "devon"
+verification:
+  independent_review:
+    - "Devon confirms domain-neutrality of the universal envelope after profiles land (AC-003)."
+  non_mechanical:
+    - "Whether the profile boundary is 'right' (domain-specific vs universal) is a judgment call, not a mechanical check."
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"

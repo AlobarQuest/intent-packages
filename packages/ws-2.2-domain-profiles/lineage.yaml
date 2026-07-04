@@ -1,0 +1,22 @@
+package_id: ws-2.2-domain-profiles
+current_state: approved
+revisions:
+- revision: 1
+  hash: 54981ceb89137b009a385c7f63d96084dfb46e93d8f64a3e95fb0a814c9bfa27
+  created_at: '2026-07-04T04:05:23.602591+00:00'
+  author: claude-code-interactive
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-04T04:05:23.602591+00:00'
+  actor: claude-code-interactive
+  event_id: evt-da6b429ac8e84bc7984ec519b3807d17
+approvals:
+- revision: 1
+  approved_hash: 54981ceb89137b009a385c7f63d96084dfb46e93d8f64a3e95fb0a814c9bfa27
+  approver: devon
+  approved_at: '2026-07-04T04:05:45.436916+00:00'
+  commit: f75b4da0311be7ecffb3c6fc19550284ce4294ef
+  event_id: evt-082edb154cf94be1af9894ff69ae7e01
+grants: []
