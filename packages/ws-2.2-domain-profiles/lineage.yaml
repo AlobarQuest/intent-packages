@@ -1,5 +1,5 @@
 package_id: ws-2.2-domain-profiles
-current_state: approved
+current_state: closed
 revisions:
 - revision: 1
   hash: 54981ceb89137b009a385c7f63d96084dfb46e93d8f64a3e95fb0a814c9bfa27
@@ -28,6 +28,36 @@ transitions:
   at: '2026-07-04T11:02:51.410598+00:00'
   actor: claude-code-interactive
   event_id: evt-72a1989a5ce8487b997d069bb7bde321
+- kind: transition
+  from: approved
+  to: executable
+  at: '2026-07-04T12:59:56.202507+00:00'
+  actor: claude-code-interactive
+  event_id: evt-e0c54cc5e8e045b0a570a6da22ed99ce
+- kind: transition
+  from: executable
+  to: in_execution
+  at: '2026-07-04T12:59:59.025674+00:00'
+  actor: claude-code-interactive
+  event_id: evt-8c58357aea4d465a98000c352f2d1728
+- kind: transition
+  from: in_execution
+  to: verification
+  at: '2026-07-04T13:00:03.760689+00:00'
+  actor: claude-code-interactive
+  event_id: evt-1c0b0681dca64f738662c7bced4ccd70
+- kind: transition
+  from: verification
+  to: completed
+  at: '2026-07-04T13:05:51.855313+00:00'
+  actor: claude-code-interactive
+  event_id: evt-3684ae001bb0402cb8414e44cdec6159
+- kind: transition
+  from: completed
+  to: closed
+  at: '2026-07-04T13:05:52.019739+00:00'
+  actor: claude-code-interactive
+  event_id: evt-f82b7b79efb7437bb9f9c5b8c3c0090b
 approvals:
 - revision: 1
   approved_hash: 54981ceb89137b009a385c7f63d96084dfb46e93d8f64a3e95fb0a814c9bfa27

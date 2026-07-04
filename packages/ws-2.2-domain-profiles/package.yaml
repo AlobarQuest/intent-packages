@@ -2,7 +2,7 @@ schema_version: 1
 package_id: ws-2.2-domain-profiles
 title: "WS-2.2 — Domain profiles for intent packages"
 revision: 2
-status: approved
+status: closed
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-03T00:00:00Z"
