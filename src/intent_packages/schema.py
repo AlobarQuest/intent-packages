@@ -6,6 +6,7 @@ the schema; `_walk` recursively checks a loaded document against it. No jsonsche
 This module is pure schema machinery — the check functions that wire these into
 validator-facing errors (K/J/ID/TR/A) live in `validate.py`.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -78,14 +79,10 @@ TOP_SCHEMA = MapSpec(
             MapSpec(
                 {
                     "location": _s(str),
-                    "authority_level": _s(
-                        str, enum={"authoritative", "supporting", "reference"}
-                    ),
+                    "authority_level": _s(str, enum={"authoritative", "supporting", "reference"}),
                     "required_version": _s(str, nullable=True),
                     "trust": _s(str),  # legal values enforced by dedicated TR check
-                    "sensitivity": _s(
-                        str, enum={"public", "internal", "confidential", "secret"}
-                    ),
+                    "sensitivity": _s(str, enum={"public", "internal", "confidential", "secret"}),
                 }
             )
         ),

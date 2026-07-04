@@ -7,6 +7,14 @@ dependencies = ["pyyaml>=6.0"]
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pyyaml>=6.0", "ruff>=0.1"]
 
+[dependency-groups]
+dev = [
+  "pytest>=7.0",
+  "pyyaml>=6.0",
+  "ruff==0.15.20",
+  "pyright==1.1.411",
+]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
@@ -27,5 +35,10 @@ select = ["E", "F", "I", "UP", "B", "C90"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B", "C90"]
 
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 [tool.pyright]
 extraPaths = ["src"]
+typeCheckingMode = "basic"
+pythonVersion = "3.12"
+exclude = ["**/node_modules", "**/__pycache__", "**/.*", "**/alembic", "**/migrations"]

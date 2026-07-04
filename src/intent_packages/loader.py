@@ -51,8 +51,18 @@ def load_yaml_strict(text: str) -> dict:
 
 
 def load_package(pkg_dir: str | Path) -> dict:
-    return load_yaml_strict((Path(pkg_dir) / "package.yaml").read_text(encoding="utf-8"))
+    path = Path(pkg_dir) / "package.yaml"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise LoadError(f"could not read {path.name}: {exc}") from exc
+    return load_yaml_strict(text)
 
 
 def load_lineage(pkg_dir: str | Path) -> dict:
-    return load_yaml_strict((Path(pkg_dir) / "lineage.yaml").read_text(encoding="utf-8"))
+    path = Path(pkg_dir) / "lineage.yaml"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise LoadError(f"could not read {path.name}: {exc}") from exc
+    return load_yaml_strict(text)

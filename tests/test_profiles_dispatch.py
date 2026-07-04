@@ -5,6 +5,7 @@ Uses monkeypatch.setitem on profiles.PROFILES to inject a fake validator, so thi
 test file has zero dependency on the real software-delivery/infrastructure-change
 profiles built in Tasks 2/3.
 """
+
 from intent_packages import profiles
 from intent_packages.validate import validate_package
 

@@ -78,7 +78,7 @@ def test_revise_subcommand_from_execution_state_exits_nonzero(valid_package, cap
     assert "revise failed" in capsys.readouterr().err
 
 
-def test_supersede_subcommand_marks_superseded(valid_package, capsys):
+def test_supersede_subcommand_marks_superseded(valid_package, replacement_package, capsys):
     lin = ln.read(valid_package)
     lin["current_state"] = "approved"
     ln.write(valid_package, lin)
@@ -113,9 +113,7 @@ def test_verify_approval_subcommand_ledger_only_true_prints_warning(
     assert "WARNING: UNVERIFIED CHAIN" in capsys.readouterr().err
 
 
-def test_verify_approval_subcommand_false_when_never_approved_exits_nonzero(
-    valid_package, capsys
-):
+def test_verify_approval_subcommand_false_when_never_approved_exits_nonzero(valid_package, capsys):
     rc = main(["verify-approval", str(valid_package), "--ledger-only"])
     assert rc == 1
     assert capsys.readouterr().err == ""

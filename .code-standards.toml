@@ -1,0 +1,5 @@
+languages = ["python"]
+template_set = "v1"
+baseline = []
+
+[tool_versions]

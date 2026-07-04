@@ -1,5 +1,6 @@
 """Software-delivery domain profile (WS-2.2 spec §3): profile_fields schema +
 evidence-tag/evidence_type consistency checks layered on the universal envelope."""
+
 from __future__ import annotations
 
 from intent_packages.profiles._evidence_tags import check_evidence_tags

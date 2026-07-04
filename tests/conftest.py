@@ -331,6 +331,18 @@ def valid_package(tmp_path):
 
 
 @pytest.fixture
+def replacement_package(valid_package):
+    """Create a package that correctly points back to valid_package."""
+    pkg_dir = valid_package.parent / "sample-replacement-package"
+    pkg_dir.mkdir()
+    package = _read_yaml(valid_package / "package.yaml")
+    package["package_id"] = "sample-replacement-package"
+    package["supersedes"] = "sample-valid-package"
+    _write_yaml(pkg_dir / "package.yaml", package)
+    return pkg_dir
+
+
+@pytest.fixture
 def software_delivery_package(tmp_path):
     """Write a complete, valid packages/sample-software-delivery-package/ dir
     (profile: software-delivery), mirroring the `valid_package` fixture."""
@@ -482,9 +494,7 @@ def fake_registry(tmp_path):
         encoding="utf-8",
     )
     (agents_path / "devon.yaml").write_text(
-        "schema: agent-identity/v1\n"
-        "agent_id: devon\n"
-        "authority_profile: human-operator-v1\n",
+        "schema: agent-identity/v1\nagent_id: devon\nauthority_profile: human-operator-v1\n",
         encoding="utf-8",
     )
     (agents_path / "claude-code-interactive.yaml").write_text(

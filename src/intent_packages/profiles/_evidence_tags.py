@@ -6,6 +6,7 @@ Each profile owns a fixed `tag -> required evidence_type` mapping. Every
 match the tag's required value. This is deliberately an enum-of-producers
 check, not an evidence-payload framework (see spec §5).
 """
+
 from __future__ import annotations
 
 
