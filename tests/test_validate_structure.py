@@ -103,7 +103,9 @@ def test_acceptance_bad_evidence_type_is_rejected(valid_package, edit_yaml):
     assert any("evidence_type" in e for e in validate_package(valid_package))
 
 
-def test_registered_agent_approver_is_accepted(valid_package, edit_yaml, fake_registry, monkeypatch):
+def test_registered_agent_approver_is_accepted(
+    valid_package, edit_yaml, fake_registry, monkeypatch
+):
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
     edit_yaml(
         valid_package,
@@ -113,7 +115,9 @@ def test_registered_agent_approver_is_accepted(valid_package, edit_yaml, fake_re
     assert validate_package(valid_package) == []
 
 
-def test_unregistered_agent_approver_is_rejected(valid_package, edit_yaml, fake_registry, monkeypatch):
+def test_unregistered_agent_approver_is_rejected(
+    valid_package, edit_yaml, fake_registry, monkeypatch
+):
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
     edit_yaml(
         valid_package,
