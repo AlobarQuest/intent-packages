@@ -97,12 +97,20 @@ Validation: `repo`, `branch`, `rollback_plan` non-empty strings; `deploy_target`
 
 ### 3.2 Evidence tags
 Every `acceptance[].evidence` string in a `profile: software-delivery` package must start with one of
-the exact prefixes `ci:`, `gate:`, `scan:`, `review:`, `human:` (case-sensitive; text after the colon —
-with or without a leading space — is free-form, e.g. `ci: validate.yml passes on PR` and
-`ci:validate.yml passes` both match). An evidence string starting with none of these five is a hard
+the exact prefixes `ci:`, `gate:`, `scan:`, `review:`, `human:`, `health:` (case-sensitive; text after
+the colon — with or without a leading space — is free-form, e.g. `ci: validate.yml passes on PR` and
+`ci:validate.yml passes` both match). An evidence string starting with none of these six is a hard
 error listing the valid prefixes. This is what AC-004 requires: an evidence type with no real producer
-behind it (the five tags map respectively to CI checks, code-standards Gate A/B results, security-scan
-results, `/code-review` verdicts, and human review) cannot pass.
+behind it (the tags map respectively to CI checks, code-standards Gate A/B results, security-scan
+results, `/code-review` verdicts, human review, and a post-deploy health-gate) cannot pass. `health:` is
+included here (not just in infrastructure-change) because any software package with a non-null
+`deploy_target` needs to express post-deploy health evidence — its most important acceptance criterion
+otherwise has no valid tag (see Devon's review note).
+
+Evidence-type consistency (§5): `human:` requires `evidence_type: human_review`; any of the other five
+tags requires `evidence_type: automated_test`. A mismatch (e.g. `evidence_type: human_review` paired
+with `evidence: "ci: pytest passes"`) is a hard error — this is a real authoring mistake the tag check
+would otherwise miss, since today it only inspects the `evidence` string.
 
 ---
 
@@ -124,7 +132,8 @@ string-or-null; `rollback_plan` non-empty string.
 Every `acceptance[].evidence` string in a `profile: infrastructure-change` package must start with one
 of the exact prefixes `health:`, `backup:`, `change-log:`, `human:`. Same matching rule as §3.2
 (case-sensitive prefix; optional space after the colon). An evidence string starting with none of these
-four is a hard error naming them.
+four is a hard error naming them. Same evidence-type consistency rule as §3.2: `human:` ⇔
+`evidence_type: human_review`; `health:`/`backup:`/`change-log:` ⇔ `evidence_type: automated_test`.
 
 ---
 
@@ -139,22 +148,34 @@ Mechanism: a **tag-prefix convention** on the existing `acceptance[].evidence` s
 the universal schema — no new field). Each profile owns a small fixed set of tags corresponding to real
 producers in this stack:
 
-| Profile | Tags | Real producer |
-|---|---|---|
-| software-delivery | `ci:` | a named CI check (e.g. GitHub Actions job) |
-| | `gate:` | a code-standards Gate A/B result |
-| | `scan:` | a security-scan result |
-| | `review:` | a `/code-review` verdict |
-| | `human:` | human review |
-| infrastructure-change | `health:` | a health-gate URL |
-| | `backup:` | a backup/restore verification |
-| | `change-log:` | a recorded infra change log entry |
-| | `human:` | human review |
+| Profile | Tags | Real producer | Required `evidence_type` |
+|---|---|---|---|
+| software-delivery | `ci:` | a named CI check (e.g. GitHub Actions job) | `automated_test` |
+| | `gate:` | a code-standards Gate A/B result | `automated_test` |
+| | `scan:` | a security-scan result | `automated_test` |
+| | `review:` | a `/code-review` verdict | `automated_test` |
+| | `health:` | a post-deploy health-gate (needed whenever `deploy_target` is non-null) | `automated_test` |
+| | `human:` | human review | `human_review` |
+| infrastructure-change | `health:` | a health-gate URL | `automated_test` |
+| | `backup:` | a backup/restore verification | `automated_test` |
+| | `change-log:` | a recorded infra change log entry | `automated_test` |
+| | `human:` | human review | `human_review` |
+
+`health:` appears in both profiles: the master plan's WS-2.2 evidence-producer list names health-gate
+URLs as a first-class producer, and any software package with a non-null `deploy_target` needs to
+express post-deploy health evidence — without it, that package's most important acceptance criterion
+would have no valid tag.
+
+Each tag also pins the acceptance item's `evidence_type` (last column) — `human:` requires
+`human_review`; every other tag requires `automated_test`. This is a real, mechanically-checkable
+authoring mistake otherwise missed: without it, `evidence_type: human_review` paired with
+`evidence: "ci: pytest passes"` would validate today, since the tag check only inspects the `evidence`
+string.
 
 This is deliberately **an enum of producers, not an evidence framework** — per Devon's explicit
-guardrail, the profile validator checks for a recognized tag prefix; it does not define per-producer
-payload schemas (e.g. a typed CI-check-result object). That richer verification layer is Phase-5
-territory, not WS-2.2.
+guardrail, the profile validator checks for a recognized tag prefix (plus the one-line `evidence_type`
+consistency rule above); it does not define per-producer payload schemas (e.g. a typed CI-check-result
+object). That richer verification layer is Phase-5 territory, not WS-2.2.
 
 ---
 
@@ -207,7 +228,8 @@ there's no risk of an example being mistaken for a real package awaiting approva
 - Each profile's `profile_fields` schema: valid fixture passes; broken fixture fails with an actionable,
   field-pathed message.
 - Evidence-tag check: a tagged `evidence` string passes; an untagged/unrecognized-tag one fails, per
-  profile's own tag set.
+  profile's own tag set; a tag/`evidence_type` mismatch (e.g. `human:` with `evidence_type:
+  automated_test`) fails (§5).
 - **AC-002 compatibility proof:**
   1. The full pre-existing WS-2.1 test suite runs unmodified — still 123 passing, no test edited.
   2. A universal-only fixture package (no `profile` key) validates with zero errors and its hash is
@@ -222,6 +244,12 @@ fixtures live outside `packages/`) then `pytest` (which picks up the new profile
 since they're standard pytest files under `tests/`). `foundation_contract`/`PROJECT.md` frontmatter is
 unchanged — no new `required_checks` entry needed.
 
+**Accepted, short-lived gap:** with example packages living as fixtures rather than under `packages/`,
+`validate --all` does not exercise profile dispatch against any *real* package until a profiled package
+actually lands in `packages/`. That happens as soon as WS-2.3 is authored under `profile:
+software-delivery` (§1, §10) — recorded here so a whole-branch reviewer doesn't re-flag it as an
+oversight.
+
 ---
 
 ## 10. Exit criteria (WS-2.2 slice)
@@ -231,8 +259,8 @@ unchanged — no new `required_checks` entry needed.
 - [ ] The universal envelope is provably unchanged: WS-2.1 suite unmodified and still green; a
       universal-only package's hash and validation are unaffected (AC-002).
 - [ ] Devon confirms no software/infra assumption leaked into the universal envelope (AC-003).
-- [ ] Each profile's evidence-tag check rejects an evidence string with no recognized producer tag
-      (AC-004).
+- [ ] Each profile's evidence-tag check rejects an evidence string with no recognized producer tag, and
+      rejects a tag/`evidence_type` mismatch (AC-004).
 - [ ] Repo stays standards-conformant; no CI file changes needed (§9).
 - [ ] Dogfood ladder continues: author WS-2.3 as the next intent package under `profile:
       software-delivery`.
