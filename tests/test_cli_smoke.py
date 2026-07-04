@@ -93,3 +93,49 @@ def test_supersede_subcommand_illegal_exits_nonzero(valid_package, capsys):
     rc = main(["supersede", str(valid_package), "--by", "sample-replacement-package"])
     assert rc == 1
     assert "supersede failed" in capsys.readouterr().err
+
+
+def test_verify_approval_subcommand_ledger_only_true_prints_warning(
+    valid_package, monkeypatch, fake_registry, capsys
+):
+    class _StubEmitter:
+        def emit(self, action, ref, evidence):
+            return "evt-cli-approve"
+
+    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
+    monkeypatch.setattr("intent_packages.emitter.FactoryEventsEmitter", _StubEmitter)
+    main(["transition", str(valid_package), "--to", "ready_for_review"])
+    main(["approve", str(valid_package), "--approver", "devon"])
+    capsys.readouterr()  # discard transition/approve output
+
+    rc = main(["verify-approval", str(valid_package), "--ledger-only"])
+    assert rc == 0
+    assert "WARNING: UNVERIFIED CHAIN" in capsys.readouterr().err
+
+
+def test_verify_approval_subcommand_false_when_never_approved_exits_nonzero(
+    valid_package, capsys
+):
+    rc = main(["verify-approval", str(valid_package), "--ledger-only"])
+    assert rc == 1
+    assert capsys.readouterr().err == ""
+
+
+def test_verify_approval_subcommand_default_fails_closed_when_chain_unreachable(
+    valid_package, monkeypatch, fake_registry, capsys
+):
+    # No real security-standards checkout with a `factory_events` module in
+    # the hermetic test env, so the default chain_checker cannot consult the
+    # chain -- verify-approval (without --ledger-only) must fail closed.
+    class _StubEmitter:
+        def emit(self, action, ref, evidence):
+            return "evt-cli-approve"
+
+    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
+    monkeypatch.setattr("intent_packages.emitter.FactoryEventsEmitter", _StubEmitter)
+    main(["transition", str(valid_package), "--to", "ready_for_review"])
+    main(["approve", str(valid_package), "--approver", "devon"])
+    capsys.readouterr()
+
+    rc = main(["verify-approval", str(valid_package)])
+    assert rc == 1

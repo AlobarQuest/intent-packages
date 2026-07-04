@@ -1,27 +1,40 @@
-"""State-changing package operations (spec section 5/9): `transition` today,
-`approve`/`revise`/`supersede` in later tasks.
+"""State-changing package operations (spec section 5/9): `transition`,
+`approve`, `revise`, `supersede`, and the read-only `verify_approval` gate.
 
-Each operation loads the package, re-validates it (refusing to act on an
-invalid package), enacts the change against both `package.yaml` and
+Each state-changing operation loads the package, re-validates it (refusing to
+act on an invalid package), enacts the change against both `package.yaml` and
 `lineage.yaml`, and best-effort emits a factory event — a failed emit never
 blocks the operation, it just records `event_id: null`.
 """
 from __future__ import annotations
 
+import json
+import os
 import re
+import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 from intent_packages import canonical, lifecycle, lineage, registry
-from intent_packages.emitter import EmitError, Emitter
+from intent_packages.emitter import EmitError, Emitter, _events_python, _security_standards_dir
 from intent_packages.loader import load_package
 from intent_packages.validate import validate_package
 
 _STATUS_LINE_RE = re.compile(r"^status:.*$", re.MULTILINE)
 _REVISION_LINE_RE = re.compile(r"^revision:.*$", re.MULTILINE)
+_CHAIN_VERIFY_TIMEOUT_SECONDS = 30
 
 
 class OperationError(Exception):
     """Raised when an operation is refused: invalid package or illegal transition."""
+
+
+class ChainUnavailable(Exception):
+    """Raised by a `chain_checker` when the factory-events chain cannot be
+    consulted at all (store or security-standards checkout missing,
+    subprocess failure, chain integrity check failed). `verify_approval`
+    catches this and fails closed rather than letting it bubble up.
+    """
 
 
 def set_status_in_file(pkg_dir: str | Path, new_status: str) -> None:
@@ -302,3 +315,148 @@ def do_supersede(
     lin["current_state"] = "superseded"
     lineage.write(pkg_dir, lin)
     set_status_in_file(pkg_dir, "superseded")
+
+
+def _factory_events_file() -> Path:
+    """Locate the tamper-evident factory-events JSONL store.
+
+    `FACTORY_EVENTS_FILE` overrides for tests/alternate deployments; otherwise
+    the real per-machine store at `~/.factory/events.jsonl`.
+    """
+    env_file = os.environ.get("FACTORY_EVENTS_FILE")
+    return Path(env_file) if env_file else Path.home() / ".factory" / "events.jsonl"
+
+
+def _verify_chain_integrity(sec_std_dir: Path) -> None:
+    """Run `factory_events verify`; raise `ChainUnavailable` unless it
+    reports the chain intact (exit 0)."""
+    python = _events_python(sec_std_dir)
+    env = dict(os.environ)
+    src_dir = str(sec_std_dir / "src")
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else src_dir
+    )
+
+    try:
+        result = subprocess.run(
+            [python, "-m", "factory_events", "verify"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=_CHAIN_VERIFY_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ChainUnavailable(f"factory_events verify failed to run: {exc}") from exc
+
+    if result.returncode != 0:
+        raise ChainUnavailable(
+            f"factory_events verify: chain integrity check failed: {result.stderr}"
+        )
+
+
+def _events_file_has_matching_approval(approved_hash: str, revision: int) -> bool:
+    """Scan the factory-events JSONL store for a `package.approved` event
+    carrying this exact `approved_hash` + `revision`."""
+    events_file = _factory_events_file()
+    if not events_file.is_file():
+        raise ChainUnavailable(f"factory events file not found: {events_file}")
+
+    try:
+        text = events_file.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ChainUnavailable(f"could not read factory events file: {exc}") from exc
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("action") != "package.approved":
+            continue
+        evidence = event.get("evidence") or {}
+        if evidence.get("approved_hash") == approved_hash and evidence.get("revision") == revision:
+            return True
+
+    return False
+
+
+def default_chain_checker(approved_hash: str, revision: int) -> bool:
+    """Default `chain_checker` for `verify_approval` (spec §4.4).
+
+    True iff the tamper-evident factory-events chain verifies AND contains a
+    `package.approved` event whose evidence carries this exact
+    `approved_hash` + `revision`. Raises `ChainUnavailable` — never returns
+    False silently — for anything that stops the chain from being consulted
+    at all: security-standards/registry missing, the `factory_events verify`
+    subprocess failing to run or reporting a broken chain (nonzero exit), or
+    the events file being missing/unreadable. A verified chain that simply
+    has no matching event is a genuine "not approved" answer, so that (and
+    only that) path returns False rather than raising.
+    """
+    try:
+        sec_std_dir = _security_standards_dir()
+    except EmitError as exc:
+        raise ChainUnavailable(f"cannot locate security-standards: {exc}") from exc
+
+    _verify_chain_integrity(sec_std_dir)
+    return _events_file_has_matching_approval(approved_hash, revision)
+
+
+def verify_approval(
+    pkg_dir: str | Path,
+    *,
+    chain_checker: Callable[[str, int], bool] | None = None,
+    ledger_only: bool = False,
+) -> bool:
+    """Verify that the CURRENT revision of the package at `pkg_dir` was
+    approved (spec §4.4) — the Phase-3 orchestrator's mechanical gate.
+
+    Only the current revision is checked; historical revisions aren't on
+    disk. This is the security-critical read path: it must **fail closed**,
+    returning False whenever a required check does not affirmatively pass.
+
+      1. Recompute `h`, the hash of the package as it stands right now.
+      2. Ledger check (always required): `lineage["approvals"]` must contain
+         an entry whose `approved_hash == h`, approved by an identity
+         `registry.is_human_operator` confirms is human. This alone catches
+         both "never approved" and "approved, then the intent drifted"
+         (revise bumps the revision but the old approval stays bound to the
+         old hash).
+      3. Chain check (required unless `ledger_only`): `chain_checker(h,
+         revision)` must independently confirm, via the tamper-evident
+         factory-events chain, that a `package.approved` event for this exact
+         hash+revision exists and the chain verifies. A forged/edited ledger
+         entry cannot pass this — it isn't in the chain. If `chain_checker`
+         returns False, or raises (chain unavailable for any reason), the
+         result is False; a raise never bubbles out of this function.
+      4. `ledger_only=True` skips the chain check entirely (the escape hatch
+         for tests/environments where the chain can't be reached) — the CLI
+         is responsible for printing the loud "UNVERIFIED CHAIN" warning that
+         makes this an explicit, visible choice rather than a silent gap.
+    """
+    pkg_dir = Path(pkg_dir)
+    package = load_package(pkg_dir)
+    h = canonical.package_hash(package)
+
+    lin = lineage.read(pkg_dir)
+    ledger_ok = any(
+        a["approved_hash"] == h and registry.is_human_operator(a["approver"])
+        for a in lin.get("approvals", [])
+    )
+    if not ledger_ok:
+        return False
+
+    if ledger_only:
+        return True
+
+    checker = chain_checker if chain_checker is not None else default_chain_checker
+    try:
+        chain_ok = checker(h, package["revision"])
+    except Exception:  # noqa: BLE001 - any failure to consult the chain fails closed
+        return False
+
+    return bool(chain_ok)

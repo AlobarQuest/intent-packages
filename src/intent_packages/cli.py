@@ -30,6 +30,17 @@ def main(argv: list[str] | None = None) -> int:
     p_supersede.add_argument(
         "--by", required=True, dest="new_package_id", help="the superseding package_id"
     )
+    p_verify = sub.add_parser(
+        "verify-approval",
+        help="verify the current revision of a package was approved (ledger + chain)",
+    )
+    p_verify.add_argument("path")
+    p_verify.add_argument(
+        "--ledger-only",
+        action="store_true",
+        dest="ledger_only",
+        help="skip the tamper-evident chain check (prints an UNVERIFIED CHAIN warning)",
+    )
     args = parser.parse_args(argv)
     if args.cmd == "hash":
         from intent_packages.canonical import package_hash
@@ -47,6 +58,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_revise(args)
     if args.cmd == "supersede":
         return _run_supersede(args)
+    if args.cmd == "verify-approval":
+        return _run_verify_approval(args)
     return 0
 
 
@@ -122,6 +135,15 @@ def _run_supersede(args) -> int:
         return 1
     print(f"{args.path}: superseded by {args.new_package_id}")
     return 0
+
+
+def _run_verify_approval(args) -> int:
+    from intent_packages.operations import verify_approval
+
+    ok = verify_approval(args.path, ledger_only=args.ledger_only)
+    if args.ledger_only and ok:
+        print("WARNING: UNVERIFIED CHAIN — ledger-only verification", file=sys.stderr)
+    return 0 if ok else 1
 
 
 def _run_validate(parser: argparse.ArgumentParser, args) -> int:
