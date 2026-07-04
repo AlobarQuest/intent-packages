@@ -1,0 +1,10 @@
+package_id: ws-2.4-ci-evidence-control
+current_state: draft
+revisions:
+  - revision: 1
+    hash: 639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80
+    created_at: "2026-07-04T21:39:23Z"
+    author: codex-interactive
+transitions: []
+approvals: []
+grants: []

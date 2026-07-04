@@ -1,0 +1,156 @@
+schema_version: 1
+package_id: ws-2.4-ci-evidence-control
+title: "WS-2.4 supplemental software control — literal CI evidence semantics"
+revision: 1
+status: draft
+created_by: codex-interactive
+owner: devon
+created_at: "2026-07-04T00:00:00Z"
+supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: intent-packages
+  branch: codex/ws24-completion-pilots
+  deploy_target: null
+  required_checks:
+    - Quality
+    - validate
+  rollback_plan: "Revert the operator-document commit; no runtime or production deployment is involved."
+outcome:
+  what: "Intent-package operators have a durable rule for deciding whether a CI-backed acceptance criterion actually passed."
+  why: "The original WS-2.4 software pilot silently treated a failed, non-gating workflow as satisfied; the contract needs an explicit operator rule before Phase 2 can close."
+  beneficiary: "Devon and future orchestrator/verifier implementations."
+  success_signal: "The rule is merged through a PR whose Quality and validate workflows both pass on the exact PR revision, and no named check is inferred or waived."
+scope:
+  included:
+    - "Add an operator document defining exact-revision CI evidence, named-check success, non-gating semantics, historical-run treatment, and failure handling."
+    - "Deliver the document through the normal intent-packages PR and CI path."
+  excluded:
+    - "Adding evidence fields, waiver fields, CLI commands, or orchestrator behavior."
+    - "Changing the lifecycle, schema, profiles, validator, or production systems."
+  non_goals:
+    - "Retroactively changing the result of ws-2.4-brain-approver-gate AC-003."
+    - "Claiming that documentation mechanically enforces the rule."
+  assumptions:
+    - "Quality and validate are the two workflows configured for intent-packages."
+  open_questions: []
+sources:
+  - location: "Devon's live instruction on 2026-07-04 to explain, select, and execute the supplemental clean software control run"
+    authority_level: authoritative
+    required_version: null
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-phase2-exit-checklist.md"
+    authority_level: authoritative
+    required_version: "2026-07-04"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "packages/ws-2.4-brain-approver-gate and brain PR #19 check history"
+    authority_level: reference
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: null
+  technology: "Markdown only; no code or dependency changes."
+  policy_legal: null
+  privacy_security: "No secrets or private operational data in the document."
+  compatibility: "No schema, CLI, lifecycle, or runtime behavior changes."
+  quality_accessibility: "Plain-language operator guidance with explicit pass/block rules."
+  operational: "Both named GitHub Actions workflows must pass on the exact PR head revision."
+  other: []
+acceptance:
+  - id: AC-001
+    condition: "The operator document states that only successful checks on the exact PR revision under verification count as CI acceptance evidence."
+    evidence_type: human_review
+    evidence: "human: whole-document review confirms exact-revision and named-check semantics are explicit"
+    approver: devon
+  - id: AC-002
+    condition: "The document states that non-gating does not mean passed, historical failures remain historical, and later runs cannot repair an earlier AC."
+    evidence_type: human_review
+    evidence: "human: literal review finds all three rules without relying on implication"
+    approver: devon
+  - id: AC-003
+    condition: "Quality and validate both pass on the pull request's exact head revision."
+    evidence_type: automated_test
+    evidence: "gate: GitHub check runs for Quality and validate both conclude success on the PR head SHA"
+    approver: policy
+  - id: AC-004
+    condition: "An unmet CI-backed AC is documented as blocking completion unless the package is formally corrected and reapproved."
+    evidence_type: human_review
+    evidence: "human: operator document explicitly prohibits silent waiver and defines the blocked/correction path"
+    approver: devon
+  - id: AC-005
+    condition: "Devon reviews and merges the PR; the worker does not merge it."
+    evidence_type: human_review
+    evidence: "human: Devon confirms review and merge after all named checks pass"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  requires_approval:
+    - merge_to_main
+  prohibited:
+    - secret_read
+    - secret_write
+    - infra_mutation
+    - credential_create
+    - credential_revoke
+    - outward_publish
+    - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "docs/operations/ci-acceptance-evidence.md"
+    - "A pull request against intent-packages with successful Quality and validate checks."
+  destination: "AlobarQuest/intent-packages"
+  recipient: devon
+  definition_of_done: "The operator rule is merged by Devon after every literal AC passes and the package reaches closed."
+  operator_responsibilities:
+    - "Devon reviews AC-001, AC-002, and AC-004."
+    - "Devon alone authorizes and performs merge_to_main."
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems:
+    - "Devon for package approval, document review, and PR merge"
+    - "GitHub Actions"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  blocking_conditions:
+    - "Either required workflow is not successful on the exact PR head revision."
+risk:
+  failure_modes:
+    - "The document leaves enough ambiguity to repeat the AC-003 silent-waiver error."
+    - "A successful check from another revision is incorrectly counted."
+  max_impact: "Incorrect Phase 2 evidence and recurrence of silent acceptance-criterion waiver."
+  stop_conditions:
+    - "Any named workflow fails or is missing."
+    - "Review finds the pass/block rule ambiguous."
+  rollback: "Revert the documentation commit; no production state changes."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Devon performs a literal acceptance-criterion review before merge."
+    - "A final adversarial Phase 2 audit checks this package against actual GitHub runs."
+  non_mechanical:
+    - "Whether the wording is sufficiently unambiguous for a future verifier remains a judgment call."
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
