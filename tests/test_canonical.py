@@ -1,6 +1,6 @@
 import pytest
 
-from intent_packages.canonical import CanonicalError, intent_core, jcs, package_hash
+from intent_packages.canonical import CanonicalError, jcs, package_hash
 
 
 def test_jcs_sorts_keys_no_whitespace():
