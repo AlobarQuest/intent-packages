@@ -262,3 +262,24 @@ would be the one thing on `main` that *isn't* inert.
 - Orchestrator/work-unit machinery — Phase 3.
 - Any change to the universal envelope or existing profiles (software-delivery, infrastructure-change) —
   this workstream only changes how `project-initiation` *authors against* them, never the schemas themselves.
+
+## 12. Addendum (2026-07-04, post-build) — the shipped skill text is stricter than this spec; it governs
+
+The final whole-diff review found that §5's trusted-instruction item 2, as written above ("a document Devon
+has personally authored or explicitly confirmed as authoritative for this purpose") is the pre-red-team
+wording. The escalated red-team (§9.3) found this ambiguous — "personally authored" alone could be read as
+qualifying any Devon-authored document — and the shipped fix (`claude-control-plane` commit `7955f24`)
+tightened it to an exact, closed list: only the two named canonical documents (by exact path) and an
+**approved** predecessor intent package qualify; authorship alone never does. The red-team also added a
+**non-interactive/agent-invoked session** rule (headless invocations get an empty allowlist item 1 and an
+absolute approval-boundary block) that this spec's §4/§5 never anticipated.
+
+This addendum records, for anyone reading this spec later: **`~/.claude/skills/project-initiation/references/intent-package-authoring.md` is authoritative on the exact wording of the sources-trust rule and the
+approval boundary — this spec's §4/§5 describe the design intent correctly but are superseded, word-for-word,
+by the shipped, red-team-hardened text.** Don't re-derive the allowlist or the boundary statement from this
+document; read the shipped skill file. This gap, plus two related defects it enabled (both packages this
+workstream authored omitting `profile:`/`profile_fields`, and `ws-2.3-intent-authoring-skill`'s own `sources[]`
+misclassifying three spec documents under the *pre-tightening* wording), is recorded here per Devon's
+instruction that the addendum belongs in the spec, not just in commit messages. The package-level defects were
+corrected via `supersede` → `ws-2.3-intent-authoring-skill-v2` (intent-packages commit `3bd96e3`) and a direct
+fix to the still-Draft WS-2.4 package (commit `908214c`).
