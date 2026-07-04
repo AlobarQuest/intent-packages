@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -15,6 +16,9 @@ def main(argv: list[str] | None = None) -> int:
     p_validate.add_argument(
         "--all", action="store_true", help="validate every packages/*/ directory"
     )
+    p_transition = sub.add_parser("transition", help="transition a package to a new state")
+    p_transition.add_argument("path")
+    p_transition.add_argument("--to", required=True, dest="to_state", help="target state")
     args = parser.parse_args(argv)
     if args.cmd == "hash":
         from intent_packages.canonical import package_hash
@@ -24,6 +28,24 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "validate":
         return _run_validate(parser, args)
+    if args.cmd == "transition":
+        return _run_transition(args)
+    return 0
+
+
+def _run_transition(args) -> int:
+    from intent_packages.emitter import EmitError, FactoryEventsEmitter
+    from intent_packages.operations import OperationError, do_transition
+
+    now = datetime.now(UTC).isoformat()
+    try:
+        do_transition(
+            args.path, args.to_state, emitter=FactoryEventsEmitter(), now=now
+        )
+    except (OperationError, EmitError) as exc:
+        print(f"transition failed: {exc}", file=sys.stderr)
+        return 1
+    print(f"{args.path}: transitioned to {args.to_state}")
     return 0
 
 
