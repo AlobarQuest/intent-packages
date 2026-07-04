@@ -116,8 +116,24 @@ def test_default_chain_checker_true_when_event_matches(tmp_path, monkeypatch, fa
     events_file.write_text(
         json.dumps(
             {
-                "action": "package.approved",
-                "evidence": {"approved_hash": "deadbeef", "revision": 1},
+                "event": {
+                    "action": "package.approved",
+                    "actor": "devon",
+                    "evidence": [
+                        {
+                            "approved_hash": "deadbeef",
+                            "approver": "devon",
+                            "commit": "abc1234",
+                            "revision": 1,
+                        }
+                    ],
+                    "source": {"ref": "ws-2.2-domain-profiles", "system": "direct"},
+                    "schema": "factory-event/v1",
+                    "event_id": "evt-1",
+                },
+                "hash": "hash1",
+                "prev_hash": "hash0",
+                "seq": 1,
             }
         )
         + "\n",
@@ -140,8 +156,24 @@ def test_default_chain_checker_no_matching_event_returns_false(
     events_file.write_text(
         json.dumps(
             {
-                "action": "package.approved",
-                "evidence": {"approved_hash": "some-other-hash", "revision": 1},
+                "event": {
+                    "action": "package.approved",
+                    "actor": "devon",
+                    "evidence": [
+                        {
+                            "approved_hash": "some-other-hash",
+                            "approver": "devon",
+                            "commit": "abc1234",
+                            "revision": 1,
+                        }
+                    ],
+                    "source": {"ref": "ws-2.2-domain-profiles", "system": "direct"},
+                    "schema": "factory-event/v1",
+                    "event_id": "evt-2",
+                },
+                "hash": "hash2",
+                "prev_hash": "hash1",
+                "seq": 2,
             }
         )
         + "\n",

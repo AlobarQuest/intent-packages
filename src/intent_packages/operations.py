@@ -355,9 +355,29 @@ def _verify_chain_integrity(sec_std_dir: Path) -> None:
         )
 
 
+def _evidence_matches(evidence: object, approved_hash: str, revision: int) -> bool:
+    """True iff any item in `evidence` (a list of evidence records) carries
+    this exact `approved_hash` + `revision`. Guards against a non-list
+    `evidence` or non-dict items."""
+    if not isinstance(evidence, list):
+        return False
+    return any(
+        isinstance(e, dict)
+        and e.get("approved_hash") == approved_hash
+        and e.get("revision") == revision
+        for e in evidence
+    )
+
+
 def _events_file_has_matching_approval(approved_hash: str, revision: int) -> bool:
     """Scan the factory-events JSONL store for a `package.approved` event
-    carrying this exact `approved_hash` + `revision`."""
+    carrying this exact `approved_hash` + `revision`.
+
+    Each line is a factory-event record with the real fields nested under a
+    top-level `"event"` key (defensively, an unwrapped line is also tolerated),
+    and `evidence` is a LIST of records — the approval fields can live in any
+    item, so every item is scanned rather than assuming `evidence[0]`.
+    """
     events_file = _factory_events_file()
     if not events_file.is_file():
         raise ChainUnavailable(f"factory events file not found: {events_file}")
@@ -372,13 +392,13 @@ def _events_file_has_matching_approval(approved_hash: str, revision: int) -> boo
         if not line:
             continue
         try:
-            event = json.loads(line)
+            obj = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if event.get("action") != "package.approved":
+        ev = obj.get("event", obj)
+        if ev.get("action") != "package.approved":
             continue
-        evidence = event.get("evidence") or {}
-        if evidence.get("approved_hash") == approved_hash and evidence.get("revision") == revision:
+        if _evidence_matches(ev.get("evidence"), approved_hash, revision):
             return True
 
     return False
