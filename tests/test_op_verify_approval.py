@@ -112,7 +112,9 @@ def test_verify_approval_false_on_hash_mismatch_after_edit(
 
 
 def test_default_chain_checker_true_when_event_matches(tmp_path, monkeypatch, fake_registry):
-    events_file = tmp_path / "events.jsonl"
+    events_home = tmp_path / "factory-home"
+    events_home.mkdir()
+    events_file = events_home / "events.jsonl"
     events_file.write_text(
         json.dumps(
             {
@@ -140,7 +142,7 @@ def test_default_chain_checker_true_when_event_matches(tmp_path, monkeypatch, fa
         encoding="utf-8",
     )
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    monkeypatch.setenv("FACTORY_EVENTS_FILE", str(events_file))
+    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(events_home))
     monkeypatch.setattr(
         "intent_packages.operations.subprocess.run",
         lambda *a, **k: subprocess.CompletedProcess(args=a, returncode=0, stdout="", stderr=""),
@@ -152,7 +154,9 @@ def test_default_chain_checker_true_when_event_matches(tmp_path, monkeypatch, fa
 def test_default_chain_checker_no_matching_event_returns_false(
     tmp_path, monkeypatch, fake_registry
 ):
-    events_file = tmp_path / "events.jsonl"
+    events_home = tmp_path / "factory-home"
+    events_home.mkdir()
+    events_file = events_home / "events.jsonl"
     events_file.write_text(
         json.dumps(
             {
@@ -180,7 +184,7 @@ def test_default_chain_checker_no_matching_event_returns_false(
         encoding="utf-8",
     )
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    monkeypatch.setenv("FACTORY_EVENTS_FILE", str(events_file))
+    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(events_home))
     monkeypatch.setattr(
         "intent_packages.operations.subprocess.run",
         lambda *a, **k: subprocess.CompletedProcess(args=a, returncode=0, stdout="", stderr=""),
@@ -191,7 +195,7 @@ def test_default_chain_checker_no_matching_event_returns_false(
 
 def test_default_chain_checker_missing_events_file_raises(tmp_path, monkeypatch, fake_registry):
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    monkeypatch.setenv("FACTORY_EVENTS_FILE", str(tmp_path / "nope.jsonl"))
+    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(tmp_path / "empty-home"))
     monkeypatch.setattr(
         "intent_packages.operations.subprocess.run",
         lambda *a, **k: subprocess.CompletedProcess(args=a, returncode=0, stdout="", stderr=""),
@@ -202,10 +206,12 @@ def test_default_chain_checker_missing_events_file_raises(tmp_path, monkeypatch,
 
 
 def test_default_chain_checker_chain_verify_failure_raises(tmp_path, monkeypatch, fake_registry):
-    events_file = tmp_path / "events.jsonl"
+    events_home = tmp_path / "factory-home"
+    events_home.mkdir()
+    events_file = events_home / "events.jsonl"
     events_file.write_text("", encoding="utf-8")
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    monkeypatch.setenv("FACTORY_EVENTS_FILE", str(events_file))
+    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(events_home))
     monkeypatch.setattr(
         "intent_packages.operations.subprocess.run",
         lambda *a, **k: subprocess.CompletedProcess(

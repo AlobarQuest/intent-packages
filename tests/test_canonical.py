@@ -31,3 +31,23 @@ def test_hash_is_key_order_and_reformat_invariant():
 def test_hash_is_stable_sha256_hex():
     h = package_hash({"package_id": "p", "revision": 1})
     assert len(h) == 64 and all(c in "0123456789abcdef" for c in h)
+
+
+def test_jcs_rejects_non_string_dict_key():
+    with pytest.raises(CanonicalError):
+        jcs({1: "a"})
+
+
+def test_key_sort_uses_utf16_code_unit_order_not_codepoint_order():
+    # U+1F600 encodes as a UTF-16 surrogate pair (D83D DE00), whose first code
+    # unit (0xD83D) is less than U+FFFF's single code unit (0xFFFF) -- so RFC
+    # 8785's UTF-16-code-unit key ordering puts it FIRST, even though its
+    # codepoint value (0x1F600) is numerically larger than 0xFFFF.
+    out = jcs({"\U0001F600": 1, "￿": 2})
+    assert out.index("\U0001F600") < out.index("￿")
+
+
+def test_ascii_key_order_unchanged_by_utf16_sort():
+    # For pure-ASCII keys, UTF-16-BE byte order and codepoint order coincide,
+    # so existing ASCII-keyed hashes (e.g. the dogfood package) are stable.
+    assert jcs({"b": 1, "a": 2, "aa": 3}) == '{"a":2,"aa":3,"b":1}'

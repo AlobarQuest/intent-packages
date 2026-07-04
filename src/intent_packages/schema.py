@@ -249,12 +249,23 @@ def _walk_open_map(value: object, spec: OpenMapSpec, path: str, errors: list[str
             errors.append(f"{_join(path, key)}: expected str, got {_typename(v)}")
 
 
-# Reimplements float/datetime/bytes rejection separately from canonical.py's own
-# forbidden-type checks: this scan needs field-path context to produce actionable
-# per-field error messages, which canonical.py's checks don't carry.
+# Reimplements canonical.py's own JSON-value restriction separately: this scan
+# needs field-path context to produce actionable per-field error messages
+# (a clean validate error, not a canonical.py traceback), which canonical.py's
+# checks don't carry.
+#
+# ALLOWLIST, not a blacklist: only str/int/bool/NoneType/list/dict are legal
+# values anywhere in the tree, including inside the opaque `profile_fields` —
+# not just schema-known fields. Anything else (float, datetime/date, bytes,
+# set, tuple, ...) is rejected here so it never reaches canonical.py's hasher,
+# which would otherwise raise (or, for a non-JSON type it doesn't recognize at
+# all, silently mishandle it).
+_ALLOWED_VALUE_TYPES = (str, int, bool, type(None), list, dict)
+
+
 def _scan_forbidden_types(value: object, path: str, errors: list[str]) -> None:
-    """Check J (the rest): reject float/datetime/date/bytes ANYWHERE in the tree,
-    including inside the opaque `profile_fields` — not just schema-known fields."""
+    """Check J (the rest): every value anywhere in the tree must be one of
+    str/int/bool/None/list/dict, and every dict key must be a non-empty str."""
     if isinstance(value, float):
         errors.append(f"{path}: float value {value!r} is not allowed (quote the value)")
     elif isinstance(value, (datetime.datetime, datetime.date)):
@@ -263,7 +274,12 @@ def _scan_forbidden_types(value: object, path: str, errors: list[str]) -> None:
         errors.append(f"{path}: bytes value is not allowed")
     elif isinstance(value, dict):
         for k, v in value.items():
-            _scan_forbidden_types(v, _join(path, str(k)), errors)
+            if not isinstance(k, str) or not k:
+                errors.append(f"{path}: keys must be non-empty strings (got {k!r})")
+                continue
+            _scan_forbidden_types(v, _join(path, k), errors)
     elif isinstance(value, list):
         for i, v in enumerate(value):
             _scan_forbidden_types(v, f"{path}[{i}]", errors)
+    elif not isinstance(value, _ALLOWED_VALUE_TYPES):
+        errors.append(f"{path}: value of type {_typename(value)} is not allowed")

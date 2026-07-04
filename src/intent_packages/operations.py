@@ -83,6 +83,9 @@ def do_transition(
 
     Refuses (raises `OperationError`) if the package is currently invalid, or
     if `to_state` is not a legal transition from the current lineage state.
+    Also refuses `completed -> closed` when `follow_up.required` is true
+    (spec §5.3) — such a package must route through `follow_up_due` first;
+    `follow_up.required: false` still allows `completed -> closed` directly.
     On `ready_for_review`, re-snapshots the current revision's hash first, to
     capture any draft edits made since the last snapshot. The factory-event
     emit is best-effort: a raised `EmitError` is swallowed and recorded as a
@@ -102,6 +105,15 @@ def do_transition(
 
     if not lifecycle.is_legal_transition(current, to_state):
         raise OperationError(f"illegal transition: {current!r} -> {to_state!r}")
+
+    if (
+        current == "completed"
+        and to_state == "closed"
+        and package["follow_up"]["required"]
+    ):
+        raise OperationError(
+            "follow_up.required is true — route via follow_up_due, not directly to closed"
+        )
 
     if to_state == "ready_for_review":
         lineage.snapshot_revision(
@@ -320,11 +332,16 @@ def do_supersede(
 def _factory_events_file() -> Path:
     """Locate the tamper-evident factory-events JSONL store.
 
-    `FACTORY_EVENTS_FILE` overrides for tests/alternate deployments; otherwise
-    the real per-machine store at `~/.factory/events.jsonl`.
+    Must resolve to the SAME path the `factory_events` store itself uses
+    (`factory_events.store.events_path()`: `$FACTORY_EVENTS_HOME/events.jsonl`,
+    defaulting to `~/.factory/events.jsonl`) — otherwise `_verify_chain_integrity`
+    (which shells `factory_events verify`, honoring `FACTORY_EVENTS_HOME`) and
+    this JSONL scan could read two different files (split-brain). There is no
+    separate override env var here; `FACTORY_EVENTS_HOME` is the only knob,
+    exactly as the store defines it.
     """
-    env_file = os.environ.get("FACTORY_EVENTS_FILE")
-    return Path(env_file) if env_file else Path.home() / ".factory" / "events.jsonl"
+    home = Path(os.environ.get("FACTORY_EVENTS_HOME", str(Path.home() / ".factory")))
+    return home / "events.jsonl"
 
 
 def _verify_chain_integrity(sec_std_dir: Path) -> None:

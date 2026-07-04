@@ -10,7 +10,24 @@ class LoadError(Exception):
 
 
 class _NoDatesLoader(yaml.SafeLoader):
-    """SafeLoader that never auto-parses timestamps into datetime/date objects."""
+    """SafeLoader that never auto-parses timestamps into datetime/date objects,
+    and rejects a mapping with a repeated key (SafeLoader's default silently
+    keeps the last value, which would let a hand-authored package.yaml carry
+    an ambiguous/conflicting duplicate key undetected)."""
+
+    def construct_mapping(self, node, deep=False):
+        seen: set = set()
+        for key_node, _value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if key in seen:
+                raise yaml.constructor.ConstructorError(
+                    None,
+                    None,
+                    f"duplicate key {key!r} in mapping",
+                    node.start_mark,
+                )
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
 
 
 # Drop YAML's implicit timestamp resolver so 2026-07-03T00:00:00Z loads as str.

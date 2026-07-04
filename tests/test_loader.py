@@ -23,3 +23,13 @@ def test_unquoted_timestamp_is_not_a_datetime():
 def test_top_level_must_be_mapping():
     with pytest.raises(LoadError):
         load_yaml_strict("- just\n- a\n- list\n")
+
+
+def test_duplicate_top_level_key_is_rejected():
+    with pytest.raises(LoadError):
+        load_yaml_strict("title: a\ntitle: b\n")
+
+
+def test_unique_keys_still_load():
+    d = load_yaml_strict("title: a\nother: b\n")
+    assert d == {"title": "a", "other": "b"}

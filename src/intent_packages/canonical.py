@@ -25,8 +25,14 @@ def _canon(obj) -> str:
     if isinstance(obj, list):
         return "[" + ",".join(_canon(v) for v in obj) + "]"
     if isinstance(obj, dict):
-        items = sorted(obj.items(), key=lambda kv: kv[0])
-        return "{" + ",".join(f"{_canon_str(str(k))}:{_canon(v)}" for k, v in items) + "}"
+        for k in obj:
+            if not isinstance(k, str):
+                raise CanonicalError(f"dict key {k!r} is not a string")
+        # RFC 8785 orders object members by UTF-16 code-unit sequence, not by
+        # Unicode codepoint -- the two differ for characters outside the BMP
+        # (surrogate pairs), so sort by the UTF-16-BE encoding of each key.
+        items = sorted(obj.items(), key=lambda kv: kv[0].encode("utf-16-be"))
+        return "{" + ",".join(f"{_canon_str(k)}:{_canon(v)}" for k, v in items) + "}"
     raise CanonicalError(f"unhashable type in package: {type(obj).__name__}")
 
 

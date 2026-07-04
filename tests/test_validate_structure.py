@@ -115,6 +115,22 @@ def test_registered_agent_approver_is_accepted(
     assert validate_package(valid_package) == []
 
 
+def test_profile_fields_non_str_key_is_rejected_with_field_path(valid_package, edit_yaml):
+    edit_yaml(valid_package, "package.yaml", set_raw="profile_fields:\n  1: bad\n")
+    errs = validate_package(valid_package)
+    assert any("profile_fields" in e for e in errs)
+
+
+def test_profile_fields_yaml_set_value_is_rejected_with_field_path(valid_package, edit_yaml):
+    edit_yaml(
+        valid_package,
+        "package.yaml",
+        set_raw="profile_fields:\n  bad_field: !!set {a: null, b: null}\n",
+    )
+    errs = validate_package(valid_package)
+    assert any("profile_fields.bad_field" in e for e in errs)
+
+
 def test_unregistered_agent_approver_is_rejected(
     valid_package, edit_yaml, fake_registry, monkeypatch
 ):
