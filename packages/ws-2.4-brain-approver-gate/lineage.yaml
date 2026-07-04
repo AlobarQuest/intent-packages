@@ -1,0 +1,10 @@
+package_id: ws-2.4-brain-approver-gate
+current_state: draft
+revisions:
+- revision: 1
+  hash: f77a7bdaec96410b55abf4d38b96c828dad159afd9af8cc17c1fc28607435767
+  created_at: "2026-07-04T13:47:42.914809+00:00"
+  author: claude-code-interactive
+transitions: []
+approvals: []
+grants: []

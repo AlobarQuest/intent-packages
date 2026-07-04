@@ -1,0 +1,148 @@
+schema_version: 1
+package_id: ws-2.4-brain-approver-gate
+title: "WS-2.4 pilot — gate brain de-escalation tools behind require_approver"
+revision: 1
+status: draft
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-04T00:00:00Z"
+supersedes: null
+outcome:
+  what: "Contributor-tier MCP keys can no longer call any brain governance de-escalation tool (delete_rule, retire_rule, delete_knowledge, capture_knowledge with supersedes_id, or update_rule on a required-authority record) — only approver-tier keys can."
+  why: "WS-1.4 shipped the require_approver gate on the mutation surface generally but explicitly left these five de-escalation paths contributor-reachable as an accepted, audit-log-compensated risk (spec §5.6) — accepted only until before any contributor key is actually issued. This pilot closes that precondition."
+  beneficiary: "Devon (can safely issue a contributor MCP key without reopening the self-approve/de-escalation bypass class WS-1.4's own Fable review caught once already) and any future agent operating with a contributor-tier key."
+  success_signal: "A contributor-tier key attempting any of the five gated calls is denied; an approver-tier key still succeeds; the full pre-existing WS-1.4 governance suite (198 tests) still passes unmodified."
+scope:
+  included:
+    - "Gate delete_rule, retire_rule, delete_knowledge, capture_knowledge(supersedes_id=...), and update_rule-of-an-authority=required-record behind require_approver, across all four brains' shared core (src/core/governance.py + the per-brain tool files that call these: src/brains/infra/tools/rules.py, src/brains/app/tools/knowledge.py, src/brains/code/tools/rules.py, and any equivalent open-brain path)."
+  excluded:
+    - "Issuing an actual contributor MCP key (a separate, later Devon decision — this pilot only closes its precondition)."
+    - "The other two P3 backlog items in brain/PROJECT.md (owner/version/conflict_note surfacing; the search_knowledge over-fetch under-return case) — unrelated, not this pilot's scope."
+  non_goals:
+    - "Redesigning the two-tier key model itself."
+    - "Changing which fields/tools exist — only which key tier may call the five de-escalation ones."
+  assumptions:
+    - "The WS-1.4 GovernanceMixin/require_approver mechanism (src/core/governance.py) is the correct place to add this gate, per the accepted-risk item's own framing."
+    - "No contributor key has been issued yet, so there is no live exposure to remediate — this closes a precondition, not an active incident."
+  open_questions: []
+sources:
+  - location: "Devon's live instruction this session (2026-07-04), naming this backlog item and its five gated tools"
+    authority_level: authoritative
+    required_version: null
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "brain/PROJECT.md, P1 backlog item (line 27, added 2026-07-03) — the backlog file's own text"
+    authority_level: reference
+    required_version: "2026-07-03"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "brain docs/superpowers/specs/2026-07-03-ws14-*.md §5.6 (the accepted-risk item this pilot closes)"
+    authority_level: reference
+    required_version: "2026-07-03"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md (WS-1.4 completion entry, Phase 1)"
+    authority_level: authoritative
+    required_version: "2026-07-02"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "brain/src/core/governance.py and the per-brain tool files found via grep (existing code, informational only)"
+    authority_level: reference
+    required_version: null
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: null
+  technology: "Python, existing brain FastMCP + require_approver mechanism (src/core/governance.py); no new dependencies."
+  policy_legal: null
+  privacy_security: "This is itself a privacy/security-relevant change (closes an accepted risk on destructive/de-escalation governance tools); no secrets in any tracked file (BWS write-guard)."
+  compatibility: "Must not change behavior for approver-tier keys — existing approve/reject/deprecate flows stay exactly as WS-1.4 shipped them."
+  quality_accessibility: null
+  operational: "Runs through brain's existing CI (quality.yml + ci.yml) and PR-based merge to main; Coolify auto-redeploys all four brain apps on merge, per the existing WS-1.4 pattern."
+  other: []
+acceptance:
+  - id: AC-001
+    condition: "All five de-escalation calls (delete_rule, retire_rule, delete_knowledge, capture_knowledge(supersedes_id=...), update_rule on an authority='required' record) require an approver-tier key across all four brains."
+    evidence_type: automated_test
+    evidence: "ci: a new governance-gate test module asserts a contributor-tier key is denied on each of the five calls and an approver-tier key still succeeds"
+    approver: policy
+  - id: AC-002
+    condition: "No regression to already-shipped approver-tier flows: approve/reject/deprecate behave exactly as WS-1.4 shipped them."
+    evidence_type: automated_test
+    evidence: "ci: the full pre-existing WS-1.4 governance test suite (198 tests) passes unmodified"
+    approver: policy
+  - id: AC-003
+    condition: "CI stays green on both existing required checks."
+    evidence_type: automated_test
+    evidence: "gate: brain's quality.yml and ci.yml GitHub Actions checks both pass on the PR"
+    approver: policy
+  - id: AC-004
+    condition: "The fix introduces no new de-escalation or self-approve bypass — the same bug class WS-1.4's own Fable review caught once (a restore_rule self-approve bypass)."
+    evidence_type: human_review
+    evidence: "human: Devon, or an escalated Fable review per WS-1.4 precedent, reviews the gating diff and confirms no new bypass exists"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  requires_approval:
+    - merge_to_main
+  prohibited:
+    - secret_write
+    - infra_mutation
+    - credential_create
+    - credential_revoke
+  budgets:
+    max_attempts: null
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "require_approver gating on the five named tool calls, across all four brains' shared core."
+    - "Regression tests proving contributor-tier denial and approver-tier success on each gated call."
+    - "A PR against the brain repo."
+  destination: "brain repo (AlobarQuest/brain)."
+  recipient: "devon"
+  definition_of_done: "A contributor-tier key cannot perform any of the five de-escalation actions; the existing WS-1.4 governance suite stays green; Devon (or an escalated review) confirms no new bypass; Devon merges."
+  operator_responsibilities:
+    - "Devon reviews and merges the PR."
+    - "Devon decides when a contributor key is actually issued — this pilot only closes the accepted-risk gate, it does not itself issue a key."
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems:
+    - "Devon (review + merge)"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+  blocking_conditions: []
+risk:
+  failure_modes:
+    - "The gate is added to some but not all five call sites, leaving a de-escalation path open."
+    - "The fix itself introduces a new self-approve-style bypass — WS-1.4's own review caught exactly this bug class once already."
+  max_impact: "A contributor-tier key could still de-escalate governed knowledge state — caught by the regression suite and human review before any contributor key is actually issued (this pilot's own stated precondition)."
+  stop_conditions:
+    - "The regression tests find any of the five call sites still contributor-reachable."
+    - "The review finds a new bypass."
+  rollback: "Revert the gating commit; the four brain deployments redeploy on the next merge per the existing CI/CD pattern; no contributor key has been issued yet, so there is no live exposure to unwind."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Devon, or an escalated Fable review per WS-1.4 precedent, confirms no new de-escalation bypass (AC-004)."
+  non_mechanical:
+    - "Whether the gate is 'complete' (covers every real de-escalation surface, not just the five named calls) is a judgment call the regression tests inform but don't fully replace."
+follow_up:
+  required: true
+  revisit_when: "The first contributor MCP key is actually issued to a real agent."
+  signals:
+    - "A new destructive/de-escalation tool is added to any brain and isn't audited against this gate."
+    - "The contributor key is issued for the first time."
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
