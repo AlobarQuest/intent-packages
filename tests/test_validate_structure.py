@@ -101,3 +101,24 @@ def test_acceptance_bad_evidence_type_is_rejected(valid_package, edit_yaml):
         set_nested=(("acceptance", 0, "evidence_type"), "bogus_type"),
     )
     assert any("evidence_type" in e for e in validate_package(valid_package))
+
+
+def test_registered_agent_approver_is_accepted(valid_package, edit_yaml, fake_registry, monkeypatch):
+    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
+    edit_yaml(
+        valid_package,
+        "package.yaml",
+        set_nested=(("acceptance", 0, "approver"), "devon"),
+    )
+    assert validate_package(valid_package) == []
+
+
+def test_unregistered_agent_approver_is_rejected(valid_package, edit_yaml, fake_registry, monkeypatch):
+    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
+    edit_yaml(
+        valid_package,
+        "package.yaml",
+        set_nested=(("acceptance", 0, "approver"), "nobody-xyz"),
+    )
+    errs = validate_package(valid_package)
+    assert any("approver" in e and "registered" in e for e in errs)

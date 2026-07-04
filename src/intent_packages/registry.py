@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from .loader import LoadError, load_yaml_strict
+from intent_packages.loader import LoadError, load_yaml_strict
 
 _HUMAN_OPERATOR_PROFILE = "human-operator-v1"
 
