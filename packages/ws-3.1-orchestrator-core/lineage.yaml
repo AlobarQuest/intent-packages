@@ -1,0 +1,17 @@
+package_id: ws-3.1-orchestrator-core
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b
+  created_at: '2026-07-04T23:03:37Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-04T23:05:52.106892+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-04T23:05:52.106892+00:00'
+  actor: claude-code-interactive
+  event_id: evt-9804f5847cdc4bd0ac41928359cc3cf4
+approvals: []
+grants: []

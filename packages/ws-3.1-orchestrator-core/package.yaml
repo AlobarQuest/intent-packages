@@ -1,0 +1,299 @@
+schema_version: 1
+package_id: ws-3.1-orchestrator-core
+title: "WS-3.1 — persistent orchestrator core"
+revision: 1
+status: ready_for_review
+created_by: codex-interactive
+owner: devon
+created_at: "2026-07-04T23:03:37Z"
+supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/orchestrator
+  branch: codex/ws31-orchestrator-core
+  deploy_target: null
+  required_checks:
+    - Quality
+  rollback_plan: "Before deployment, abandon or revert the feature branch and retain the approved intent package. Any later database rollback must use a reviewed forward migration or restore procedure; destructive production rollback is out of scope."
+outcome:
+  what: "A minimum persistent orchestrator owns canonical, attributable work-unit lifecycle truth through a domain-neutral API, CLI, and small human review surface."
+  why: "Phase 3 requires a deterministic control plane between approved intent and execution runtimes, without making workers or external trackers lifecycle authorities."
+  beneficiary: "Devon, future factory workers and verifiers, and both software and non-software factory workflows."
+  success_signal: "The complete declared work-unit graph, atomic lease behavior, dependency and approval gates, evidence association, API/CLI parity, migrations, health checks, and human-only completion controls pass locally and in the named CI check."
+scope:
+  included:
+    - "Create the new AlobarQuest/orchestrator repository using the proven Flavor-B FastAPI, PostgreSQL, Alembic, single-container, Alobar ID forward-auth, M2M API, Jinja/HTMX review-UI, and CLI shape."
+    - "Implement persistent work_packages, work_package_revisions, work_units, dependencies, claims, approvals, evidence, and events models with materially useful database constraints."
+    - "Implement the exact canonical work-unit states and legal edges from companion document section 6 in one deterministic transition module, including explicit invalid-edge tests."
+    - "Implement atomic, exclusive, expiring, renewable, attempt-aware claims with deterministic clock injection, idempotency rules, stale-claim rejection, lease-expiry reclaim, and bounded attempts."
+    - "Enforce that Draft units cannot become Ready without an approved immutable package revision and satisfied dependencies, and that workers can submit evidence but cannot set Completed."
+    - "Store immutable evidence associated with package revision, work unit, acceptance criterion, actor, recorded time, event ID, source revision, and structured payload or stable reference."
+    - "Represent acceptance-criterion outcomes and human-approved waivers sufficiently for Phase 5 adjudication without implementing Phase 5 verifier decisions."
+    - "Represent external dependencies and explain readiness as ready, blocked, or not-authorized from declared dependencies, approval, and authority inputs."
+    - "Invalidate readiness when authority expands without a new human approval; defer WS-3.3 same-scope subscription semantics."
+    - "Append an attributable local event in the same database transaction as every lifecycle transition, leaving factory-event/v1 publication to WS-3.4."
+    - "Provide health and migration checks, API and CLI lifecycle parity, a small approval/review GUI, and documentation covering architecture, local development, operations, and no-auto-merge policy."
+  excluded:
+    - "WS-3.2 immutable package intake automation and agent-proposed, human-approved work-unit decomposition."
+    - "WS-3.3 standing-context preflight, skill-subscription semantics, protocol smoke suite, and status-ledger projection beyond tests strictly needed for WS-3.1 lifecycle behavior."
+    - "WS-3.4 factory-event/v1 publication and append-only external event-store integration."
+    - "Factory runners, automatic dispatch, GitHub Actions worker execution, independent verifier logic, production deployment automation, and post-deploy observation."
+    - "Linear, Todoist, GitHub, or any other tracker becoming canonical lifecycle state."
+    - "Automatic merge, autonomous intent approval, autonomous decomposition approval, brain learning, generalized workflow builders, new agent personas, and listing-specific profiles."
+    - "Broad changes to change-manager, intent-packages, security-standards, brain, or live infrastructure."
+  non_goals:
+    - "Copying change-manager domain models or drift authority into the generic orchestrator."
+    - "Completing all Phase 3 workstreams in WS-3.1."
+    - "Deploying the service or mutating production infrastructure."
+  assumptions:
+    - "Intent-package YAML in git remains canonical for intent content and its exact-revision approval chain."
+    - "The orchestrator stores immutable identity, hash, source reference, approval linkage, and normalized fields required to enforce work-unit lifecycle rules rather than becoming a second editable intent authoring store."
+    - "PostgreSQL is the concurrency authority; SQLite is not a valid substitute for claim-concurrency acceptance tests."
+    - "Devon remains the only actor authorized to merge pull requests."
+  open_questions: []
+sources:
+  - location: "Allowlist item 1: Devon's live 2026-07-04 instruction to begin Phase 3, use the software-delivery profile, and author WS-3.1 before application code"
+    authority_level: authoritative
+    required_version: "2026-07-04"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md (exact canonical allowlist path)"
+    authority_level: authoritative
+    required_version: "2026-07-02"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md (exact canonical allowlist path)"
+    authority_level: authoritative
+    required_version: "2026-06-30"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-2.4-ci-evidence-control revision 1, chain-verified hash 639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80 (allowlist item 3)"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-2.4-historical-listing-launch revision 1, chain-verified hash 3628762968958ad172287c5ace1dafbc22d8af0a42fb05dc02faf8f4ed9242c0 (allowlist item 3)"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-phase2-exit-checklist.md"
+    authority_level: supporting
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-ws24-contract-friction.md"
+    authority_level: supporting
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-codex-post-mvp-recommendations.md"
+    authority_level: reference
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/change-manager at merged main commit 923278a"
+    authority_level: reference
+    required_version: "923278a"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/security-standards factory-event/v1, factory-events store, capability vocabulary, and actor registry as inspected on 2026-07-04"
+    authority_level: reference
+    required_version: "local working tree; branch contains e38994b with untracked files preserved"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One approved WS-3.1 design and implementation cycle; later Phase-3 work requires separately approved intent."
+  technology: "Python 3.12, FastAPI, SQLAlchemy, Alembic, PostgreSQL 16, Pydantic, Jinja/HTMX, and one deployable container; harvest proven change-manager patterns without importing its domain."
+  policy_legal: "Devon alone approves exact intent revisions and merges pull requests."
+  privacy_security: "No secrets in tracked files; API clients authenticate M2M identities mapped to the Phase-1 registry; human UI trusts only the configured Alobar ID forward-auth boundary; authorization is capability- and transition-specific."
+  compatibility: "Core lifecycle and storage remain domain-neutral; package content stays canonical in intent-packages; external systems remain projections."
+  quality_accessibility: "Follow portfolio code standards, TDD, explicit invalid-edge and concurrency tests, readable operator UI, and keyboard-usable review actions."
+  operational: "Use migrations; run concurrency acceptance against PostgreSQL; expose liveness and database/migration readiness; do not deploy or mutate infrastructure in this package."
+  other:
+    - "Application code may begin only after Devon approves this exact package revision."
+    - "Design specification and task-level implementation plan must be reviewed before implementation."
+    - "An adversarial architecture review must challenge the design before implementation."
+acceptance:
+  - id: AC-001
+    condition: "One central transition module declares the complete approved state graph and tests every legal edge plus every invalid source-target pair, including the five named forbidden transitions."
+    evidence_type: automated_test
+    evidence: "gate: exhaustive state-graph test report from the exact PR revision"
+    approver: policy
+  - id: AC-002
+    condition: "An unapproved Draft work unit cannot become Ready, Claimed, or Executing; dependencies and authority inputs produce explainable ready, blocked, or not-authorized decisions."
+    evidence_type: automated_test
+    evidence: "gate: readiness, approval, dependency, and authority decision tests pass against PostgreSQL"
+    approver: policy
+  - id: AC-003
+    condition: "Two concurrent workers cannot both acquire one live claim; lease renewal is owner- and attempt-bound; expiry permits one safe reclaim and increments attempt state; maximum attempts are enforced."
+    evidence_type: automated_test
+    evidence: "gate: PostgreSQL concurrency and deterministic-clock lease tests pass on the exact PR revision"
+    approver: policy
+  - id: AC-004
+    condition: "A worker identity can claim, execute, block, request approval, fail, and submit artifacts/evidence as authorized, but cannot transition a unit to Completed or grant a waiver."
+    evidence_type: automated_test
+    evidence: "gate: role and transition authorization tests pass for worker, verifier, and human identities"
+    approver: policy
+  - id: AC-005
+    condition: "Every lifecycle transition atomically appends an attributable local event, and failed transactions leave neither a state change nor a transition event."
+    evidence_type: automated_test
+    evidence: "gate: transaction-bound state/event tests pass, including rollback injection"
+    approver: policy
+  - id: AC-006
+    condition: "Evidence is immutable, correctable only by append-only supersession, and can be associated with package revision, work unit, AC, actor, recorded time, event ID, source revision, evidence type, and payload or stable reference."
+    evidence_type: automated_test
+    evidence: "gate: evidence constraint, association, immutability, and supersession tests pass"
+    approver: policy
+  - id: AC-007
+    condition: "AC adjudication storage distinguishes passed, failed, waived, and not-applicable; a waiver requires a named human approver, rationale, failed evidence, risk, follow-up, and optional scope/expiry, while workers cannot create it."
+    evidence_type: automated_test
+    evidence: "gate: adjudication schema and authorization tests pass without implementing verifier decision logic"
+    approver: policy
+  - id: AC-008
+    condition: "A package or work-unit authority expansion invalidates prior readiness until a new human approval is recorded; WS-3.3 same-scope subscription behavior is not implemented."
+    evidence_type: automated_test
+    evidence: "gate: authority-diff and approval-invalidation tests pass"
+    approver: policy
+  - id: AC-009
+    condition: "API and CLI expose equivalent lifecycle outcomes and error semantics for create/register, ready, claim, start, block, request-approval, approve, submit, verify, review, complete, fail, cancel, evidence, and history operations."
+    evidence_type: automated_test
+    evidence: "ci: API/CLI contract tests and the Quality workflow pass on the exact PR revision"
+    approver: policy
+  - id: AC-010
+    condition: "Migrations apply from an empty PostgreSQL database, schema-head checks pass, liveness succeeds without a database, and readiness reports database and migration state honestly."
+    evidence_type: automated_test
+    evidence: "health: migration, schema-head, liveness, and readiness checks pass against an ephemeral PostgreSQL database"
+    approver: policy
+  - id: AC-011
+    condition: "The human GUI supports reviewing units, evidence, dependencies, approvals, adjudication facts, and event history behind the Alobar ID forward-auth contract without exposing M2M-only actions to unauthenticated callers."
+    evidence_type: human_review
+    evidence: "human: Devon reviews the rendered local UI and authentication/authorization behavior"
+    approver: devon
+  - id: AC-012
+    condition: "The design records explicit decisions for ownership, package storage, leases, evidence correction, waivers, identity mapping, event-store failure safety, UI scope, local database, and deployment target, with WS-3.2–3.4 seams and non-goals preserved."
+    evidence_type: human_review
+    evidence: "human: Devon approves the written WS-3.1 design after adversarial architecture review"
+    approver: devon
+  - id: AC-013
+    condition: "The repository contains no automatic merge path, no production-infrastructure mutation path, no tracked secret, and no worker capability that declares canonical completion."
+    evidence_type: automated_test
+    evidence: "scan: security scan, repository search assertions, and final whole-branch architecture review pass"
+    approver: policy
+  - id: AC-014
+    condition: "Devon alone reviews and merges the pull request after the exact named Quality check succeeds; the worker does not merge it."
+    evidence_type: human_review
+    evidence: "human: Devon confirms the final review and merge decision; merge remains outside worker authority"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  requires_approval:
+    - merge_to_main
+    - secret_read
+    - secret_write
+    - infra_mutation
+    - credential_create
+    - credential_revoke
+  prohibited:
+    - outward_publish
+    - email_send
+    - spend_money
+    - calendar_write
+    - third_party_contact
+    - data_delete
+    - external_system_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "Approved WS-3.1 design specification in AlobarQuest/orchestrator"
+    - "Adversarial architecture review findings and resolutions"
+    - "Task-level WS-3.1 implementation plan"
+    - "FastAPI/PostgreSQL orchestrator service, Alembic migrations, CLI, small review GUI, tests, and operator documentation"
+    - "Draft pull request against AlobarQuest/orchestrator with exact-revision Quality evidence"
+    - "Readable acceptance-criterion evidence index for WS-3.1"
+  destination: "AlobarQuest/orchestrator; this governing package remains in AlobarQuest/intent-packages."
+  recipient: devon
+  definition_of_done: "All ACs have realized evidence and explicit outcomes, the draft PR is reviewable with named CI green, Devon has completed final review and merge, and lifecycle records remain honest."
+  operator_responsibilities:
+    - "Approve or reject this exact intent revision."
+    - "Resolve the nine explicit design decisions before approving the written specification."
+    - "Review the rendered UI and judgment-based acceptance criteria."
+    - "Review and merge the pull request personally; no agent may merge it."
+dependencies:
+  predecessor_packages:
+    - package: ws-2.4-ci-evidence-control
+      revision: 1
+    - package: ws-2.4-historical-listing-launch
+      revision: 1
+  external_decisions:
+    - "Devon approval of this exact package revision before repository creation or application code."
+    - "Devon approval of the written design specification before implementation planning."
+    - "Devon approval of the task-level implementation plan before implementation."
+  required_people_systems:
+    - "Devon for intent approval, design decisions, design approval, UI review, PR review, and merge"
+    - "GitHub and GitHub Actions for repository, draft PR, and the named Quality check"
+    - "Local PostgreSQL 16 or an approved equivalent ephemeral PostgreSQL environment for migrations and concurrency tests"
+    - "Alobar ID forward-auth contract for human identity behavior"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  blocking_conditions:
+    - "This exact package revision is not approved and chain-verified."
+    - "Any governing design decision remains hidden, contradictory, or unresolved in the approved design."
+    - "The written design or implementation plan lacks Devon approval."
+    - "PostgreSQL concurrency tests cannot run."
+    - "Any named acceptance criterion lacks realized evidence or an explicit adjudication."
+    - "The Quality check is absent, failing, or not tied to the exact PR revision."
+    - "A change would create an automatic merge, production mutation, tracker-canonical, worker-completion, or autonomous-approval path."
+risk:
+  failure_modes:
+    - "The orchestrator duplicates mutable intent content and creates two canonical sources."
+    - "Claim races or ambiguous expiry permit duplicate execution."
+    - "A worker bypasses submission, verification, human approval, or completion authority."
+    - "Evidence or waivers can be silently edited, detached, or granted by a worker."
+    - "Events are emitted separately from state commits and audit history diverges."
+    - "Software-specific assumptions enter the generic lifecycle core."
+    - "WS-3.2–3.4 behavior is pulled into WS-3.1 without separate approval."
+  max_impact: "Incorrect canonical lifecycle truth could authorize duplicate or unreviewed work; production mutation remains out of scope to cap blast radius."
+  stop_conditions:
+    - "A baseline repository or required check becomes red for an in-scope reason."
+    - "The approved package hash changes without revision and renewed approval."
+    - "Atomic claim exclusivity or state/event transactionality cannot be demonstrated on PostgreSQL."
+    - "A design requires secrets in tracked files, destructive database action, or live infrastructure mutation."
+    - "A worker, CLI, API, CI workflow, or UI path can merge a PR or unilaterally set Completed."
+    - "Implementation scope crosses into WS-3.2, WS-3.3, WS-3.4, Phase 4, or Phase 5 without separately approved intent."
+  rollback: "Before deployment, revert or abandon WS-3.1 commits and close the draft PR; preserve this package, evidence, and review findings. Database changes are tested only in disposable local databases under this package."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Run an adversarial architecture review of the approved design before implementation."
+    - "Review every coherent implementation slice against the approved package and plan."
+    - "Run portfolio code review on the whole branch against ~/Developer/code-standards/STANDARDS.md."
+    - "Run a final whole-branch security and architecture review before Devon's merge decision."
+  non_mechanical:
+    - "Whether the package-content ownership boundary avoids dual canonical truth."
+    - "Whether lease and failure semantics are operable rather than merely testable."
+    - "Whether the UI is the smallest credible human review surface."
+    - "Whether later WS-3.2–3.4 seams avoid a schema rewrite without implementing those workstreams early."
+follow_up:
+  required: true
+  revisit_when: "Before authoring WS-3.2 and after the first manual replay of both Phase-2 control packages."
+  signals:
+    - "Operator improvisation outside the declared contract"
+    - "Claim expiry, reclaim, or duplicate-execution anomalies"
+    - "Schema changes requested by WS-3.2 intake, WS-3.3 protocol, or WS-3.4 event wiring"
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
