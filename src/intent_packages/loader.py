@@ -1,0 +1,41 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import yaml
+
+
+class LoadError(Exception):
+    pass
+
+
+class _NoDatesLoader(yaml.SafeLoader):
+    """SafeLoader that never auto-parses timestamps into datetime/date objects."""
+
+
+# Drop YAML's implicit timestamp resolver so 2026-07-03T00:00:00Z loads as str.
+_NoDatesLoader.yaml_implicit_resolvers = {
+    ch: [(tag, regexp) for (tag, regexp) in resolvers if tag != "tag:yaml.org,2002:timestamp"]
+    for ch, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+
+
+def load_yaml_strict(text: str) -> dict:
+    try:
+        docs = list(yaml.load_all(text, Loader=_NoDatesLoader))
+    except yaml.YAMLError as exc:  # noqa: BLE001
+        raise LoadError(f"invalid YAML: {exc}") from exc
+    if len(docs) != 1:
+        raise LoadError(f"expected exactly one YAML document, found {len(docs)}")
+    data = docs[0]
+    if not isinstance(data, dict):
+        raise LoadError("top-level YAML must be a mapping")
+    return data
+
+
+def load_package(pkg_dir: str | Path) -> dict:
+    return load_yaml_strict((Path(pkg_dir) / "package.yaml").read_text(encoding="utf-8"))
+
+
+def load_lineage(pkg_dir: str | Path) -> dict:
+    return load_yaml_strict((Path(pkg_dir) / "lineage.yaml").read_text(encoding="utf-8"))
