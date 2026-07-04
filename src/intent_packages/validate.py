@@ -10,6 +10,9 @@ trust + cross-file semantic checks.
   - TR (trust)            — every sources[] entry declares a legal `trust`.
   - A  (acceptance)       — unique well-formed ids, enum evidence_type,
                            non-empty evidence, legal approver form.
+  - P  (profiles, WS-2.2) — dispatches to a registered domain profile's own
+                           validator when the package declares `profile:`;
+                           see `profiles/__init__.py`.
   - S/H/T/L (cross-file)  — status/lineage mirror, hash drift, authority
                            envelope, lineage consistency; implemented in
                            `checks_semantic.py` (kept out of this file so it

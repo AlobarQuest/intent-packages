@@ -19,9 +19,12 @@ PROFILE_FIELDS_SCHEMA = MapSpec(
 
 def _check_profile_fields(package: dict) -> list[str]:
     errors: list[str] = []
+    if "profile_fields" not in package:
+        errors.append("profile_fields: missing required key")
+        return errors
     fields = package.get("profile_fields")
     if not isinstance(fields, dict):
-        errors.append("profile_fields: missing required key")
+        # validate.py's check K/J already reports "profile_fields: expected a mapping"
         return errors
 
     _walk(fields, PROFILE_FIELDS_SCHEMA, "profile_fields", errors)

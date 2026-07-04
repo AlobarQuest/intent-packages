@@ -53,6 +53,15 @@ def test_rollback_plan_must_be_non_empty(infrastructure_change_package, edit_yam
     assert any("profile_fields.rollback_plan" in e and "non-empty" in e for e in errs)
 
 
+def test_profile_fields_wrong_type_is_not_mislabeled_as_missing(
+    infrastructure_change_package, edit_yaml
+):
+    edit_yaml(infrastructure_change_package, "package.yaml", set_key=("profile_fields", []))
+    errs = validate_package(infrastructure_change_package)
+    assert any("profile_fields" in e and "expected a mapping" in e for e in errs)
+    assert not any("profile_fields" in e and "missing required key" in e for e in errs)
+
+
 def test_evidence_without_a_recognized_tag_is_rejected(infrastructure_change_package, edit_yaml):
     edit_yaml(
         infrastructure_change_package,

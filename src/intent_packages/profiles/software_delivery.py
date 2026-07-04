@@ -29,9 +29,12 @@ _NON_EMPTY_STRING_FIELDS = ("repo", "branch", "rollback_plan")
 
 def _check_profile_fields(package: dict) -> list[str]:
     errors: list[str] = []
+    if "profile_fields" not in package:
+        errors.append("profile_fields: missing required key")
+        return errors
     fields = package.get("profile_fields")
     if not isinstance(fields, dict):
-        errors.append("profile_fields: missing required key")
+        # validate.py's check K/J already reports "profile_fields: expected a mapping"
         return errors
 
     _walk(fields, PROFILE_FIELDS_SCHEMA, "profile_fields", errors)
@@ -44,8 +47,15 @@ def _check_profile_fields(package: dict) -> list[str]:
             errors.append(f"profile_fields.{key}: must be a non-empty string")
 
     required_checks = fields.get("required_checks")
-    if isinstance(required_checks, list) and not required_checks:
-        errors.append("profile_fields.required_checks: must be a non-empty list")
+    if isinstance(required_checks, list):
+        if not required_checks:
+            errors.append("profile_fields.required_checks: must be a non-empty list")
+        else:
+            for i, item in enumerate(required_checks):
+                if isinstance(item, str) and not item.strip():
+                    errors.append(
+                        f"profile_fields.required_checks[{i}]: must be a non-empty string"
+                    )
 
     return errors
 
