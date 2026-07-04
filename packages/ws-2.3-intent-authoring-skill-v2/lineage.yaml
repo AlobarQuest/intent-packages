@@ -1,10 +1,34 @@
 package_id: ws-2.3-intent-authoring-skill-v2
-current_state: draft
+current_state: in_execution
 revisions:
 - revision: 1
   hash: d9717f02c970d76267b83d3b5315417e65425d539e66dc1faab3c405e5b069f2
-  created_at: "2026-07-04T14:21:16.751508+00:00"
+  created_at: '2026-07-04T14:24:18.863926+00:00'
   author: claude-code-interactive
-transitions: []
-approvals: []
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-04T14:24:18.863926+00:00'
+  actor: claude-code-interactive
+  event_id: evt-c366ef24f6da407ab70e5cc4c94d7efd
+- kind: transition
+  from: approved
+  to: executable
+  at: '2026-07-04T14:24:51.117731+00:00'
+  actor: claude-code-interactive
+  event_id: evt-56e0678051974949bd28db35d242631c
+- kind: transition
+  from: executable
+  to: in_execution
+  at: '2026-07-04T14:24:51.283658+00:00'
+  actor: claude-code-interactive
+  event_id: evt-2a611961b8af474693a82533679bc59e
+approvals:
+- revision: 1
+  approved_hash: d9717f02c970d76267b83d3b5315417e65425d539e66dc1faab3c405e5b069f2
+  approver: devon
+  approved_at: '2026-07-04T14:24:28.826377+00:00'
+  commit: b57c81d44c5f5f46c316498178b0f51ee88a206f
+  event_id: evt-41660251005d424d9072760b15ed0486
 grants: []
