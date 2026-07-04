@@ -1,5 +1,5 @@
 package_id: ws-3.1-orchestrator-core
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b
@@ -13,5 +13,11 @@ transitions:
   at: '2026-07-04T23:05:52.106892+00:00'
   actor: claude-code-interactive
   event_id: evt-9804f5847cdc4bd0ac41928359cc3cf4
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b
+  approver: devon
+  approved_at: '2026-07-04T23:07:40.171226+00:00'
+  commit: dcc2664a0200ac593e93d7314f38752da82dfd33
+  event_id: evt-247ae2327e0c4adfbc393aca5b4bfc5f
 grants: []
