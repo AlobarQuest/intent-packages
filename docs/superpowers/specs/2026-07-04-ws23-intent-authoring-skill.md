@@ -98,7 +98,9 @@ NEW — Pre-emission quality checklist (gate, §6):
     ▼
 Write packages/<id>/package.yaml + lineage.yaml
 `PYTHONPATH=src python3 -m intent_packages validate packages/<id>`
-Commit straight to intent-packages main (D-Q3)
+  validate FAILS → fix-or-report (§8) — NEVER commit; D-Q3's "drafts are
+    inert, no PR needed" rationale assumes everything on main validates.
+  validate PASSES → commit straight to intent-packages main (D-Q3)
     │
     ▼
 Report to Devon: "Draft package <id> written and validates.
@@ -206,6 +208,13 @@ even after asking, or the pre-emission checklist fails) ends with the skill repo
 missing** — mirroring today's brief-flow behavior — rather than emitting a package that would fail
 `validate`, fabricate a profile fit, or leave `sources[]` under-classified. This is deliberately the same
 failure mode demonstrated in §9's verification step.
+
+**Post-write validate failure is a rule, not a judgment call.** The checklist (§6) makes a `validate` failure
+after the package is written unlikely, not impossible — a `profile_fields` typo, a mis-tagged evidence
+string. If `validate` fails after the write: fix-or-report, but **never commit a non-validating package to
+`intent-packages` `main`.** D-Q3's entire rationale for skipping PR ceremony ("Drafts are inert, no PR
+needed") depends on everything that lands on `main` at minimum validating — a bad package committed there
+would be the one thing on `main` that *isn't* inert.
 
 ---
 
