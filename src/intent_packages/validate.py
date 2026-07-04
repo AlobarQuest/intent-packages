@@ -10,6 +10,9 @@ trust + cross-file semantic checks.
   - TR (trust)            — every sources[] entry declares a legal `trust`.
   - A  (acceptance)       — unique well-formed ids, enum evidence_type,
                            non-empty evidence, legal approver form.
+  - P  (profiles, WS-2.2) — dispatches to a registered domain profile's own
+                           validator when the package declares `profile:`;
+                           see `profiles/__init__.py`.
   - S/H/T/L (cross-file)  — status/lineage mirror, hash drift, authority
                            envelope, lineage consistency; implemented in
                            `checks_semantic.py` (kept out of this file so it
@@ -32,7 +35,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from intent_packages import checks_semantic, registry
+from intent_packages import checks_semantic, profiles, registry
 from intent_packages.loader import LoadError, load_package
 from intent_packages.schema import TOP_SCHEMA, _scan_forbidden_types, _walk
 
@@ -192,6 +195,7 @@ def validate_package(pkg_dir: str | Path) -> list[str]:
         _check_package_id(pkg, pkg_dir, errors)
         _check_trust(pkg, errors)
         _check_acceptance(pkg, errors)
+        errors.extend(profiles.validate_profile(pkg))
 
     result = [f"package.yaml: {e}" for e in errors]
 

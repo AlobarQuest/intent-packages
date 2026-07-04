@@ -31,7 +31,10 @@ required_checks:
 - [ ] (P3) Phase-3: chain-based approve idempotency (currently lineage-based; docstring-scoped as MVP) and crash-atomic revise — added 2026-07-04
 - [ ] (P3) CI: no security-standards checkout means vocabulary/registered-approver checks never enforce on PRs (spec-endorsed degradation); consider a vendored capability-vocab snapshot or token checkout — added 2026-07-04
 - [ ] (P3) Spec §8 sync: non-approval transitions emit before the lineage write (code order); reconcile the "torn state still verifies" wording; `--no-emit` is in the spec but not implemented — added 2026-07-04
+- [ ] (P3) profiles: no test locks evidence-tag case-sensitivity (e.g. `"CI: ..."` must be rejected as unrecognized) or the optional-space-after-colon convention across tags other than the one already covered — added 2026-07-04
+- [ ] (P3) profiles: a package carrying `profile_fields` but no `profile:` key validates clean and silently ignores the fields — likely an authoring mistake (forgot `profile:`); worth a one-line error — added 2026-07-04
+- [ ] (P3) tests/conftest.py: three ~80-line near-duplicate package-YAML templates (`_VALID_PACKAGE_YAML`, `_SOFTWARE_DELIVERY_PACKAGE_YAML`, `_INFRASTRUCTURE_CHANGE_PACKAGE_YAML`) — acceptable for now (matches the pre-existing fixture pattern and doubles as readable documentation); extract a builder once a 4th profile fixture is added (rule of three) — added 2026-07-04
 
 ## Future plans
 
-- WS-2.2 (next): domain profiles (software-delivery + infrastructure-change) extending the universal envelope via `profile_fields` — the first real intent package `packages/ws-2.2-domain-profiles` is authored and Approved (dogfood ladder input).
+- WS-2.2 (done): domain profiles (software-delivery + infrastructure-change) shipped in `src/intent_packages/profiles/` — dispatch registry (check P), per-profile `profile_fields` schemas, and a shared tag-prefix evidence-vocabulary check (AC-004). Universal envelope proven unchanged (`tests/test_profiles_compat.py`). Next: WS-2.3, authored as the next intent package under `profile: software-delivery` (dogfood ladder).

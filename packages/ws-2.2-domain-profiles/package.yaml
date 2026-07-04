@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: ws-2.2-domain-profiles
 title: "WS-2.2 — Domain profiles for intent packages"
-revision: 1
+revision: 2
 status: approved
 created_by: claude-code-interactive
 owner: devon
@@ -17,6 +17,7 @@ scope:
     - "A software-delivery profile (fields + profile validator layered on the universal envelope)."
     - "An infrastructure-change profile (fields + profile validator)."
     - "Profile registration/dispatch so `validate` applies the right profile when a package declares `profile:`."
+    - "An evidence-type vocabulary per profile: acceptance-criteria evidence is constrained to producers the stack already has (CI check IDs, code-standards Gate results, security-scan results, health-gate URLs, /code-review verdicts, human review); the profile validator rejects an evidence type no real producer can satisfy."
   excluded:
     - "The real-estate listing-launch profile and any pilot packages (WS-2.4)."
     - "The conversational intent-authoring skill (WS-2.3)."
@@ -70,6 +71,11 @@ acceptance:
     evidence_type: human_review
     evidence: "Devon reviews the two profiles and confirms no software/infra assumption leaked into the universal envelope."
     approver: devon
+  - id: AC-004
+    condition: "Each profile constrains acceptance-criteria evidence to a vocabulary of producers the stack actually has (CI check IDs, code-standards Gate results, security-scan results, health-gate URLs, /code-review verdicts, human review), and the profile validator rejects an evidence type no real producer can satisfy."
+    evidence_type: automated_test
+    evidence: "A profile-validator test asserts a valid producer-backed evidence type passes and an evidence type with no real producer is rejected with an actionable error."
+    approver: policy
 authority:
   allowed:
     - repository_read
