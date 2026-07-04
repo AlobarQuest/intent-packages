@@ -7,6 +7,15 @@ created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-04T00:00:00Z"
 supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: brain
+  branch: main
+  deploy_target: "Coolify — brain-app/brain-code/brain-infra/brain-open (shared core change, all four MCP deployments redeploy)"
+  required_checks:
+    - quality
+    - ci
+  rollback_plan: "Revert the require_approver-gating commit; CI (quality+ci) must stay green; the four brain deployments auto-redeploy on merge per the existing WS-1.4 CI/CD pattern (force=true redeploy already used for the governance mixin rollout)."
 outcome:
   what: "Contributor-tier MCP keys can no longer call any brain governance de-escalation tool (delete_rule, retire_rule, delete_knowledge, capture_knowledge with supersedes_id, or update_rule on a required-authority record) — only approver-tier keys can."
   why: "WS-1.4 shipped the require_approver gate on the mutation surface generally but explicitly left these five de-escalation paths contributor-reachable as an accepted, audit-log-compensated risk (spec §5.6) — accepted only until before any contributor key is actually issued. This pilot closes that precondition."
@@ -26,7 +35,7 @@ scope:
     - "No contributor key has been issued yet, so there is no live exposure to remediate — this closes a precondition, not an active incident."
   open_questions: []
 sources:
-  - location: "Devon's live instruction this session (2026-07-04), naming this backlog item and its five gated tools"
+  - location: "Devon's live instruction this session (2026-07-04), naming this backlog item and its five gated tools — allowlist item 1 (Devon's own words this session)"
     authority_level: authoritative
     required_version: null
     trust: trusted_instruction
@@ -41,7 +50,7 @@ sources:
     required_version: "2026-07-03"
     trust: untrusted_data
     sensitivity: internal
-  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md (WS-1.4 completion entry, Phase 1)"
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md (WS-1.4 completion entry, Phase 1) — allowlist item 2 (exact canonical path)"
     authority_level: authoritative
     required_version: "2026-07-02"
     trust: trusted_instruction
