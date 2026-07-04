@@ -2,7 +2,7 @@ schema_version: 1
 package_id: ws-2.4-brain-approver-gate
 title: "WS-2.4 pilot — gate brain de-escalation tools behind require_approver"
 revision: 1
-status: draft
+status: follow_up_due
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-04T00:00:00Z"

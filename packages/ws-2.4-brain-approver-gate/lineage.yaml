@@ -1,10 +1,52 @@
 package_id: ws-2.4-brain-approver-gate
-current_state: draft
+current_state: follow_up_due
 revisions:
 - revision: 1
-  hash: f77a7bdaec96410b55abf4d38b96c828dad159afd9af8cc17c1fc28607435767
-  created_at: "2026-07-04T13:47:42.914809+00:00"
+  hash: 78de35848e4101e85db6e7616966b8711a34585aaf8289f5b4b40dcfb002f504
+  created_at: '2026-07-04T14:58:20.886373+00:00'
   author: claude-code-interactive
-transitions: []
-approvals: []
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-04T14:58:20.886373+00:00'
+  actor: claude-code-interactive
+  event_id: evt-f6a093634e994cfd8f275e99eb08e48f
+- kind: transition
+  from: approved
+  to: executable
+  at: '2026-07-04T14:58:41.005153+00:00'
+  actor: claude-code-interactive
+  event_id: evt-004e8059fb234c35b84c12e2e5f63d79
+- kind: transition
+  from: executable
+  to: in_execution
+  at: '2026-07-04T14:58:56.368150+00:00'
+  actor: claude-code-interactive
+  event_id: evt-c69f148b4b04470fb47b294ccdb9ad72
+- kind: transition
+  from: in_execution
+  to: verification
+  at: '2026-07-04T15:24:03.329911+00:00'
+  actor: claude-code-interactive
+  event_id: evt-c4e63b9200674b71bc541e9a95ccb959
+- kind: transition
+  from: verification
+  to: completed
+  at: '2026-07-04T15:24:16.515335+00:00'
+  actor: claude-code-interactive
+  event_id: evt-587bba0bd6c24e679d9f1517f85b74e5
+- kind: transition
+  from: completed
+  to: follow_up_due
+  at: '2026-07-04T15:24:16.673260+00:00'
+  actor: claude-code-interactive
+  event_id: evt-0a46e5dad12d49cc80c39e1862ef9259
+approvals:
+- revision: 1
+  approved_hash: 78de35848e4101e85db6e7616966b8711a34585aaf8289f5b4b40dcfb002f504
+  approver: devon
+  approved_at: '2026-07-04T14:58:24.299403+00:00'
+  commit: ad0b7f71fd012800777f66406dd5b9f1e49d644b
+  event_id: evt-8b1e07337595441ea7878b68ebfaa700
 grants: []
