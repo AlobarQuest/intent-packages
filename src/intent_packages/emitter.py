@@ -19,6 +19,7 @@ from typing import Protocol
 from intent_packages import registry
 
 _DEFAULT_ACTOR = "claude-code-interactive"
+EMIT_TIMEOUT_SECONDS = 30
 
 
 class EmitError(Exception):
@@ -42,6 +43,9 @@ def _parse_event_id(stdout: str) -> str | None:
     Strategy: if any stdout line parses as JSON with an `event_id` key,
     return that. Otherwise fall back to the last non-empty
     whitespace-delimited token if it looks like an id. Otherwise None.
+
+    Note: the `len(token) > 3` bare-token heuristic below is a best-effort
+    fallback pending a formal event_id format contract, not a derived rule.
     """
     lines = [line.strip() for line in stdout.splitlines() if line.strip()]
 
@@ -111,7 +115,15 @@ class FactoryEventsEmitter:
             f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else src_dir
         )
 
-        result = subprocess.run(argv, capture_output=True, text=True, env=env)
+        try:
+            result = subprocess.run(
+                argv, capture_output=True, text=True, env=env, timeout=EMIT_TIMEOUT_SECONDS
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise EmitError(
+                f"factory_events emit timed out after {EMIT_TIMEOUT_SECONDS}s"
+            ) from exc
+
         if result.returncode != 0:
             raise EmitError(f"factory_events emit failed: {result.stderr}")
 
