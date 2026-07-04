@@ -24,9 +24,12 @@ jobs:
 
       - name: Tests (assert non-zero collected)
         run: |
-          out=$(PYTHONPATH=src python3 -m pytest -q -rN 2>&1)
-          echo "$out"
-          echo "$out" | grep -Eq '[1-9][0-9]* passed' || { echo "ERROR: no tests ran"; exit 1; }
+          set +e
+          PYTHONPATH=src python3 -m pytest -q -rN 2>&1 | tee pytest-out.txt
+          ec=${PIPESTATUS[0]}
+          set -e
+          if [ "$ec" -ne 0 ]; then echo "ERROR: pytest failed (exit $ec)"; exit "$ec"; fi
+          grep -Eq '[1-9][0-9]* passed' pytest-out.txt || { echo "ERROR: no tests ran"; exit 1; }
 
       - name: Lint
         run: ruff check .

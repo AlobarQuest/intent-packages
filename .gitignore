@@ -13,6 +13,7 @@ dist/
 .mypy_cache/
 .coverage
 htmlcov/
+pytest-out.txt
 
 # Env / secrets (BWS is the source of record — never track secret material)
 .env
