@@ -23,3 +23,6 @@ pytest-out.txt
 
 # OS
 .DS_Store
+
+# Worktrees
+.worktrees/
