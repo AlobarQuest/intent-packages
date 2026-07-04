@@ -32,7 +32,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from intent_packages import checks_semantic, registry
+from intent_packages import checks_semantic, profiles, registry
 from intent_packages.loader import LoadError, load_package
 from intent_packages.schema import TOP_SCHEMA, _scan_forbidden_types, _walk
 
@@ -192,6 +192,7 @@ def validate_package(pkg_dir: str | Path) -> list[str]:
         _check_package_id(pkg, pkg_dir, errors)
         _check_trust(pkg, errors)
         _check_acceptance(pkg, errors)
+        errors.extend(profiles.validate_profile(pkg))
 
     result = [f"package.yaml: {e}" for e in errors]
 
