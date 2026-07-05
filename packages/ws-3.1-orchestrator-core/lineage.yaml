@@ -1,5 +1,5 @@
 package_id: ws-3.1-orchestrator-core
-current_state: approved
+current_state: closed
 revisions:
 - revision: 1
   hash: 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b
@@ -13,6 +13,42 @@ transitions:
   at: '2026-07-04T23:05:52.106892+00:00'
   actor: claude-code-interactive
   event_id: evt-9804f5847cdc4bd0ac41928359cc3cf4
+- kind: transition
+  from: approved
+  to: executable
+  at: '2026-07-05T22:01:51.536348+00:00'
+  actor: claude-code-interactive
+  event_id: evt-7f895717b37d406ca06ffef4e2fe5fc8
+- kind: transition
+  from: executable
+  to: in_execution
+  at: '2026-07-05T22:01:51.774175+00:00'
+  actor: claude-code-interactive
+  event_id: evt-c8ee03eb85204e359cc58ec3794b0491
+- kind: transition
+  from: in_execution
+  to: verification
+  at: '2026-07-05T22:01:51.936622+00:00'
+  actor: claude-code-interactive
+  event_id: evt-a87d45e0606d49b3aa3013d1fadeba7b
+- kind: transition
+  from: verification
+  to: completed
+  at: '2026-07-05T22:01:52.101551+00:00'
+  actor: claude-code-interactive
+  event_id: evt-b2ba6e2cd00e4d6ca1b9b10cd44e27e3
+- kind: transition
+  from: completed
+  to: follow_up_due
+  at: '2026-07-05T22:02:03.541578+00:00'
+  actor: claude-code-interactive
+  event_id: evt-e512d712be2741d5841bdbdf62750511
+- kind: transition
+  from: follow_up_due
+  to: closed
+  at: '2026-07-05T22:02:03.816688+00:00'
+  actor: claude-code-interactive
+  event_id: evt-c14689a9ed35401281ff9e1cd9a4c043
 approvals:
 - revision: 1
   approved_hash: 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b
