@@ -1,0 +1,17 @@
+package_id: ws-3.2-package-intake-decomposition
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 84c929bc0860b6a585a62ec02fa35d9cdf89fce84773660aea1e383d955689df
+  created_at: '2026-07-05T22:30:11Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-05T22:32:28.583118+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-05T22:32:28.583118+00:00'
+  actor: claude-code-interactive
+  event_id: evt-35a26f8f75054167a9defe47d5fd1520
+approvals: []
+grants: []

@@ -1,0 +1,379 @@
+schema_version: 1
+package_id: ws-3.2-package-intake-decomposition
+title: "WS-3.2 — immutable package intake and human-approved decomposition"
+revision: 1
+status: ready_for_review
+created_by: codex-interactive
+owner: devon
+created_at: "2026-07-05T22:30:11Z"
+supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/orchestrator
+  branch: codex/ws32-package-intake-decomposition
+  deploy_target: null
+  required_checks:
+    - Quality
+  rollback_plan: "Before deployment, abandon or revert the feature branch and retain the approved intent package. Database changes must remain forward-migratable and tested only against disposable local PostgreSQL during this package."
+outcome:
+  what: "The orchestrator can register approved immutable intent-package revisions and turn agent-proposed decomposition into canonical Draft work units only after named human approval."
+  why: "Phase 3 needs a persistent intake and decomposition boundary between approved intent packages and executable work units, without letting mutable or unapproved package content become factory work."
+  beneficiary: "Devon, factory workers, verifiers, and both software and non-software workflows using the orchestrator as canonical lifecycle owner."
+  success_signal: "Unapproved or mutable package revisions cannot become executable intake; repeated approved intake is idempotent; conflicting hash/source facts are rejected; decomposition proposals remain non-canonical until human approval creates Draft work units with structural dependencies and acceptance-criterion mapping."
+scope:
+  included:
+    - "Author and approve this WS-3.2 intent package before changing orchestrator application code."
+    - "Write an approved WS-3.2 design specification in AlobarQuest/orchestrator that resolves package-intake boundary, approval verification limits, content storage, proposal storage, human approval semantics, AC mapping, fixture strategy, API/CLI/UI scope, migration strategy, and WS-3.3/WS-3.4 preparation."
+    - "Run an adversarial architecture review of the design before implementation planning."
+    - "Write and approve a task-level implementation plan before implementation."
+    - "Add approved immutable package-revision intake to the orchestrator using package ID, revision, approved hash, source repository, source path, source commit, profile, status at intake, approval actor, approval time, and available approval event or ledger facts."
+    - "Reject Draft, unapproved, superseded, cancelled, failed, rejected, and otherwise non-executable package revisions for executable intake unless a later approved revision explicitly adds analysis-only registration."
+    - "Preserve deterministic idempotency for repeated registration of the same package revision and stable conflict behavior when hash, source, approval, or projection facts differ."
+    - "Store an immutable authority anchor as hash plus source reference and store only the normalized package projection needed for readiness, authority, dependencies, acceptance criteria, and decomposition decisions."
+    - "Add non-canonical decomposition proposal storage with actor, time, package revision, rationale, proposed units, dependencies, authority requirements, acceptance-criterion mapping, retained package-level criteria, and idempotency key."
+    - "Allow multiple proposals per package revision while enforcing at most one active approved decomposition unless a later approved human action supersedes it."
+    - "Add human-only decomposition decisions: approve, reject, and require revision, keeping rejected and revision-required proposals auditable."
+    - "Create Draft work units only after approved decomposition, using the existing central persistence and lifecycle path rather than bypassing WS-3.1 invariants."
+    - "Represent internal work-unit dependencies structurally and land external dependencies from the package into the existing dependency model where appropriate."
+    - "Require every package acceptance criterion to map to one or more proposed work units or be retained as a package-level criterion with a human-approved explanation before decomposition can be approved."
+    - "Expose equivalent API and CLI behavior for intake, proposal submission, proposal review, approval, rejection, revision-required, and created Draft units."
+    - "Add the smallest credible human UI for reviewing proposal rationale, proposed units, dependencies, authority, AC mapping, retained package-level criteria, and approval/rejection/revision-required actions."
+    - "Append attributable local events for every intake, proposal, decomposition decision, and Draft work-unit creation."
+    - "Use the two closed Phase-2 packages and the WS-3.1 package as fixtures or acceptance examples without executing their real work in WS-3.2."
+  excluded:
+    - "Factory runner, automatic dispatch, GitHub Actions worker execution, and production deployment automation."
+    - "Coolify deployment or any live infrastructure mutation."
+    - "Phase-5 independent verifier logic or automatic acceptance-criterion adjudication."
+    - "External factory-event/v1 publication beyond local event seams or design placeholders."
+    - "WS-3.3 standing-context preflight, skill-subscription semantics, status-ledger projection, and protocol smoke tests."
+    - "WS-3.4 evidence-event publication."
+    - "Linear, Todoist, GitHub, or any tracker becoming canonical lifecycle state."
+    - "Automatic merge or any worker, agent, API, CLI, CI, or UI path that merges pull requests."
+    - "Autonomous intent approval or autonomous decomposition approval."
+    - "Brain learning, promotion loop, additional agent personas, generalized visual workflow builder, listing-specific profile, or broad refactors of change-manager, intent-packages, security-standards, or brain."
+    - "Project-standards or code-standards onboarding for orchestrator; the current matrix result is recorded as baseline but not repaired in this package."
+  non_goals:
+    - "Completing all remaining Phase 3 workstreams."
+    - "Making the orchestrator a second editable source of truth for package content."
+    - "Turning change-manager into the generic orchestrator or moving drift/sensitive-infrastructure authority out of change-manager."
+    - "Registering packages as executable work without a named human approval of the package revision and of the decomposition."
+  assumptions:
+    - "intent-packages remains canonical for package content, revision numbering, hash behavior, package lifecycle, and approval ledger."
+    - "The orchestrator may read package YAML to build a normalized projection, but the approved hash and source reference remain the authority anchor."
+    - "The current WS-3.1 manual revision-registration and approved-unit creation services are implementation seams, not the final WS-3.2 user contract."
+    - "PostgreSQL remains the concurrency and migration target for orchestrator acceptance tests."
+    - "Devon alone approves exact package revisions, approves decomposition, moves PRs out of draft when applicable, and merges PRs."
+  open_questions: []
+sources:
+  - location: "Allowlist item 1: Devon's live 2026-07-05 instruction to begin WS-3.2, use the software-delivery profile, preserve scope guards, author this package before application code, and present the exact revision/hash for approval"
+    authority_level: authoritative
+    required_version: "2026-07-05"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Allowlist item 1: Devon's live 2026-07-05 instruction that PRs should not be left in draft when prepared, while merge remains Devon-only"
+    authority_level: authoritative
+    required_version: "2026-07-05"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md"
+    authority_level: authoritative
+    required_version: "2026-07-02"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md"
+    authority_level: authoritative
+    required_version: "2026-06-30"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.1-orchestrator-core revision 1, chain-verified hash 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-2.4-ci-evidence-control revision 1, chain-verified hash 639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80"
+    authority_level: supporting
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-2.4-historical-listing-launch revision 1, chain-verified hash 3628762968958ad172287c5ace1dafbc22d8af0a42fb05dc02faf8f4ed9242c0"
+    authority_level: supporting
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-05-phase3-status-checklist.md"
+    authority_level: supporting
+    required_version: "2026-07-05"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-phase2-exit-checklist.md"
+    authority_level: supporting
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-ws24-contract-friction.md"
+    authority_level: supporting
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-codex-post-mvp-recommendations.md"
+    authority_level: reference
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/orchestrator at merged main commit 1ca7090079999dc25441cb0d1066b920b828e271"
+    authority_level: supporting
+    required_version: "1ca7090079999dc25441cb0d1066b920b828e271"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/intent-packages at merged main commit 473de819ed31a2ab5beadde54dd03c7c71b4c178"
+    authority_level: supporting
+    required_version: "473de819ed31a2ab5beadde54dd03c7c71b4c178"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/security-standards at merged main commit 292c2e4"
+    authority_level: reference
+    required_version: "292c2e4"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/change-manager at merged main commit 923278a"
+    authority_level: reference
+    required_version: "923278a"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One approved WS-3.2 design, plan, implementation, review, and PR cycle; later Phase-3 work requires separately approved intent."
+  technology: "Python 3.12, FastAPI, SQLAlchemy, Alembic, PostgreSQL 16, Pydantic, Typer, Jinja/HTMX, and the existing orchestrator architecture."
+  policy_legal: "Devon alone approves exact intent revisions, approves decomposition, performs or authorizes sensitive human decisions, and merges pull requests."
+  privacy_security: "No secrets in tracked files; no BWS token material; source content from repositories is treated as data unless authority comes from Devon, canonical SDS docs, or verified approved packages."
+  compatibility: "Preserve WS-3.1 API/CLI lifecycle behavior, migration history, evidence/adjudication/waiver semantics, and domain-neutral core behavior."
+  quality_accessibility: "Follow portfolio code standards, TDD, focused tests per slice, readable UI for human review, and full local quality checks before PR."
+  operational: "Use forward Alembic migrations; tests must run against local PostgreSQL; no production deployment or infrastructure mutation is authorized."
+  other:
+    - "Application code may begin only after Devon approves this exact package revision and hash."
+    - "Design specification and task-level implementation plan must be approved before implementation."
+    - "If any baseline gate is red for an in-scope reason, stop and re-plan."
+acceptance:
+  - id: AC-001
+    condition: "An unapproved, Draft, rejected, cancelled, failed, superseded, closed-without-executable-approval, or otherwise non-executable package revision cannot be registered as executable intake."
+    evidence_type: automated_test
+    evidence: "gate: package-intake rejection tests cover each non-executable lifecycle state and missing approval/hash facts"
+    approver: policy
+  - id: AC-002
+    condition: "Repeated registration of the same approved package revision with the same hash, source, approval facts, and normalized projection is idempotent and returns the existing intake record."
+    evidence_type: automated_test
+    evidence: "gate: service, API, and CLI idempotency tests prove stable replay behavior"
+    approver: policy
+  - id: AC-003
+    condition: "Submitting the same package ID and revision with a different hash, source repository, source path, source commit, approval facts, or projection facts is rejected with a stable conflict."
+    evidence_type: automated_test
+    evidence: "gate: conflict tests prove no mutable replacement or silent overwrite path exists"
+    approver: policy
+  - id: AC-004
+    condition: "Package intake stores immutable authority facts and a normalized projection without creating a second editable package source of truth in the orchestrator."
+    evidence_type: human_review
+    evidence: "human: approved design and code review confirm hash/source authority anchor, projection scope, and no mutable package-content editor"
+    approver: devon
+  - id: AC-005
+    condition: "An agent, worker, system actor, or human can submit a decomposition proposal, but proposal submission alone creates no canonical work units and grants no readiness."
+    evidence_type: automated_test
+    evidence: "gate: proposal creation tests assert work_units remain unchanged until a human approval decision"
+    approver: policy
+  - id: AC-006
+    condition: "Only a named human approval can activate a decomposition proposal, and activation creates Draft work units through the existing central lifecycle and persistence path."
+    evidence_type: automated_test
+    evidence: "gate: authorization and service tests prove non-human approval is rejected and approved proposals call the existing unit-registration path"
+    approver: policy
+  - id: AC-007
+    condition: "Rejected and revision-required decomposition proposals remain auditable, cannot create work units, and can be followed by a later proposal."
+    evidence_type: automated_test
+    evidence: "gate: proposal decision tests cover reject, revision-required, later proposal, and audit event history"
+    approver: policy
+  - id: AC-008
+    condition: "At most one approved decomposition is active for a package revision unless a later named human decision explicitly supersedes it."
+    evidence_type: automated_test
+    evidence: "gate: uniqueness and supersession tests cover concurrent and repeated approvals"
+    approver: policy
+  - id: AC-009
+    condition: "Internal dependencies between proposed units are represented structurally, cycle-checked, and transferred to the existing dependency model when Draft work units are created."
+    evidence_type: automated_test
+    evidence: "gate: internal dependency mapping, cycle rejection, and created dependency tests pass"
+    approver: policy
+  - id: AC-010
+    condition: "External dependencies from the package are preserved structurally where appropriate and remain explainable in readiness decisions without making external trackers canonical."
+    evidence_type: automated_test
+    evidence: "gate: external dependency projection and readiness tests pass"
+    approver: policy
+  - id: AC-011
+    condition: "Every package acceptance criterion maps to one or more work units or is explicitly retained as a package-level criterion with human-approved rationale before decomposition can be approved."
+    evidence_type: automated_test
+    evidence: "gate: AC mapping tests reject unmapped criteria without approved retained-package-level handling"
+    approver: policy
+  - id: AC-012
+    condition: "Package-level authority and work-unit authority remain explainable, and authority expansion does not bypass existing WS-3.1 approval/readiness gates."
+    evidence_type: automated_test
+    evidence: "gate: authority projection and readiness tests pass for package-level and unit-level authority"
+    approver: policy
+  - id: AC-013
+    condition: "API and CLI expose equivalent intake and decomposition behavior, including stable errors and idempotency semantics."
+    evidence_type: automated_test
+    evidence: "ci: API/CLI parity tests and Quality pass on the exact PR revision"
+    approver: policy
+  - id: AC-014
+    condition: "The human UI can review a decomposition proposal sufficiently to approve, reject, or require revision without exposing unauthenticated or M2M-only human actions."
+    evidence_type: human_review
+    evidence: "human: Devon reviews the rendered local UI behavior and authentication/authorization boundaries"
+    approver: devon
+  - id: AC-015
+    condition: "Every intake, proposal, decomposition approval, rejection, revision-required decision, supersession, and Draft work-unit creation appends an attributable local event in the same transaction as the canonical state change."
+    evidence_type: automated_test
+    evidence: "gate: transaction-bound event tests cover success, replay, and rollback injection"
+    approver: policy
+  - id: AC-016
+    condition: "The two closed Phase-2 packages and the closed WS-3.1 package are usable as tests or acceptance examples for intake/decomposition without executing their real work in WS-3.2."
+    evidence_type: automated_test
+    evidence: "gate: fixtures or acceptance tests load representative software and non-software packages and prove domain-neutral projection behavior"
+    approver: policy
+  - id: AC-017
+    condition: "Existing WS-3.1 transition, claim, evidence, adjudication, waiver, API, CLI, UI, migration, and architecture tests continue to pass."
+    evidence_type: automated_test
+    evidence: "gate: full local make check passes against the local PostgreSQL endpoint"
+    approver: policy
+  - id: AC-018
+    condition: "The repository contains no automatic merge path, no production infrastructure mutation path, no factory-runner dispatch, no external factory-event publication, and no worker or agent path that approves intent, approves decomposition, or declares canonical completion."
+    evidence_type: automated_test
+    evidence: "scan: architecture guards, repository search assertions, and final whole-branch review pass"
+    approver: policy
+  - id: AC-019
+    condition: "Devon reviews the PR after the exact named Quality check succeeds; the worker may mark the PR ready for review when asked, but Devon alone merges."
+    evidence_type: human_review
+    evidence: "human: Devon confirms review and merge decision; merge remains outside worker authority"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  requires_approval:
+    - merge_to_main
+    - secret_read
+    - secret_write
+    - infra_mutation
+    - credential_create
+    - credential_revoke
+  prohibited:
+    - outward_publish
+    - email_send
+    - spend_money
+    - calendar_write
+    - third_party_contact
+    - data_delete
+    - external_system_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "Approved WS-3.2 design specification in AlobarQuest/orchestrator"
+    - "Adversarial architecture review findings and resolutions"
+    - "Task-level WS-3.2 implementation plan"
+    - "Alembic migrations and domain-neutral orchestrator implementation for package intake and decomposition proposals"
+    - "API, CLI, and human UI updates for intake and decomposition approval"
+    - "Focused and full regression tests proving the acceptance criteria"
+    - "Pull request against AlobarQuest/orchestrator with exact-revision Quality evidence"
+    - "Readable acceptance-criterion evidence index for WS-3.2"
+  destination: "AlobarQuest/orchestrator; this governing package remains in AlobarQuest/intent-packages."
+  recipient: devon
+  definition_of_done: "All ACs have realized evidence and explicit outcomes, the PR is reviewable with the named CI check green, Devon has completed final review and merge, and lifecycle records remain honest."
+  operator_responsibilities:
+    - "Approve or reject this exact intent revision and hash."
+    - "Review and approve the WS-3.2 design decisions before implementation planning."
+    - "Review and approve the task-level implementation plan before implementation."
+    - "Review the rendered UI and judgment-based acceptance criteria."
+    - "Review and merge the pull request personally; no agent may merge it."
+dependencies:
+  predecessor_packages:
+    - package: ws-3.1-orchestrator-core
+      revision: 1
+    - package: ws-2.4-ci-evidence-control
+      revision: 1
+    - package: ws-2.4-historical-listing-launch
+      revision: 1
+  external_decisions:
+    - "Devon approval of this exact package revision before orchestrator application code changes."
+    - "Devon decision on intake boundary: CLI reads package YAML and calls API, API accepts already-normalized facts, or both."
+    - "Devon decision on staged approval verification limits for WS-3.2."
+    - "Devon decision on package content storage shape: source/hash only, normalized projection, immutable snapshot, or combination."
+    - "Devon decision on proposal storage shape: separate proposal tables versus versioned work-unit drafts."
+    - "Devon decision on one-active-decomposition, rejection, revision-required, and supersession semantics."
+    - "Devon decision on AC mapping and retained package-level criteria rules."
+    - "Devon decision on whether Phase-2 packages are fixtures/acceptance examples now or real data later."
+    - "Devon decision on API, CLI, and UI MVP scope."
+    - "Devon decision on whether the current project-standards matrix violation stays out of scope."
+  required_people_systems:
+    - "Devon for package approval, design decisions, design approval, plan approval, UI review, PR review, and merge"
+    - "GitHub and GitHub Actions for repository, PR, and the named Quality check"
+    - "Local PostgreSQL 16 or the documented local OrbStack PostgreSQL endpoint for migrations and tests"
+    - "Alobar ID forward-auth contract for human UI identity behavior"
+    - "intent-packages CLI and approval ledger/hash behavior"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  blocking_conditions:
+    - "This exact package revision is not approved and chain-verified."
+    - "Any required design decision remains hidden, contradictory, or unresolved in the approved design."
+    - "The written design or implementation plan lacks Devon approval."
+    - "PostgreSQL tests cannot run."
+    - "The package intake design requires trusting mutable or unapproved package content."
+    - "A decomposition proposal can create work units or readiness without named human approval."
+    - "An acceptance criterion can be left unmapped without a human-approved package-level explanation."
+    - "Any named acceptance criterion lacks realized evidence or explicit adjudication."
+    - "The Quality check is absent, failing, or not tied to the exact PR revision."
+    - "A change would create an automatic merge, production mutation, dispatch, external event publication, tracker-canonical, worker-completion, autonomous-intent-approval, or autonomous-decomposition-approval path."
+risk:
+  failure_modes:
+    - "The orchestrator accepts mutable or unapproved package content as executable work."
+    - "The orchestrator stores a second editable intent source of truth."
+    - "A decomposition proposal becomes canonical before named human approval."
+    - "Approved decomposition bypasses the existing work-unit lifecycle and readiness gates."
+    - "Acceptance criteria are lost, silently waived, or mapped only in prose."
+    - "Software-specific assumptions enter the domain-neutral intake and decomposition core."
+    - "WS-3.3, WS-3.4, Phase 4, or Phase 5 behavior is pulled into WS-3.2 without approval."
+  max_impact: "Incorrect intake or decomposition could authorize wrong work units; production mutation, dispatch, and merge remain out of scope to cap blast radius."
+  stop_conditions:
+    - "A baseline repository or required check becomes red for an in-scope reason."
+    - "The approved package hash changes without revision and renewed approval."
+    - "The design cannot prevent unapproved package intake or pre-approval work-unit creation."
+    - "A design requires secrets in tracked files, destructive database action, live infrastructure mutation, or external-system writes."
+    - "A worker, CLI, API, CI workflow, or UI path can merge a PR, approve intent, approve decomposition, dispatch work, publish external events, or unilaterally set Completed."
+    - "Implementation scope crosses into WS-3.3, WS-3.4, Phase 4, or Phase 5 without separately approved intent."
+  rollback: "Before deployment, revert or abandon WS-3.2 commits and close the PR; preserve this package, evidence, and review findings. Database changes are tested only in disposable local databases under this package."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Run an adversarial architecture review of the approved design before implementation."
+    - "Review every coherent implementation slice against the approved package and plan."
+    - "Run portfolio code review on the whole branch against ~/Developer/code-standards/STANDARDS.md."
+    - "Run a final whole-branch security and architecture review before Devon's merge decision."
+  non_mechanical:
+    - "Whether the package-intake authority anchor is strong enough for WS-3.2 while honestly recording verification limits."
+    - "Whether normalized projection avoids dual canonical truth while preserving enough information for WS-3.3 and WS-3.4."
+    - "Whether the decomposition approval UI gives Devon enough context without becoming a workflow builder."
+    - "Whether Phase-2 package fixture use proves domain neutrality without pretending to complete Phase-3 exit."
+follow_up:
+  required: true
+  revisit_when: "After WS-3.2 implementation PR is merged and before opening the intent-package closure PR."
+  signals:
+    - "Operator improvisation during package intake or decomposition"
+    - "A package AC cannot be mapped without judgment not represented by the schema"
+    - "A future WS-3.3 or WS-3.4 requirement needs intake/proposal schema changes"
+    - "A project-standards onboarding decision becomes necessary for Phase 3 exit"
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
