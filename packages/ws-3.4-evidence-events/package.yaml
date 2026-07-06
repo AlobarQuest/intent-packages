@@ -1,0 +1,360 @@
+schema_version: 1
+package_id: ws-3.4-evidence-events
+title: "WS-3.4 - evidence records wired to factory-event/v1"
+revision: 2
+status: approved
+created_by: codex-interactive
+owner: devon
+created_at: "2026-07-06T18:45:00Z"
+supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/orchestrator
+  branch: codex/ws34-evidence-events
+  deploy_target: null
+  required_checks:
+    - Quality
+  rollback_plan: "Before deployment, abandon or revert the feature branch and retain the approved intent package. Database changes must be forward-migratable and tested only against disposable local PostgreSQL or disposable factory-event stores during this package. Do not mutate production infrastructure or live factory-events stores unless a revised package explicitly grants that authority."
+outcome:
+  what: "The orchestrator can map protocol-relevant lifecycle, evidence, adjudication, waiver, claim, context, package-intake, decomposition, and outcome facts into valid factory-event/v1 envelopes with idempotent local publication or export status."
+  why: "Phase 3 needs externally observable audit events for protocol evidence while preserving the orchestrator database as canonical lifecycle truth and without starting factory-runner dispatch, production deployment, or Phase-5 verification."
+  beneficiary: "Devon, future factory workers, future verifiers, and audit/reporting consumers that need observable protocol facts without taking lifecycle authority away from the orchestrator."
+  success_signal: "Approved WS-3.3 protocol evidence can be projected to schema-valid factory-event/v1 records, actor IDs are registered or explicitly rejected/mapped, repeated publication is idempotent, failures are inspectable and retryable, and no external event record can mutate orchestrator lifecycle state."
+scope:
+  included:
+    - "Re-establish the merged WS-3.3 baseline before design or implementation, including clean repository status, safe fast-forward to main, closed WS-3.1/WS-3.2/WS-3.3 hash verification, intent-package validation, orchestrator make check, security-standards factory-events checks, current foundation matrix result, and project-standards enrollment status for orchestrator."
+    - "Author and obtain Devon approval of this exact WS-3.4 intent package revision and hash before changing orchestrator or security-standards application code."
+    - "Write a WS-3.4 design specification in AlobarQuest/orchestrator and, only if the approved design requires schema or registry changes, a companion security-standards design note."
+    - "Resolve the required WS-3.4 design decisions explicitly: package boundary, touched repositories, publication mechanism, mapping table, deterministic event ID strategy, actor mapping, field population, publishable-event set, failed publication storage and retry, inspection surface, Evidence Pack event-ID display, live-store avoidance for tests, Phase-4/Phase-5 seams, and WS-3.3 migration strategy."
+    - "Run and record an adversarial architecture review of the design before implementation planning."
+    - "Write and obtain approval for a task-level implementation plan before application-code changes."
+    - "Implement deterministic mapping from canonical orchestrator local events and evidence-related rows to factory-event/v1 envelopes."
+    - "Preserve orchestrator local events, evidence, adjudications, waivers, claims, context snapshots, package intake, decomposition, work-unit state, and status-ledger projection inputs as the only canonical lifecycle facts."
+    - "Validate every exported or published event against security-standards/schema/factory-event.v1.schema.json and registered actor IDs in security-standards/registry."
+    - "Reject or explicitly map unknown human, worker, system, verifier, historical, and fixture actors according to the approved design."
+    - "Populate work_package, input_revision, target, actor, action, result, evidence references, authority_grant, correlation_id, timestamp, and source.ref from canonical source facts where available, and report absent facts honestly."
+    - "Provide idempotent publication or export semantics keyed by canonical source fact identity so retry after partial failure cannot duplicate the same external event."
+    - "Store or derive local publication status for pending, published or exported, skipped, rejected, and failed facts in a way Devon can inspect without making external events canonical."
+    - "Expose API and CLI behavior, or a generated report if the design proves it is sufficient, for Devon to inspect evidence-event publication status."
+    - "Optionally include external event IDs in Evidence Pack projections if the approved design judges that useful; Evidence Pack remains a read-only projection."
+    - "Fail closed on publication failure: record attributable failure status and allow retry without mutating lifecycle state, completing work units, approving acceptance criteria, dispatching workers, or bypassing human authority."
+    - "Use disposable local stores, export files, or test fakes for acceptance; do not mutate the live factory-events store during tests."
+    - "Keep seams stable for later Phase-4 factory-runner dispatch and Phase-5 independent verifier consumption without implementing either."
+  excluded:
+    - "Factory runner, automatic dispatch, GitHub Actions worker execution, workflow_dispatch, or worker scheduling."
+    - "Production deployment automation, Coolify mutation, or live infrastructure mutation."
+    - "Phase-5 independent verifier logic, automatic acceptance-criterion adjudication, or release approval."
+    - "Linear, Todoist, GitHub, or any tracker becoming canonical lifecycle state."
+    - "Automatic merge or any worker, agent, API, CLI, CI, or UI path that merges pull requests."
+    - "Autonomous intent approval, autonomous decomposition approval, worker-controlled canonical completion, or external-event-controlled lifecycle mutation."
+    - "Brain learning, knowledge promotion, production observation loop, additional agent personas, generalized visual workflow builder, or listing-specific intent profile."
+    - "Broad refactors of change-manager, intent-packages, security-standards, project-standards, or brain."
+    - "Project-standards onboarding changes unless this package is revised and approved to include them."
+    - "Writing secrets, live DSNs, BWS token material, or production event-store credentials into tracked files."
+  non_goals:
+    - "Completing Phase 4 or Phase 5."
+    - "Turning factory-event/v1 or the append-only factory-events store into lifecycle authority."
+    - "Making change-manager the generic orchestrator or moving drift and sensitive-infrastructure authority out of change-manager."
+    - "Changing intent-package approval, hash, or lifecycle ownership."
+  assumptions:
+    - "WS-3.1, WS-3.2, and WS-3.3 are merged, closed, and verified on main before this package is approved."
+    - "security-standards owns factory-event/v1 schema, factory_events envelope/store helpers, actor registry, capability registry, append-only store, and nightly projection machinery."
+    - "intent-packages remains canonical for package content, revision numbering, hash behavior, package lifecycle, and approval ledger."
+    - "orchestrator remains canonical for work-unit lifecycle truth and evidence facts."
+    - "PostgreSQL remains the orchestrator concurrency and migration target for acceptance tests."
+    - "Devon alone approves exact package revisions, approves sensitive transitions, reviews PRs, and merges PRs."
+  open_questions: []
+sources:
+  - location: "Devon's live 2026-07-06 instruction to begin WS-3.4 evidence records wired to factory-event/v1, with contract-first gates, scope guards, mandatory baseline checks, and explicit prohibition on Phase-4/Phase-5 work"
+    authority_level: authoritative
+    required_version: "2026-07-06"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md"
+    authority_level: authoritative
+    required_version: "2026-07-06"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md"
+    authority_level: authoritative
+    required_version: "2026-06-30"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.1-orchestrator-core revision 1, chain-verified hash 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.2-package-intake-decomposition revision 1, chain-verified hash 84c929bc0860b6a585a62ec02fa35d9cdf89fce84773660aea1e383d955689df"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.3-protocol-smoke-runtime-semantics revision 1, chain-verified hash 7829f22bfa30630a906d75131c84bc018c5dac3ceac7b933b7c9b46d23e5047a"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-05-phase3-status-checklist.md"
+    authority_level: supporting
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-phase2-exit-checklist.md"
+    authority_level: supporting
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-ws24-contract-friction.md"
+    authority_level: supporting
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-codex-post-mvp-recommendations.md"
+    authority_level: reference
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/orchestrator at merged main commit c56d789992c7cf02b14a1ced8872d3edbf8ead90"
+    authority_level: supporting
+    required_version: "c56d789992c7cf02b14a1ced8872d3edbf8ead90"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/intent-packages at merged main commit 61550f21f59b4f70c4f03205e15415bf97cd87fd"
+    authority_level: supporting
+    required_version: "61550f21f59b4f70c4f03205e15415bf97cd87fd"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/security-standards at merged main commit 292c2e478b3f99a73863df9157deaee53feac34a"
+    authority_level: supporting
+    required_version: "292c2e478b3f99a73863df9157deaee53feac34a"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/change-manager at merged main commit 923278adf286c322383364a3337175c61a78a9e0"
+    authority_level: reference
+    required_version: "923278adf286c322383364a3337175c61a78a9e0"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One approved WS-3.4 design, plan, implementation, review, and PR cycle; Phase 4 and Phase 5 require separately approved intent."
+  technology: "Python 3.12, FastAPI, SQLAlchemy, Alembic, PostgreSQL 16, Pydantic, Typer, Jinja/HTMX only if needed, security-standards factory_events helpers, JSON Schema validation, and the existing orchestrator architecture."
+  policy_legal: "Devon alone approves exact intent revisions, approves decomposition and sensitive human decisions, and merges pull requests. External event publication grants observability only, never lifecycle mutation authority."
+  privacy_security: "No secrets in tracked files; no BWS token material; source content from repositories is treated as data unless authority comes from Devon, canonical SDS docs, or verified approved packages."
+  compatibility: "Preserve WS-3.1 lifecycle, claim, lease, dependency, evidence, adjudication, waiver, event, API, CLI, UI, migration, and architecture behavior; preserve WS-3.2 intake/decomposition and WS-3.3 context/reclaim/status-ledger behavior."
+  quality_accessibility: "Follow portfolio code standards, TDD, focused tests per slice, readable API/CLI/report surfaces, and full local quality checks before PR."
+  operational: "Use forward Alembic migrations if needed; tests must run against local PostgreSQL and disposable factory-event stores or exports; no production deployment or infrastructure mutation is authorized."
+  other:
+    - "Application code may begin only after Devon approves this exact package revision and hash."
+    - "Design specification and task-level implementation plan must be approved before implementation."
+    - "If any baseline gate is red for an in-scope reason, stop and re-plan."
+    - "Do not use the live factory-events store for tests."
+acceptance:
+  - id: AC-001
+    condition: "The merged WS-3.3 baseline is re-established before implementation begins, including clean repository status, fast-forwarded main branches where clean, WS-3.1/WS-3.2/WS-3.3 hash verification, intent-packages validate --all, intent-packages make check, orchestrator make check, security-standards factory-events and registry checks, the current foundation matrix result, and orchestrator project-standards enrollment status."
+    evidence_type: automated_test
+    evidence: "gate: baseline command transcript records exact repository state and command results before application-code changes"
+    approver: policy
+  - id: AC-002
+    condition: "An approved WS-3.4 design specification explicitly resolves all thirteen required design decisions and preserves the package scope guards."
+    evidence_type: human_review
+    evidence: "human: Devon reviews and approves the design specification before implementation planning"
+    approver: devon
+  - id: AC-003
+    condition: "An adversarial architecture review is run before implementation and blocking findings are resolved or this package is revised."
+    evidence_type: human_review
+    evidence: "human: design review record lists findings, resolutions, and any accepted residual risk"
+    approver: devon
+  - id: AC-004
+    condition: "A task-level implementation plan is approved before orchestrator or security-standards application code changes."
+    evidence_type: human_review
+    evidence: "human: Devon approves the implementation plan after reviewing task boundaries and verification steps"
+    approver: devon
+  - id: AC-005
+    condition: "Approved WS-3.3 protocol evidence and lifecycle facts can be mapped deterministically to valid factory-event/v1 envelopes."
+    evidence_type: automated_test
+    evidence: "gate: mapper tests cover representative WS-3.1, WS-3.2, and WS-3.3 source facts and validate each envelope against security-standards schema"
+    approver: policy
+  - id: AC-006
+    condition: "The mapping table includes protocol-relevant local event actions and evidence-related rows for evidence submissions, adjudications, waivers, claim and reclaim lifecycle facts, context preflight decisions, authority-update decisions, package intake, decomposition decisions, completion, revision-required, and failure outcomes where in scope."
+    evidence_type: automated_test
+    evidence: "gate: mapping coverage tests and architecture review confirm every approved publishable source action has an explicit factory-event/v1 action/result or explicit skip reason"
+    approver: policy
+  - id: AC-007
+    condition: "Every exported or published event validates against security-standards/schema/factory-event.v1.schema.json."
+    evidence_type: automated_test
+    evidence: "gate: schema-validation tests fail on malformed envelopes and pass on generated envelopes"
+    approver: policy
+  - id: AC-008
+    condition: "Actor IDs are registered in the security-standards agent registry or are explicitly rejected or mapped according to the approved design, preserving the raw source actor in evidence when mapped."
+    evidence_type: automated_test
+    evidence: "gate: actor-validation tests cover registered actors, unknown actors, historical actors, and mapped source actors"
+    approver: policy
+  - id: AC-009
+    condition: "Event IDs are deterministic and idempotent for each canonical source fact, and retry after partial failure cannot duplicate external events."
+    evidence_type: automated_test
+    evidence: "gate: idempotency tests cover repeated export, interrupted publication, and retry after failure"
+    approver: policy
+  - id: AC-010
+    condition: "Publication failure is attributable and inspectable locally without mutating work-unit lifecycle state, completing work, approving criteria, dispatching workers, or bypassing human authority."
+    evidence_type: automated_test
+    evidence: "gate: failure-path tests assert lifecycle rows are unchanged while publication status captures actor, source fact, error, attempt, and retry eligibility"
+    approver: policy
+  - id: AC-011
+    condition: "Published or exported envelopes preserve work_package, input_revision, target, actor, action, result, evidence references, authority_grant, correlation_id, source references, and timestamp facts where available, and report absent fields honestly."
+    evidence_type: automated_test
+    evidence: "gate: field-population tests compare generated envelopes to canonical orchestrator rows for revisions, units, events, evidence, adjudications, waivers, claims, and context snapshots"
+    approver: policy
+  - id: AC-012
+    condition: "API and CLI behavior, or an approved generated report, exposes pending, exported or published, skipped, rejected, and failed evidence-event publication status for Devon inspection."
+    evidence_type: automated_test
+    evidence: "gate: API/CLI/report tests cover filters, source references, event IDs where available, failure details, and retry eligibility"
+    approver: policy
+  - id: AC-013
+    condition: "Evidence Pack remains a read-only projection and, if external event IDs are included in WS-3.4, they are displayed as publication facts rather than editable lifecycle state."
+    evidence_type: automated_test
+    evidence: "gate: Evidence Pack tests or architecture guards prove publication status display is read-only and not a mutation surface"
+    approver: policy
+  - id: AC-014
+    condition: "The implementation uses disposable local stores, export files, or fakes for acceptance tests and does not mutate the live factory-events store."
+    evidence_type: automated_test
+    evidence: "gate: tests set isolated FACTORY_EVENTS_HOME or equivalent and assert no live-store path is touched"
+    approver: policy
+  - id: AC-015
+    condition: "Existing WS-3.1, WS-3.2, and WS-3.3 transition, claim, evidence, intake, decomposition, context, reclaim, status-ledger, API, CLI, UI, migration, and architecture tests continue to pass."
+    evidence_type: automated_test
+    evidence: "gate: full local orchestrator make check passes against the local PostgreSQL endpoint"
+    approver: policy
+  - id: AC-016
+    condition: "Any security-standards changes required by the approved design are minimal, schema/registry-compatible, and pass security-standards make check plus focused factory-events and registry tests."
+    evidence_type: automated_test
+    evidence: "gate: security-standards make check and focused factory-events/agent-registry tests pass, or the evidence index states security-standards was not touched"
+    approver: policy
+  - id: AC-017
+    condition: "No automatic merge, factory dispatch, production deploy, tracker-canonical path, Phase-5 verifier path, worker-controlled completion, or broad out-of-scope refactor exists in the WS-3.4 diff."
+    evidence_type: automated_test
+    evidence: "scan: scope-guard tests, repository search assertions, and final whole-branch review pass"
+    approver: policy
+  - id: AC-018
+    condition: "Devon reviews the PR after the exact named Quality check succeeds; the worker may prepare a ready-for-review PR, but Devon alone merges."
+    evidence_type: human_review
+    evidence: "human: Devon confirms review and merge decision; merge remains outside worker authority"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  requires_approval:
+    - merge_to_main
+    - secret_read
+    - infra_mutation
+  prohibited:
+    - secret_write
+    - credential_create
+    - credential_revoke
+    - outward_publish
+    - external_system_write
+    - third_party_contact
+    - calendar_write
+    - spend_money
+    - data_delete
+    - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "packages/ws-3.4-evidence-events/package.yaml and lineage.yaml in AlobarQuest/intent-packages"
+    - "docs/superpowers/specs/2026-07-06-ws34-evidence-events-design.md in AlobarQuest/orchestrator"
+    - "docs/superpowers/specs/2026-07-06-ws34-adversarial-architecture-review.md in AlobarQuest/orchestrator"
+    - "docs/superpowers/plans/2026-07-06-ws34-evidence-events.md in AlobarQuest/orchestrator"
+    - "Optional companion security-standards design note only if the approved design changes factory-event/v1 schema, source-system vocabulary, registry entries, or factory_events helpers"
+    - "Alembic migrations, service/API/CLI/report code, tests, architecture guards, and evidence index required by the approved design and plan"
+    - "A ready-for-review pull request against AlobarQuest/orchestrator and, only if needed, AlobarQuest/security-standards, with successful required checks"
+  destination: "AlobarQuest/orchestrator; optionally AlobarQuest/security-standards if the approved design requires schema, registry, or helper changes; this governing package remains in AlobarQuest/intent-packages."
+  recipient: devon
+  definition_of_done: "Every literal AC passes or blocks honestly, publication remains observable rather than canonical, PRs are reviewable with named CI checks green, and Devon alone merges."
+  operator_responsibilities:
+    - "Approve or reject this exact intent revision and hash."
+    - "Review and approve the WS-3.4 design decisions before implementation planning."
+    - "Review and approve the task-level implementation plan before implementation."
+    - "Review any human-judgment acceptance criteria and final PRs."
+    - "Authorize and perform merge_to_main personally."
+dependencies:
+  predecessor_packages:
+    - package: ws-3.1-orchestrator-core
+      revision: 1
+    - package: ws-3.2-package-intake-decomposition
+      revision: 1
+    - package: ws-3.3-protocol-smoke-runtime-semantics
+      revision: 1
+    - package: ws-2.4-ci-evidence-control
+      revision: 1
+    - package: ws-2.4-historical-listing-launch
+      revision: 1
+  external_decisions:
+    - "Devon approval of this exact package revision and hash before orchestrator or security-standards application code changes."
+    - "Devon decision on whether WS-3.4 touches only orchestrator or also security-standards."
+    - "Devon decision on publication mechanism: orchestrator outbox plus adapter, deterministic export/report, direct append to disposable/test store, or another explicitly approved mechanism."
+    - "Devon decision on source.system strategy: reuse direct with orchestrator source.ref or revise security-standards to register orchestrator as a first-class source system."
+    - "Devon decision on whether Evidence Pack includes external event IDs in WS-3.4."
+  required_people_systems:
+    - "Devon for package approval, design approval, plan approval, PR review, and PR merge"
+    - "GitHub and GitHub Actions for repository, PR, and named Quality checks"
+    - "Local OrbStack PostgreSQL endpoint for orchestrator checks"
+    - "intent-packages CLI and approval ledger/hash behavior"
+    - "security-standards factory-event/v1 schema, factory_events helpers, and agent registry"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  blocking_conditions:
+    - "Any baseline verification fails for an in-scope reason."
+    - "Devon does not approve this exact package revision and hash."
+    - "The design cannot preserve orchestrator canonical lifecycle ownership."
+    - "Implementation requires factory-runner dispatch, production deployment, live infrastructure mutation, automatic merge, Phase-5 verifier logic, or tracker-canonical state."
+    - "Actor registry or factory-event/v1 schema validation cannot be satisfied without a revised package."
+risk:
+  failure_modes:
+    - "External event publication is accidentally treated as lifecycle authority."
+    - "Event IDs are non-deterministic or keyed too broadly, causing duplicate records on retry."
+    - "Unknown actors are silently laundered without preserving raw source identity."
+    - "Publication failures block or mutate work-unit lifecycle instead of remaining observable retry state."
+    - "The mapping omits protocol-relevant evidence or context facts needed by Phase 5."
+    - "Tests accidentally write to the live factory-events store."
+    - "Security-standards schema changes expand the event envelope more than WS-3.4 needs."
+  max_impact: "Local orchestrator and optional security-standards code changes plus disposable local event-store/export artifacts; no production infrastructure, live event-store mutation, or automatic merge."
+  stop_conditions:
+    - "A baseline check is red for an in-scope reason."
+    - "A required design decision cannot be resolved inside the approved WS-3.4 boundary."
+    - "Implementation would make external factory-event records canonical lifecycle truth."
+    - "Implementation would require secrets, live DSNs, production deployment, Coolify mutation, factory-runner dispatch, workflow_dispatch, automatic merge, tracker-canonical state, or Phase-5 verifier logic."
+    - "Disposable-store isolation cannot be proven for tests."
+  rollback: "Before merge, revert or abandon WS-3.4 branches and leave this package unapproved, rejected, or superseded as appropriate. After merge, use a forward migration or follow-up package to disable publication/export surfaces while preserving canonical orchestrator rows and local events; do not delete canonical evidence or lifecycle records."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Adversarial architecture review before implementation planning."
+    - "Self-review and code review against ~/Developer/code-standards/STANDARDS.md before declaring implementation complete."
+    - "Final whole-branch security and architecture review confirming no scope guard was crossed."
+  non_mechanical:
+    - "Devon approval of this exact revision and hash."
+    - "Devon approval of the design specification and implementation plan."
+    - "Devon PR review and merge decision."
+follow_up:
+  required: true
+  revisit_when: "Phase 4 runner dispatch or Phase 5 independent verifier work begins, to consume WS-3.4 publication seams without changing canonical lifecycle ownership."
+  signals:
+    - "Phase 4 factory-runner needs dispatch events."
+    - "Phase 5 verifier needs evidence-event read model."
+    - "External factory-events source-system vocabulary needs a first-class orchestrator source."
+    - "Evidence Pack needs release, artifact, or verifier event IDs beyond WS-3.4 publication status."
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  security: "1.0"
+  code: "1.0"
