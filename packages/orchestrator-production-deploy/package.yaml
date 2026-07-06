@@ -1,0 +1,317 @@
+schema_version: 1
+package_id: orchestrator-production-deploy
+title: "Deploy orchestrator to production Coolify for Phase 4 runner reachability"
+revision: 1
+status: draft
+created_by: codex-interactive
+owner: devon
+created_at: "2026-07-06T00:00:00Z"
+supersedes: null
+profile: infrastructure-change
+profile_fields:
+  blast_radius: single-app
+  change_window: "Dedicated infrastructure-mutation session after Devon approves this exact package revision and hash."
+  backup_evidence: "Backup coverage must be proven before first real production orchestrator data is accepted."
+  rollback_plan: "Before production use, disable the Coolify app and remove the new DNS route or restore the pre-change Coolify configuration. If database state has real orchestrator data, restore from the verified pre-change backup or retain the database read-only for audit while routing is disabled. Do not delete evidence, package history, or unrelated infrastructure."
+outcome:
+  what: "The Phase-3 orchestrator is reachable by GitHub-hosted factory runners at https://sds.alobar.net with production PostgreSQL, health checks, human forward-auth, and M2M API authentication."
+  why: "Phase 4 runner design depends on workers fetching briefs and authority envelopes from the canonical orchestrator and submitting evidence back; GitHub-hosted runners cannot reach Devon's local Mac service."
+  beneficiary: "Devon, Phase 4 factory-runner work, future dispatch adapter work, and reviewers who need structural claim, lease, evidence, and authority behavior to stay canonical."
+  success_signal: "A production Coolify deployment answers health checks, the human surface is protected by Alobar ID forward-auth, the M2M API path rejects unauthenticated calls and accepts only configured bearer auth, backup coverage is proven, and no runner dispatch is implemented by this package."
+scope:
+  included:
+    - "Plan the production deployment in a fresh infrastructure-mutation session before any Coolify, DNS, or backup changes."
+    - "Deploy the existing AlobarQuest/orchestrator application to production Coolify as a Docker image application using the repository Dockerfile and a GHCR image flow."
+    - "Provision a separate production PostgreSQL resource for the orchestrator."
+    - "Configure https://sds.alobar.net for the orchestrator production app."
+    - "Configure Alobar ID forward-auth for the human review surface."
+    - "Configure M2M bearer authentication for machine API access without embedding secrets in tracked files or workflow files."
+    - "Store and inject secrets through BWS/Coolify/GitHub-secret patterns using stable UUID references and manifests where repositories consume BWS secrets."
+    - "Add vps-backup coverage for the production orchestrator database before first real production orchestrator data is accepted."
+    - "Run health, auth-boundary, migration, backup, and rollback-readiness verification after deployment."
+    - "Record deployment evidence and operational notes needed by WS-4.1 and WS-4.2."
+  excluded:
+    - "Factory-runner implementation, reusable workflow creation, claude-code-action execution, or pilot rollout."
+    - "Orchestrator dispatch adapter, workflow_dispatch integration, automatic doing, or work-unit scheduling."
+    - "Phase-5 verifier logic, release immutability, automatic acceptance adjudication, or post-deploy verification units."
+    - "Tracker canonicalization, Linear/Todoist projection, brain learning, knowledge promotion, graduation automation, or automatic merge."
+    - "Creating repo-scoped runner credentials for pilot repositories unless this package is revised; WS-4.1/WS-4.2 own runner credential surfaces."
+    - "Changing change-manager authority over sensitive infrastructure work."
+    - "Deleting local orchestrator data, approved intent-package history, event records, or unrelated Coolify resources."
+  non_goals:
+    - "Completing WS-4.1, WS-4.2, WS-4.3, or WS-4.4."
+    - "Making production orchestrator deployment itself proof that autonomous dispatch is safe."
+    - "Replacing change-manager or infraops as the sensitive-infrastructure execution lane."
+  assumptions:
+    - "Option A is the chosen Phase 4 reachability design: deploy orchestrator first, then build the factory runner against a reachable canonical service."
+    - "The production domain is sds.alobar.net."
+    - "The orchestrator remains canonical for work-unit lifecycle truth; production deployment only changes reachability."
+    - "The existing reserved factory-runner registry identity is an untrusted prototype until WS-4.1 reviews and revises it."
+    - "Secrets are BWS-managed and are never pasted into prompts, tracked files, workflow files, or logs."
+    - "Devon alone approves exact package revisions, approves decomposition, and merges PRs."
+  open_questions: []
+sources:
+  - location: "Allowlist item 1: Devon's live 2026-07-06 confirmation of Option A, package order deploy package before WS-4.1, infrastructure-change profile, domain sds.alobar.net, golden-path sequence approval, and factory-runner registry identity as an untrusted unused prototype"
+    authority_level: authoritative
+    required_version: "2026-07-06"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Allowlist item 1: Devon's live 2026-07-06 Phase 4 kickoff instruction prohibiting Phase 5, tracker canonicalization, brain learning/promotion, graduation automation, automatic merge, and infrastructure mutation inside mixed research/code sessions"
+    authority_level: authoritative
+    required_version: "2026-07-06"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md"
+    authority_level: authoritative
+    required_version: "2026-07-06"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md"
+    authority_level: authoritative
+    required_version: "2026-06-30"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.1-orchestrator-core revision 1, hash 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.2-package-intake-decomposition revision 1, hash 84c929bc0860b6a585a62ec02fa35d9cdf89fce84773660aea1e383d955689df"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.3-protocol-smoke-runtime-semantics revision 1, hash 7829f22bfa30630a906d75131c84bc018c5dac3ceac7b933b7c9b46d23e5047a"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.4-evidence-events revision 2, hash 8530173a7cd1ec70a40e4a177c7dae3db68170f11d3a9ea88563edf5188a9239"
+    authority_level: authoritative
+    required_version: "revision 2"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package pre-phase4-foundation-cleanliness revision 1, hash b66d56799e8e0709d73e57b36d56f344f54b9a8bb6cb5c0b0f4e2823042a1824"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-06-phase4-kickoff-prompt.md"
+    authority_level: supporting
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-05-phase3-status-checklist.md"
+    authority_level: supporting
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/security-standards/docs/build-agent-secrets.md"
+    authority_level: supporting
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "Infra Brain combo python-fastapi-stack read-only result from this session"
+    authority_level: reference
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "App Brain approved deployment notes read-only result from this session supporting GHCR image plus separate PostgreSQL plus secrets-out-of-repo pattern"
+    authority_level: reference
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One infrastructure deploy package, executed in a fresh infrastructure-mutation session after approval."
+  technology: "Python 3.12, FastAPI, PostgreSQL 16, Alembic, Docker image deployment on Coolify, GHCR, Alobar ID forward-auth, M2M bearer auth, BWS-managed secrets, vps-backup, and infraops/change-manager lane."
+  policy_legal: "Devon approves this exact package revision and hash before any infrastructure mutation. All Coolify and backup operations happen through the infraops/change-manager lane in a separate session. Devon's merge gate remains permanent."
+  privacy_security: "No secrets, BWS token material, PATs, database URLs, bearer tokens, or private keys in tracked files, workflow files, package text, prompts, or logs. Reference BWS secrets by stable UUID only where a consuming repo manifest requires it."
+  compatibility: "Preserve Phase-3 orchestrator behavior, database migrations, M2M auth semantics, Alobar ID human surface, local development flow, and WS-3.4 event publication/export semantics."
+  quality_accessibility: "Production deployment must expose clear health and auth-boundary evidence; human surface must remain usable behind forward-auth."
+  operational: "Backups must be proven before first real production orchestrator data; rollback and DNS/app disable paths must be documented before cutover."
+  other:
+    - "Do not mix read-only research or runner implementation with infrastructure mutation."
+    - "If the deploy requires new credentials or secret writes, stop for Devon confirmation and record the BWS UUID/consumer-map decision without exposing values."
+    - "If default orchestrator gates or foundation checks fail, stop and resolve them before deploying."
+acceptance:
+  - id: AC-001
+    condition: "A fresh infrastructure-mutation session produces a read-only deploy plan before any Coolify, DNS, backup, or secret changes."
+    evidence_type: human_review
+    evidence: "human: Devon reviews the infra plan, mutation boundary, rollback path, and confirms execution may proceed"
+    approver: devon
+  - id: AC-002
+    condition: "The orchestrator repository is clean on merged main and the default gate passes before deployment work begins."
+    evidence_type: automated_test
+    evidence: "health: cd /Users/devon/Projects/orchestrator && make check passes before deploy"
+    approver: policy
+  - id: AC-003
+    condition: "The production app is deployed to Coolify at https://sds.alobar.net using the approved image/deploy path and a separate PostgreSQL resource."
+    evidence_type: automated_test
+    evidence: "health: Coolify application and database resources exist, app deploy is successful, and https://sds.alobar.net/health/live returns success"
+    approver: policy
+  - id: AC-004
+    condition: "The human review surface is protected by Alobar ID forward-auth while unauthenticated health behavior remains appropriate for monitoring."
+    evidence_type: automated_test
+    evidence: "health: protected human routes require forward-auth and configured health endpoint returns the expected monitoring response"
+    approver: policy
+  - id: AC-005
+    condition: "The M2M API rejects missing or invalid bearer auth and accepts only the configured production machine credential."
+    evidence_type: automated_test
+    evidence: "health: authenticated and unauthenticated M2M API probes demonstrate the expected 401/403 and success responses without logging token values"
+    approver: policy
+  - id: AC-006
+    condition: "All production secrets used by the deployment are sourced through BWS/Coolify/GitHub-secret patterns and no secret value is written to tracked files or logs."
+    evidence_type: automated_test
+    evidence: "change-log: security scan reports zero BLOCK findings and deployment notes list only non-secret UUID references or redacted secret names"
+    approver: policy
+  - id: AC-007
+    condition: "vps-backup coverage exists and is verified for the production orchestrator database before first real production orchestrator data is accepted."
+    evidence_type: automated_test
+    evidence: "backup: backup inventory and restore/verify evidence include the orchestrator production database or explicitly documented backup target"
+    approver: policy
+  - id: AC-008
+    condition: "Rollback readiness is demonstrated before cutover is considered complete."
+    evidence_type: automated_test
+    evidence: "change-log: rollback checklist records app disable/DNS route removal, database restore or retention path, and pre-change state references"
+    approver: policy
+  - id: AC-009
+    condition: "The deployment emits or records attributable deployment evidence without making factory-events, GitHub, Linear, Todoist, or any tracker canonical lifecycle truth."
+    evidence_type: automated_test
+    evidence: "change-log: deployment evidence records actor, package revision, commit/image, Coolify resources, health probes, and backup evidence while preserving orchestrator as lifecycle authority"
+    approver: policy
+  - id: AC-010
+    condition: "No factory-runner dispatch, workflow_dispatch, runner credential rollout, Phase-5 verifier, tracker canonicalization, brain learning/promotion, graduation automation, or automatic merge is implemented by this package."
+    evidence_type: automated_test
+    evidence: "change-log: final diff/scope review and deployment evidence confirm excluded surfaces were not implemented"
+    approver: policy
+  - id: AC-011
+    condition: "Devon reviews the deployment evidence before WS-4.1 package implementation begins."
+    evidence_type: human_review
+    evidence: "human: Devon confirms the production orchestrator deployment evidence is sufficient for WS-4.1 to depend on Option A reachability"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - drift_detection
+    - change_filing
+  requires_approval:
+    - infra_mutation
+    - secret_read
+    - secret_write
+    - credential_create
+    - external_system_write
+    - event_emit
+    - merge_to_main
+  prohibited:
+    - credential_revoke
+    - change_approval
+    - outward_publish
+    - third_party_contact
+    - calendar_write
+    - spend_money
+    - data_delete
+    - email_send
+    - task_claim
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "packages/orchestrator-production-deploy/package.yaml and lineage.yaml in AlobarQuest/intent-packages"
+    - "Read-only infrastructure deploy plan produced in the separate infrastructure-mutation session"
+    - "Production Coolify app for AlobarQuest/orchestrator at https://sds.alobar.net"
+    - "Production PostgreSQL resource for the orchestrator"
+    - "Backup coverage evidence for the production orchestrator database"
+    - "Deployment evidence note with health/auth/rollback/resource/image facts and WS-4.1 dependency notes"
+  destination: "Production Coolify plus intent-package governance records; implementation evidence should be stored in the relevant repo docs/evidence path chosen by the deploy session."
+  recipient: devon
+  definition_of_done: "Production orchestrator is reachable at sds.alobar.net, health/auth/backup/rollback evidence is recorded, no excluded Phase-4/Phase-5 surfaces are implemented, and Devon confirms WS-4.1 may depend on the deployment."
+  operator_responsibilities:
+    - "Approve or reject this exact package revision and hash."
+    - "Approve the separate read-only infra deploy plan before mutation."
+    - "Confirm any new credential or secret-write decision before it occurs."
+    - "Review deployment evidence before WS-4.1 implementation depends on it."
+dependencies:
+  predecessor_packages:
+    - package: ws-3.1-orchestrator-core
+      revision: 1
+    - package: ws-3.2-package-intake-decomposition
+      revision: 1
+    - package: ws-3.3-protocol-smoke-runtime-semantics
+      revision: 1
+    - package: ws-3.4-evidence-events
+      revision: 2
+    - package: pre-phase4-foundation-cleanliness
+      revision: 1
+  external_decisions:
+    - "Devon chose Option A: deploy orchestrator to production first."
+    - "Devon chose package order: deploy package before WS-4.1."
+    - "Devon confirmed this package is infrastructure-change profile."
+    - "Devon chose production domain sds.alobar.net."
+    - "Devon classified the existing factory-runner registry identity as an unused untrusted prototype requiring WS-4.1 review before use."
+  required_people_systems:
+    - "Devon for package approval, infra plan approval, secret/credential decisions, evidence review, and PR merge decisions"
+    - "change-manager/infraops lane for Coolify, DNS, deployment, and backup mutations"
+    - "Coolify production instance"
+    - "Alobar ID forward-auth"
+    - "BWS for secret source of truth"
+    - "vps-backup for production database backup coverage"
+    - "GitHub/GHCR for image build and registry access"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - drift_detection
+    - change_filing
+    - infra_mutation
+    - secret_read
+    - secret_write
+    - credential_create
+    - external_system_write
+  blocking_conditions:
+    - "Devon does not approve this exact package revision and hash."
+    - "The fresh infrastructure-mutation session cannot produce a rollback-safe deploy plan."
+    - "Required secrets are not BWS-managed or would need to be pasted, logged, or written into tracked files."
+    - "Backup coverage cannot be proven before first real production data."
+    - "The deployment requires dispatch, runner credential rollout, verifier logic, tracker canonicalization, brain promotion, or automatic merge to succeed."
+    - "Health or auth-boundary verification fails after deployment."
+risk:
+  failure_modes:
+    - "A reachable orchestrator expands runner attack surface before M2M credentials are least-privilege and structurally scoped."
+    - "A deployment accidentally stores secrets in a repo, workflow file, transcript, or log."
+    - "The database goes live with real lifecycle data before backup coverage is proven."
+    - "Human forward-auth or M2M auth is misconfigured, exposing review or API surfaces."
+    - "A deploy session crosses into WS-4.1/WS-4.2 dispatch implementation under cover of infrastructure setup."
+    - "The existing reserved factory-runner registry identity is treated as trusted without review."
+  max_impact: "Single production orchestrator app and database, sds.alobar.net DNS/routing, associated BWS/Coolify/GHCR configuration, and backup inventory. No automatic dispatch, no automatic merge, and no change-manager authority replacement."
+  stop_conditions:
+    - "Any secret value appears in a prompt, tracked file, command output, or log."
+    - "Coolify, DNS, backup, BWS, or GitHub mutation is attempted outside the fresh infrastructure-mutation session."
+    - "Health, auth-boundary, or backup verification fails."
+    - "A requested change would implement runner dispatch, Phase-5 verifier behavior, tracker canonicalization, brain promotion, or automatic merge."
+    - "Rollback path cannot be stated before cutover."
+  rollback: "Disable or roll back the Coolify app, remove or revert sds.alobar.net routing, restore or retain the production database according to backup evidence, revoke only credentials that this package explicitly created after Devon confirmation, and preserve audit/package records."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Run an infra plan review before mutation, including rollback and backup coverage."
+    - "Run a security review of secret handling, auth boundary, and least-privilege surfaces before considering the deploy complete."
+    - "Run a final scope review proving WS-4.1/WS-4.2/Phase-5 exclusions were preserved."
+  non_mechanical:
+    - "Devon approval of this exact package revision and hash."
+    - "Devon approval of the separate infra deploy plan."
+    - "Devon judgment that deployment evidence is sufficient for WS-4.1 to depend on Option A."
+follow_up:
+  required: true
+  revisit_when: "Immediately after production deployment evidence is accepted and before authoring WS-4.1 implementation details."
+  signals:
+    - "WS-4.1 needs the production orchestrator base URL and M2M auth contract."
+    - "WS-4.2 needs dispatch adapter reachability and kill-switch design."
+    - "Backup/auth/health evidence shape is awkward for Phase-5 verifier consumption."
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  security: "1.0"
+  code: "1.0"
