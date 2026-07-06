@@ -1,0 +1,23 @@
+package_id: pre-phase4-foundation-cleanliness
+current_state: approved
+revisions:
+- revision: 1
+  hash: b66d56799e8e0709d73e57b36d56f344f54b9a8bb6cb5c0b0f4e2823042a1824
+  created_at: '2026-07-06T00:00:00Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-06T18:48:00.890680+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-06T18:48:00.890680+00:00'
+  actor: claude-code-interactive
+  event_id: evt-e1942d1e40044dc79ad97d9e1e8ec7a1
+approvals:
+- revision: 1
+  approved_hash: b66d56799e8e0709d73e57b36d56f344f54b9a8bb6cb5c0b0f4e2823042a1824
+  approver: devon
+  approved_at: '2026-07-06T18:53:09.204250+00:00'
+  commit: 6a42e335ef86987bdc1dceb718ab9d23041bbbbd
+  event_id: evt-b70e6b4004e14f0484d5c340885bd360
+grants: []

@@ -1,0 +1,327 @@
+schema_version: 1
+package_id: pre-phase4-foundation-cleanliness
+title: "Pre-Phase-4 foundation cleanliness"
+revision: 1
+status: approved
+created_by: codex-interactive
+owner: devon
+created_at: "2026-07-06T00:00:00Z"
+supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/foundation-and-phase3-addons
+  branch: codex/pre-phase4-foundation-cleanliness
+  deploy_target: null
+  required_checks:
+    - "code-standards: make check"
+    - "project-standards: make check"
+    - "project-standards: uv run portfolio foundation"
+    - "security-standards: make check"
+    - "change-manager: make check"
+    - "brain: make check"
+    - "infraops-mcp-server: make check"
+    - "intent-packages: validate --all and make check"
+    - "orchestrator: make check"
+    - "alobar-id: portfolio-scan launchagent evidence"
+    - "vps-backup: backup-run and backup-verify launchagent evidence"
+  rollback_plan: "Before merge, abandon the affected per-repo cleanup branch or close its PR. After merge, revert the specific cleanup PR in that repository with a follow-up PR. Do not revert unrelated Devon work, delete canonical lifecycle/evidence records, mutate production infrastructure, or use live credentials as rollback."
+outcome:
+  what: "The foundation and Phase-3 add-on repositories are warning-clean, skip-clean unless explicitly integration-gated, toolchain-deterministic, and attributable in git before Phase 4 execution runtimes scale."
+  why: "Phase 4 will increase autonomous execution volume; the foundation must be trusted by deterministic local gates rather than by a conformance matrix that only happens to pass."
+  beneficiary: "Devon, the software factory, future execution runtimes, and reviewers who need reliable local evidence before runner dispatch and verifier work begin."
+  success_signal: "Every listed repository has documented branch state, no unattributed dirty files, warning-free/type-clean/test-clean default gates, no hidden tool skips, explicit integration-only gates where needed, and project-standards still reports foundation violations=0 accepted=0 unknown=0."
+scope:
+  included:
+    - "Author, validate, hash, and present this exact package revision for Devon approval before application or standards code changes."
+    - "Re-establish baseline branch, status, remotes, and recent commits for /Users/devon/Developer/code-standards, /Users/devon/Projects/project-standards, /Users/devon/Projects/security-standards, /Users/devon/Projects/change-manager, /Users/devon/Projects/brain, /Users/devon/Projects/infraops-mcp-server, /Users/devon/Projects/intent-packages, /Users/devon/Projects/orchestrator, /Users/devon/Projects/alobar-id, and /Users/devon/Projects/vps-backup."
+    - "Safely fast-forward only clean repositories to merged main; do not discard or absorb unrelated local changes."
+    - "Normalize local gate tool resolution so default documented checks prefer repo-local .venv/bin and node_modules/.bin where applicable instead of accidental global binaries."
+    - "Fix change-manager bare make check parity and remove its Starlette/httpx pytest warning."
+    - "Remove orchestrator Starlette/httpx pytest warning without changing Phase-4 dispatch, deployment, verifier, tracker, merge, or event-store authority."
+    - "Remove brain Starlette/httpx pytest warning and resolve the untracked uv.lock disposition only after attribution."
+    - "Remove security-standards pyright missing-source warnings and move FACTORY_TEST_DSN factory-store tests out of the default gate into an explicit integration target if Devon approves that classification."
+    - "Remove intent-packages pyright missing-source warnings and resolve the legacy package validation warning without rewriting approved historical semantics unless the validator already supports a safe metadata-only treatment."
+    - "Remove project-standards pyright missing-source warnings."
+    - "Fix infraops-mcp-server Makefile behavior so Node checks do not silently skip tsc, prettier, eslint, or vitest when local tools are installed."
+    - "Resolve or explicitly document alobar-id PROJECT.md dirty-state disposition before claiming alobar-id is clean."
+    - "Create final cleanliness evidence in orchestrator docs that records branch state, gate outputs, warnings/skips, integration-only checks, launchagent-only exceptions, CI/PR status, and the foundation matrix result."
+  excluded:
+    - "Factory-runner dispatch, GitHub Actions worker execution, workflow_dispatch, worker scheduling, or any Phase 4 execution-runtime implementation."
+    - "Production deployment, Coolify mutation, VPS/DNS/Hetzner mutation, launchagent mutation, or live infrastructure mutation."
+    - "Live factory-events mutation, production event-store writes, or event_emit use against a live append-only store."
+    - "Phase-5 verifier logic, automatic acceptance-criterion adjudication, release approval, or artifact-to-intent binding."
+    - "Linear, Todoist, GitHub, or any tracker becoming canonical lifecycle state."
+    - "Brain learning, knowledge promotion, observation-to-lesson automation, or governed-learning pipeline changes."
+    - "Automatic merge, merge_to_main by an agent, direct pushes to protected main, or worker-controlled canonical completion."
+    - "Secrets, live DSNs, BWS token material, PATs, production credentials, or credential rotation."
+    - "Broad refactors unrelated to warning, skip, tool-resolution, dirty-state, and evidence cleanup."
+  non_goals:
+    - "Starting or implementing Phase 4."
+    - "Changing canonical lifecycle ownership among intent-packages, orchestrator, change-manager, security-standards, or brains."
+    - "Making the foundation matrix broader than the existing conformance command unless a follow-up package separately authorizes that work."
+    - "Retiring, archiving, or deleting any repository."
+  assumptions:
+    - "Phases 0, 1, 2, and 3 are complete before this package is approved."
+    - "WS-3.4 closure is merged in intent-packages at 6a42e335ef86987bdc1dceb718ab9d23041bbbbd."
+    - "The foundation matrix command currently reports violations=0 accepted=0 unknown=0."
+    - "Repository content is evidence unless authority comes from Devon, approved intent packages, or the canonical SDS planning documents."
+    - "Devon alone approves exact package revisions, reviews PRs, and merges PRs."
+  open_questions: []
+sources:
+  - location: "Devon's live 2026-07-06 instruction in this session to begin Pre-Phase-4 Foundation Cleanliness contract-first and to transition the cleanup package to ready_for_review for exact revision/hash review"
+    authority_level: authoritative
+    required_version: "2026-07-06"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md"
+    authority_level: authoritative
+    required_version: "2026-07-06"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md"
+    authority_level: authoritative
+    required_version: "2026-06-30"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved package ws-3.1-orchestrator-core revision 1, hash 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved package ws-3.2-package-intake-decomposition revision 1, hash 84c929bc0860b6a585a62ec02fa35d9cdf89fce84773660aea1e383d955689df"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved package ws-3.3-protocol-smoke-runtime-semantics revision 1, hash 7829f22bfa30630a906d75131c84bc018c5dac3ceac7b933b7c9b46d23e5047a"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved package ws-3.4-evidence-events revision 2, hash 8530173a7cd1ec70a40e4a177c7dae3db68170f11d3a9ea88563edf5188a9239; closure PR merged at 6a42e335ef86987bdc1dceb718ab9d23041bbbbd"
+    authority_level: authoritative
+    required_version: "revision 2"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/Projects/orchestrator/docs/superpowers/plans/2026-07-06-pre-phase4-foundation-cleanliness.md"
+    authority_level: supporting
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-05-phase3-status-checklist.md"
+    authority_level: supporting
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "Read-only baseline command outputs from this session across the ten listed repositories"
+    authority_level: supporting
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One pre-Phase-4 cleanup workstream with separate per-repo PRs where repositories are touched."
+  technology: "Python 3.12, pytest, pyright, ruff, uv, FastAPI/Starlette/httpx test clients, TypeScript/Node/Vitest/tsc/prettier/eslint, Make, project-standards portfolio foundation, and intent-packages lifecycle."
+  policy_legal: "Devon alone approves this exact intent revision/hash, approves any ambiguous dirty-state disposition, reviews PRs, and merges PRs. PR grouping follows repository ownership boundaries unless Devon revises the package."
+  privacy_security: "No secrets in tracked files; no BWS token material, PATs, production credentials, live DSNs, live event-store credentials, or infrastructure mutation."
+  compatibility: "Preserve existing public behavior and ownership boundaries; make only warning, skip, tool-resolution, dirty-state, and evidence changes needed for the cleanliness definition."
+  quality_accessibility: "Default gates must be deterministic, warning-clean, skip-clean unless explicitly integration-gated, and runnable from a fresh shell without PATH accidents."
+  operational: "Use disposable local databases or explicit integration-only gates; do not require production credentials, live DSNs, live event stores, launchagent mutation, or infra mutation for default checks."
+  other:
+    - "Application and standards code changes may begin only after Devon approves this exact package revision and hash."
+    - "Stop and re-plan if a fix would require Phase 4 runtime behavior, Phase 5 verifier behavior, tracker canonicalization, brain promotion, production deployment, or infrastructure mutation."
+acceptance:
+  - id: AC-001
+    condition: "The cleanup package is authored through the intent-package lifecycle, validates, hashes deterministically, is transitioned to ready_for_review, and Devon is shown the exact revision and hash before any application or standards code changes."
+    evidence_type: human_review
+    evidence: "human: Devon reviews package pre-phase4-foundation-cleanliness revision 1 and its hash before approval"
+    approver: devon
+  - id: AC-002
+    condition: "Baseline branch, status, remotes, recent commits, and dirty/untracked files are recorded for all ten repositories before cleanup implementation."
+    evidence_type: automated_test
+    evidence: "gate: baseline transcript from git status -sb, branch --show-current, remote -v, and recent git log for the ten repositories"
+    approver: policy
+  - id: AC-003
+    condition: "Every repository has an expected branch state documented, and no repo is claimed clean while it has unattributed modified or untracked files."
+    evidence_type: automated_test
+    evidence: "gate: final evidence matrix records branch, HEAD, upstream, dirty state, and attribution/disposition for each repo"
+    approver: policy
+  - id: AC-004
+    condition: "code-standards default gate passes from a fresh shell with no pyright warnings, pytest warnings, default skips, or hidden tool skips."
+    evidence_type: automated_test
+    evidence: "gate: cd /Users/devon/Developer/code-standards && make check"
+    approver: policy
+  - id: AC-005
+    condition: "project-standards default gate passes from a fresh shell with pyright reporting 0 errors, 0 warnings, 0 informations and no pytest warnings or default skips."
+    evidence_type: automated_test
+    evidence: "gate: cd /Users/devon/Projects/project-standards && make check"
+    approver: policy
+  - id: AC-006
+    condition: "security-standards default gate passes with pyright reporting 0 errors, 0 warnings, 0 informations, pytest reporting no warnings, and zero default skips; FACTORY_TEST_DSN tests are either default-clean or exposed only through an explicit integration target with documented prerequisites."
+    evidence_type: automated_test
+    evidence: "gate: cd /Users/devon/Projects/security-standards && make check; if integration-gated, FACTORY_TEST_DSN= make check-integration exits with the explicit prerequisite message"
+    approver: policy
+  - id: AC-007
+    condition: "change-manager bare make check uses repo-local tooling, passes from a fresh shell, and emits no Starlette/httpx or pytest warning summary."
+    evidence_type: automated_test
+    evidence: "gate: cd /Users/devon/Projects/change-manager && make check"
+    approver: policy
+  - id: AC-008
+    condition: "brain default gate passes with no Starlette/httpx or pytest warning summary, and the uv.lock plus stale local branch disposition is attributed before any clean-state claim."
+    evidence_type: automated_test
+    evidence: "gate: cd /Users/devon/Projects/brain && make check; final evidence records uv.lock and branch disposition"
+    approver: policy
+  - id: AC-009
+    condition: "infraops-mcp-server default gate does not silently skip tsc, prettier, eslint, or vitest when local tools/configs are installed, and check behavior is deterministic without caller PATH accidents."
+    evidence_type: automated_test
+    evidence: "gate: cd /Users/devon/Projects/infraops-mcp-server && make check && npm test, plus a restricted-PATH check showing local node_modules/.bin resolution where applicable"
+    approver: policy
+  - id: AC-010
+    condition: "intent-packages validate --all prints no legacy validation warning, make check passes, and pyright reports 0 errors, 0 warnings, 0 informations."
+    evidence_type: automated_test
+    evidence: "gate: cd /Users/devon/Projects/intent-packages && PYTHONPATH=src .venv/bin/python -m intent_packages validate --all && make check"
+    approver: policy
+  - id: AC-011
+    condition: "orchestrator default gate passes against the documented local test database endpoint with no Starlette/httpx or pytest warning summary."
+    evidence_type: automated_test
+    evidence: "gate: cd /Users/devon/Projects/orchestrator && PATH=\"$PWD/.venv/bin:$PATH\" TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@192.168.97.2:5432/orchestrator_test make check"
+    approver: policy
+  - id: AC-012
+    condition: "alobar-id PROJECT.md dirty state is resolved or explicitly attributed, and launchagent-only required check evidence is recorded without inventing a fake local gate."
+    evidence_type: automated_test
+    evidence: "gate: final evidence records git status plus required check id portfolio-scan / launchagent:com.devon.portfolio-scan and last known successful source when available"
+    approver: policy
+  - id: AC-013
+    condition: "vps-backup launchagent-only required checks are recorded without inventing a fake local gate."
+    evidence_type: automated_test
+    evidence: "gate: final evidence records required check ids backup-run and backup-verify with their launchagent executors and last known successful source when available"
+    approver: policy
+  - id: AC-014
+    condition: "The final foundation matrix remains conformance-clean."
+    evidence_type: automated_test
+    evidence: "gate: cd /Users/devon/Projects/project-standards && uv run portfolio foundation reports violations=0 accepted=0 unknown=0"
+    approver: policy
+  - id: AC-015
+    condition: "No implemented diff includes Phase 4 runtime dispatch, GitHub Actions worker execution, production deployment, live factory-events mutation, Coolify mutation, Phase-5 verifier logic, tracker canonicalization, brain learning/promotion, automatic merge, or infrastructure mutation."
+    evidence_type: automated_test
+    evidence: "scan: final per-repo reviews and PR descriptions state the excluded surfaces were not touched; repository searches or scope-guard tests run where applicable"
+    approver: policy
+  - id: AC-016
+    condition: "Each touched repo has a ready-for-review PR or an explicitly documented local-only/no-change disposition with local gate output, CI status where available, rollback notes, and a statement that no secrets, production infrastructure, live event store, or automatic merge were touched."
+    evidence_type: human_review
+    evidence: "human: Devon reviews the final evidence matrix and per-repo PRs before merge decisions"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+  requires_approval:
+    - merge_to_main
+    - secret_read
+    - event_emit
+  prohibited:
+    - secret_write
+    - credential_create
+    - credential_revoke
+    - infra_mutation
+    - outward_publish
+    - external_system_write
+    - third_party_contact
+    - calendar_write
+    - spend_money
+    - data_delete
+    - email_send
+    - task_claim
+    - drift_detection
+    - change_filing
+    - change_approval
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "packages/pre-phase4-foundation-cleanliness/package.yaml and lineage.yaml in AlobarQuest/intent-packages"
+    - "Focused per-repo cleanup branches and PRs for only the repositories that require code, test, Makefile, lockfile, or documentation changes"
+    - "Final cleanliness evidence matrix at /Users/devon/Projects/orchestrator/docs/superpowers/evidence/pre-phase4-foundation-cleanliness-evidence.md"
+    - "Optional updates to /Users/devon/docs/software-delivery-system/2026-07-05-phase3-status-checklist.md only if Devon wants the status checklist refreshed after evidence is complete"
+  destination: "The ten foundation and Phase-3 add-on repositories listed in scope, with intent-package governance in AlobarQuest/intent-packages and final evidence in AlobarQuest/orchestrator."
+  recipient: devon
+  definition_of_done: "All applicable cleanliness criteria are evidenced, no scope exclusions are crossed, the foundation matrix remains clean, and Devon has reviewable PRs or documented no-change dispositions for each repo."
+  operator_responsibilities:
+    - "Approve or reject this exact package revision and hash."
+    - "Clarify dirty-state ownership if attribution cannot be determined from local git/PR evidence."
+    - "Review per-repo PRs and CI results."
+    - "Merge PRs personally; agents do not merge."
+dependencies:
+  predecessor_packages:
+    - package: ws-3.1-orchestrator-core
+      revision: 1
+    - package: ws-3.2-package-intake-decomposition
+      revision: 1
+    - package: ws-3.3-protocol-smoke-runtime-semantics
+      revision: 1
+    - package: ws-3.4-evidence-events
+      revision: 2
+  external_decisions:
+    - "Devon approval of this exact package revision and hash before application or standards code changes."
+    - "Devon disposition for any dirty or untracked files that cannot be attributed through local git or PR evidence."
+    - "Devon disposition for stale local branches whose remote branch is gone, if local commits are not already merged."
+    - "Devon approval of integration-test classification if FACTORY_TEST_DSN tests are moved out of the default security-standards gate."
+  required_people_systems:
+    - "Devon for package approval, dirty-state decisions, PR review, and merge"
+    - "GitHub and GitHub Actions for PRs and CI status where repositories define CI"
+    - "Local Python virtual environments and uv-managed environments"
+    - "Local Node dependencies in infraops-mcp-server when Node checks are applicable"
+    - "Local PostgreSQL endpoint for orchestrator checks"
+    - "LaunchAgent evidence sources for alobar-id and vps-backup required checks"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+  blocking_conditions:
+    - "Devon does not approve this exact package revision and hash."
+    - "A dirty worktree contains changes that cannot be attributed or safely separated."
+    - "A repo check requires production credentials, live DSNs, live event stores, launchagent mutation, infrastructure mutation, or live external writes."
+    - "Fixing a warning would require changing canonical lifecycle ownership, factory dispatch, verifier logic, tracker canonicalization, brain promotion, or production deployment behavior."
+    - "Existing CI disagrees with the local gate in a way that cannot be explained."
+risk:
+  failure_modes:
+    - "A PATH fix hides a missing dependency instead of making the default gate deterministic."
+    - "A warning cleanup changes application behavior instead of only updating tests/tooling."
+    - "Integration tests are skipped silently instead of moved to an explicit integration target."
+    - "Approved historical intent-package semantics are rewritten to suppress a legacy validation warning."
+    - "Dirty or stale local branch state is accidentally absorbed into an unrelated cleanup PR."
+    - "Launchagent-only repos are falsely represented as having local code gates."
+    - "Cleanup scope drifts into Phase 4 or production mutation."
+  max_impact: "Local code, tests, Makefiles, dependency metadata, docs, and PRs across the listed repositories; no production infrastructure, live event stores, secret mutation, deployment, or automatic merge."
+  stop_conditions:
+    - "Any dirty worktree contains unattributed user work."
+    - "Any required check needs production credentials, live DSNs, live event stores, launchagent mutation, or infrastructure mutation."
+    - "A fix would require Phase 4 runtime implementation, Phase 5 verifier logic, canonical tracker state, brain learning/promotion, production deployment, or automatic merge."
+    - "A repo's CI and local gate disagree in a way that cannot be explained."
+    - "The approved package boundary proves too broad or too narrow for the required cleanup."
+  rollback: "Before merge, abandon the affected branch or close the PR. After merge, revert the specific cleanup PR in that repository. Preserve unrelated Devon changes, approved package history, canonical lifecycle/evidence records, and production systems."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Run /code-review or an equivalent diff review against ~/Developer/code-standards/STANDARDS.md before declaring non-trivial code changes complete."
+    - "Review final diffs for over-broad refactors, hidden skips, warning suppressions, and newly added noqa/type-ignore/eslint-disable comments."
+    - "Review the final evidence matrix before recommending Phase 4 readiness."
+  non_mechanical:
+    - "Devon approval of this exact package revision and hash."
+    - "Devon dirty-state decisions where local attribution is insufficient."
+    - "Devon PR review and merge decisions."
+follow_up:
+  required: true
+  revisit_when: "Immediately before Phase 4 execution runtimes at scale begin."
+  signals:
+    - "A new foundation repo is added to PROJECT.md foundation:true."
+    - "A default gate starts emitting warnings, hidden skips, or PATH-sensitive behavior again."
+    - "Phase 4 runner dispatch needs to rely on these repos as deterministic trust substrate."
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  security: "1.0"
+  code: "1.0"
