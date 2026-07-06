@@ -308,6 +308,33 @@ def test_no_open_questions_warning_when_list_is_empty(valid_package):
     assert not any("open question" in w for w in warnings)
 
 
+def test_active_unprofiled_package_with_profile_tags_warns(valid_package, edit_yaml):
+    edit_yaml(
+        valid_package,
+        "package.yaml",
+        set_nested=(("acceptance", 0, "evidence"), "ci: legacy check passed"),
+    )
+    warnings = validate_warnings(valid_package)
+    assert any("recognized profile evidence tags" in w for w in warnings)
+
+
+def test_superseded_legacy_unprofiled_package_with_profile_tags_does_not_warn(
+    valid_package, edit_yaml
+):
+    edit_yaml(
+        valid_package,
+        "package.yaml",
+        set_nested=(("status",), "superseded"),
+    )
+    edit_yaml(
+        valid_package,
+        "package.yaml",
+        set_nested=(("acceptance", 0, "evidence"), "ci: legacy check passed"),
+    )
+    warnings = validate_warnings(valid_package)
+    assert not any("recognized profile evidence tags" in w for w in warnings)
+
+
 def test_registry_absent_note_is_a_warning(valid_package, monkeypatch, tmp_path):
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(tmp_path / "no-such-checkout"))
     assert validate_package(valid_package) == []

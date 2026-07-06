@@ -242,7 +242,7 @@ def validate_warnings(pkg_dir: str | Path) -> list[str]:
                 f"warning: {len(open_questions)} open question(s) — "
                 "approve will refuse until resolved"
             )
-        if pkg.get("profile") is None:
+        if pkg.get("profile") is None and pkg.get("status") not in {"closed", "superseded"}:
             acceptance = pkg.get("acceptance")
             if isinstance(acceptance, list):
                 tagged = [
