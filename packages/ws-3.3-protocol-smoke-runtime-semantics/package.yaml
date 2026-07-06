@@ -2,7 +2,7 @@ schema_version: 1
 package_id: ws-3.3-protocol-smoke-runtime-semantics
 title: "WS-3.3 - protocol smoke tests and runtime protocol semantics"
 revision: 1
-status: approved
+status: closed
 created_by: codex-interactive
 owner: devon
 created_at: "2026-07-06T10:55:00Z"
