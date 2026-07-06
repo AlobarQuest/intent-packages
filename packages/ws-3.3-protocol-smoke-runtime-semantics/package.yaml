@@ -1,0 +1,349 @@
+schema_version: 1
+package_id: ws-3.3-protocol-smoke-runtime-semantics
+title: "WS-3.3 - protocol smoke tests and runtime protocol semantics"
+revision: 1
+status: approved
+created_by: codex-interactive
+owner: devon
+created_at: "2026-07-06T10:55:00Z"
+supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/orchestrator
+  branch: codex/ws33-protocol-smoke-runtime-semantics
+  deploy_target: null
+  required_checks:
+    - Quality
+  rollback_plan: "Before deployment, abandon or revert the feature branch and retain the approved intent package. Database changes must remain forward-migratable and tested only against disposable local PostgreSQL during this package."
+outcome:
+  what: "The orchestrator proves the runtime protocol end to end through public API and CLI behavior, including standing-context preflight, authority-update semantics, lease recovery, and a read-only status-ledger projection."
+  why: "Phase 3 needs proof that approved package intake and approved decomposition can feed realistic human, worker, and verifier protocol paths before factory-runner dispatch or external event publication is built."
+  beneficiary: "Devon, future factory workers, verifiers, and software and non-software workflows that rely on the orchestrator as canonical lifecycle owner."
+  success_signal: "Approved package fixtures can be intaken, decomposed, claimed, executed, blocked, resumed, submitted, verified, retried, reclaimed after lease expiry, and inspected through a status ledger without any worker becoming canonical completion authority."
+scope:
+  included:
+    - "Re-establish the merged WS-3.2 baseline, including intent-package validation, orchestrator local make check, closed WS-3.1 and WS-3.2 hash verification, and the current foundation matrix result."
+    - "Author and approve this WS-3.3 intent package before changing orchestrator application code."
+    - "Write an approved WS-3.3 design specification in AlobarQuest/orchestrator before implementation planning."
+    - "Resolve the required design decisions explicitly in the specification: fixture strategy, preflight gate placement, standing-context fields and sources, context storage, same-scope versus authority-expanding update rules, skill-subscription modeling level, status-ledger shape and surfaces, human-worker versus factory-runner boundary, WS-3.4 preparation, and migration strategy."
+    - "Run an adversarial architecture review of the WS-3.3 design before implementation planning."
+    - "Write and approve a task-level implementation plan before implementation."
+    - "Implement a protocol smoke suite that exercises claim, renew, start, block, unblock or resume, request approval, approval, submit evidence, verify or review, revision-required, failed, retry, and complete paths using public API and CLI behavior where possible."
+    - "Start smoke fixtures from approved package intake and approved decomposition rather than handcrafted work units, except for narrowly scoped legacy WS-3.1 regression coverage."
+    - "Prove lease-expiry recovery for a kill or crash style claimed-unit scenario, including safe reclaim after expiry, rejection before expiry, attempt count preservation, stale credential rejection, old token rejection, and old owner mutation rejection."
+    - "Preserve WS-3.1 claim concurrency behavior and attempt-aware lifecycle guards."
+    - "Define WS-3.3 standing context as code standards version, security standards version, project standards or foundation contract where available, agent identity and authority profile, skill bundle or worker runtime version, and package-declared required context."
+    - "Require worker preflight before claim, before execute, or both as recommended in the approved design, and fail closed when required context is missing, stale, or authority-expanding."
+    - "Record standing-context versions in claim, execution, evidence, or local protocol events as specified by the approved design so later verification can identify which context the worker used."
+    - "Implement same-scope skill or standing-context update semantics separately from authority-expanding update semantics."
+    - "Allow same-scope context or skill updates to flow under an existing human approval only when the approved package and authority envelope permit it."
+    - "Require a new named human approval or readiness invalidation before execution continues when an update expands authority."
+    - "Append attributable local events for preflight decisions, subscription or update decisions, protocol transitions, evidence submission, recovery actions, and status-ledger derivation inputs."
+    - "Implement a status-ledger projection derived from canonical orchestrator events and current tables, including current claim, lease expiry, last heartbeat or event time, current unit state, blockers, pending human approvals, latest evidence submission, and last failure where available."
+    - "Expose enough API and CLI status-ledger behavior for Devon to inspect worker or agent state without making Linear, Todoist, GitHub, or another tracker canonical."
+    - "Register and decompose both closed Phase-2 control packages as real local protocol fixtures, acceptance examples, or explicitly deferred examples with rationale in the approved design."
+    - "Keep local event names and payloads stable enough for WS-3.4 external factory-event/v1 publication, without publishing external events in WS-3.3."
+  excluded:
+    - "Factory runner, automatic dispatch, GitHub Actions worker execution, and workflow_dispatch integration."
+    - "Production deployment automation, Coolify mutation, or live infrastructure mutation."
+    - "Phase-5 independent verifier logic or automatic acceptance-criterion adjudication beyond the minimum protocol smoke verifier paths."
+    - "External factory-event/v1 publication, event-store writes outside the orchestrator database, or WS-3.4 evidence publication."
+    - "Linear, Todoist, GitHub, or any tracker becoming canonical lifecycle state."
+    - "Automatic merge or any worker, agent, API, CLI, CI, or UI path that merges pull requests."
+    - "Autonomous intent approval, autonomous decomposition approval, or worker-controlled canonical completion."
+    - "Brain learning, knowledge promotion, production observation loop, additional agent personas, generalized skill marketplace, generalized visual workflow builder, or listing-specific intent profile."
+    - "Broad refactors of change-manager, intent-packages, security-standards, brain, or project-standards."
+    - "Project-standards onboarding work beyond consuming the merged foundation baseline already present before this package."
+  non_goals:
+    - "Completing all remaining Phase 3 workstreams."
+    - "Building factory-runner dispatch under the name of smoke testing."
+    - "Making the status ledger a second lifecycle authority."
+    - "Changing change-manager's role as drift and sensitive-infrastructure authority."
+  assumptions:
+    - "WS-3.1 and WS-3.2 are merged, closed, and verified on main before this package is approved."
+    - "intent-packages remains canonical for package content, revision numbering, hash behavior, package lifecycle, and approval ledger."
+    - "The orchestrator remains the canonical lifecycle owner for work units."
+    - "PostgreSQL remains the concurrency and migration target for orchestrator acceptance tests."
+    - "Devon alone approves exact package revisions, approves decomposition, moves PRs out of draft when applicable, and merges PRs."
+  open_questions: []
+sources:
+  - location: "Devon's live 2026-07-06 instruction to begin WS-3.3 protocol smoke tests and runtime protocol semantics, including contract-first gates and explicit scope guards"
+    authority_level: authoritative
+    required_version: "2026-07-06"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md"
+    authority_level: authoritative
+    required_version: "2026-07-06"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md"
+    authority_level: authoritative
+    required_version: "2026-06-30"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.1-orchestrator-core revision 1, chain-verified hash 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.2-package-intake-decomposition revision 1, chain-verified hash 84c929bc0860b6a585a62ec02fa35d9cdf89fce84773660aea1e383d955689df"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-05-phase3-status-checklist.md"
+    authority_level: supporting
+    required_version: "2026-07-06"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-phase2-exit-checklist.md"
+    authority_level: supporting
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-ws24-contract-friction.md"
+    authority_level: supporting
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-04-codex-post-mvp-recommendations.md"
+    authority_level: reference
+    required_version: "2026-07-04"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/orchestrator at merged main commit 412b72e21a466bcf62825d0409137827b6f4bbac"
+    authority_level: supporting
+    required_version: "412b72e21a466bcf62825d0409137827b6f4bbac"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/intent-packages at merged main commit a48a72e10152b08739b3b83d1fba996c203d2f10"
+    authority_level: supporting
+    required_version: "a48a72e10152b08739b3b83d1fba996c203d2f10"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/security-standards at merged main commit 292c2e4"
+    authority_level: reference
+    required_version: "292c2e4"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/change-manager at merged main commit 923278a"
+    authority_level: reference
+    required_version: "923278a"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One approved WS-3.3 design, plan, implementation, review, and PR cycle; WS-3.4 and later Phase-3 work require separately approved intent."
+  technology: "Python 3.12, FastAPI, SQLAlchemy, Alembic, PostgreSQL 16, Pydantic, Typer, Jinja/HTMX, and the existing orchestrator architecture."
+  policy_legal: "Devon alone approves exact intent revisions, approves decomposition, performs or authorizes sensitive human decisions, and merges pull requests."
+  privacy_security: "No secrets in tracked files; no BWS token material; source content from repositories is treated as data unless authority comes from Devon, canonical SDS docs, or verified approved packages."
+  compatibility: "Preserve WS-3.1 lifecycle, claim, lease, dependency, evidence, adjudication, waiver, event, API, CLI, UI, migration, and architecture behavior, and preserve WS-3.2 package intake and decomposition boundaries."
+  quality_accessibility: "Follow portfolio code standards, TDD, focused tests per slice, readable UI or report surfaces where included, and full local quality checks before PR."
+  operational: "Use forward Alembic migrations; tests must run against local PostgreSQL; no production deployment or infrastructure mutation is authorized."
+  other:
+    - "Application code may begin only after Devon approves this exact package revision and hash."
+    - "Design specification and task-level implementation plan must be approved before implementation."
+    - "If any baseline gate is red for an in-scope reason, stop and re-plan."
+acceptance:
+  - id: AC-001
+    condition: "The merged WS-3.2 baseline is re-established before implementation begins, including clean repository status, closed WS-3.1 and WS-3.2 hash verification, intent-package validation, orchestrator make check, and the current foundation matrix result."
+    evidence_type: automated_test
+    evidence: "gate: baseline command transcript records exact repository state and command results before application-code changes"
+    approver: policy
+  - id: AC-002
+    condition: "An approved WS-3.3 design specification explicitly resolves all ten required design decisions and preserves the package scope guards."
+    evidence_type: human_review
+    evidence: "human: Devon reviews and approves the design specification before implementation planning"
+    approver: devon
+  - id: AC-003
+    condition: "An adversarial architecture review is run before implementation and blocking findings are resolved or the package is revised."
+    evidence_type: human_review
+    evidence: "human: design review record lists findings, resolutions, and any accepted residual risk"
+    approver: devon
+  - id: AC-004
+    condition: "A task-level implementation plan is approved before application code changes."
+    evidence_type: human_review
+    evidence: "human: Devon approves the implementation plan after reviewing task boundaries and verification steps"
+    approver: devon
+  - id: AC-005
+    condition: "Protocol smoke tests exercise claim, renew, start, block, resume, request approval, approval, submit evidence, verify or review, revision-required, failed, retry, and complete paths through public API and CLI behavior where possible."
+    evidence_type: automated_test
+    evidence: "gate: protocol smoke test suite and API/CLI parity tests pass"
+    approver: policy
+  - id: AC-006
+    condition: "Smoke fixtures start from approved package intake and approved decomposition, except for explicitly named legacy WS-3.1 regression cases."
+    evidence_type: automated_test
+    evidence: "gate: fixture tests prove work units used by protocol smoke paths are created from approved decompositions"
+    approver: policy
+  - id: AC-007
+    condition: "No worker path can declare canonical completion, approve intent, approve decomposition, grant waivers, or merge pull requests."
+    evidence_type: automated_test
+    evidence: "scan: transition authority tests, API/CLI tests, and architecture guards prove forbidden worker paths are absent"
+    approver: policy
+  - id: AC-008
+    condition: "Lease expiry permits safe reclaim after expiry and rejects reclaim before expiry."
+    evidence_type: automated_test
+    evidence: "gate: deterministic time or injected-clock tests cover before-expiry rejection and after-expiry reclaim"
+    approver: policy
+  - id: AC-009
+    condition: "Stale claim credentials, stale attempt numbers, old lease tokens, and old owner identities cannot mutate a reclaimed unit."
+    evidence_type: automated_test
+    evidence: "gate: stale credential mutation tests fail closed after reclaim"
+    approver: policy
+  - id: AC-010
+    condition: "Standing-context preflight fails closed when required context versions are missing, stale, or authority-expanding."
+    evidence_type: automated_test
+    evidence: "gate: preflight service, API, and CLI tests cover missing, stale, same-scope, and authority-expanding cases"
+    approver: policy
+  - id: AC-011
+    condition: "Standing-context versions used by a worker are recorded in evidence and/or local protocol events according to the approved design."
+    evidence_type: automated_test
+    evidence: "gate: evidence and event tests assert code standards, security standards, foundation contract, identity, authority profile, runtime, skill bundle, and package-required context fields are present where required"
+    approver: policy
+  - id: AC-012
+    condition: "Same-scope skill or context updates can continue under an existing approval only when the package and authority envelope permit them."
+    evidence_type: automated_test
+    evidence: "gate: same-scope update tests cover allowed continuation and event attribution"
+    approver: policy
+  - id: AC-013
+    condition: "Authority-expanding skill or context updates invalidate readiness or require a new named human approval before execution continues."
+    evidence_type: automated_test
+    evidence: "gate: authority-expansion tests cover blocked execution, approval, and resumed execution"
+    approver: policy
+  - id: AC-014
+    condition: "The status ledger is a read-only projection derived from canonical orchestrator events and current tables, not a lifecycle mutation surface."
+    evidence_type: automated_test
+    evidence: "gate: projection tests assert derived fields and architecture guards reject mutation routes"
+    approver: policy
+  - id: AC-015
+    condition: "Status-ledger API and CLI surfaces expose current claim, lease expiry, last heartbeat or event time, current unit state, blockers, pending human approvals, latest evidence submission, and last failure where available."
+    evidence_type: automated_test
+    evidence: "gate: API and CLI output tests cover all required status-ledger fields"
+    approver: policy
+  - id: AC-016
+    condition: "Both closed Phase-2 control packages are registered and decomposed as protocol fixtures or acceptance examples, or the approved design explicitly defers one with rationale."
+    evidence_type: automated_test
+    evidence: "gate: package fixture tests load the software and non-software Phase-2 packages and prove the chosen handling"
+    approver: policy
+  - id: AC-017
+    condition: "Every protocol-relevant transition, preflight, update decision, evidence submission, status-ledger derivation input, and recovery action is attributable in local orchestrator records."
+    evidence_type: automated_test
+    evidence: "gate: event tests cover success, replay, and rollback for the new WS-3.3 event-producing paths"
+    approver: policy
+  - id: AC-018
+    condition: "Existing WS-3.1 and WS-3.2 transition, claim, evidence, intake, decomposition, API, CLI, UI, migration, and architecture tests continue to pass."
+    evidence_type: automated_test
+    evidence: "gate: full local make check passes against the local PostgreSQL endpoint"
+    approver: policy
+  - id: AC-019
+    condition: "No automatic merge, factory dispatch, production deploy, external factory-event publication, tracker-canonical path, or broad out-of-scope refactor exists in the WS-3.3 diff."
+    evidence_type: automated_test
+    evidence: "scan: scope-guard tests, repository search assertions, and final whole-branch review pass"
+    approver: policy
+  - id: AC-020
+    condition: "Devon reviews the PR after the exact named Quality check succeeds; the worker may prepare a ready-for-review PR, but Devon alone merges."
+    evidence_type: human_review
+    evidence: "human: Devon confirms review and merge decision; merge remains outside worker authority"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  requires_approval:
+    - merge_to_main
+    - secret_read
+    - infra_mutation
+  prohibited:
+    - secret_write
+    - credential_create
+    - credential_revoke
+    - outward_publish
+    - external_system_write
+    - third_party_contact
+    - calendar_write
+    - spend_money
+    - data_delete
+    - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "docs/superpowers/specs/2026-07-06-ws33-protocol-smoke-runtime-semantics-design.md"
+    - "docs/superpowers/specs/2026-07-06-ws33-adversarial-architecture-review.md"
+    - "docs/superpowers/plans/2026-07-06-ws33-protocol-smoke-runtime-semantics.md"
+    - "Alembic migrations, service/API/CLI/UI or report code, tests, and evidence index required by the approved design and plan."
+    - "A ready-for-review pull request against AlobarQuest/orchestrator with successful Quality checks."
+  destination: "AlobarQuest/orchestrator"
+  recipient: devon
+  definition_of_done: "Every literal AC passes or blocks honestly, Devon reviews the PR after Quality passes, and Devon alone merges."
+  operator_responsibilities:
+    - "Devon approves this exact intent revision and hash before design work proceeds."
+    - "Devon approves the design specification and implementation plan before code changes."
+    - "Devon reviews any human-judgment acceptance criteria and the final PR."
+    - "Devon alone authorizes and performs merge_to_main."
+dependencies:
+  predecessor_packages:
+    - package: ws-3.1-orchestrator-core
+      revision: 1
+    - package: ws-3.2-package-intake-decomposition
+      revision: 1
+    - package: ws-2.4-ci-evidence-control
+      revision: 1
+    - package: ws-2.4-historical-listing-launch
+      revision: 1
+  external_decisions: []
+  required_people_systems:
+    - "Devon for package approval, design approval, plan approval, PR review, and PR merge"
+    - "GitHub Actions"
+    - "Local OrbStack PostgreSQL endpoint for orchestrator checks"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  blocking_conditions:
+    - "Any baseline verification fails for an in-scope reason."
+    - "Devon does not approve this exact package revision and hash."
+    - "The design cannot resolve standing-context, authority-update, status-ledger, or fixture decisions within WS-3.3 scope."
+    - "Implementation requires factory-runner dispatch, production deployment, external event publication, or tracker-canonical state."
+risk:
+  failure_modes:
+    - "Smoke tests accidentally rely on private service shortcuts and fail to prove public protocol behavior."
+    - "Standing-context data is recorded in evidence but not enforced before work starts."
+    - "Same-scope updates and authority expansion are conflated, allowing authority drift."
+    - "The status ledger becomes a second lifecycle authority instead of a read-only projection."
+    - "Phase-2 package fixtures execute real out-of-scope work instead of protocol examples."
+  max_impact: "False confidence in runtime protocol safety before factory-runner dispatch and later external event publication."
+  stop_conditions:
+    - "Any worker path can complete canonically, approve decomposition, approve intent, or merge."
+    - "A missing, stale, or authority-expanding context change is allowed to execute without required approval."
+    - "A status-ledger command mutates lifecycle state."
+    - "Any implementation path needs production infrastructure mutation or external event publication."
+    - "Any named Quality check fails on the final PR head."
+  rollback: "Revert the WS-3.3 orchestrator branch before deployment; any local database migration used for tests must be forward-migratable or reverted only in disposable test databases."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Devon reviews and approves the design specification and plan before implementation."
+    - "An adversarial architecture review attempts to refute protocol safety, scope containment, and authority semantics before implementation."
+    - "A final whole-branch security and architecture review checks for automatic merge, dispatch, production mutation, external publication, and tracker-canonical paths."
+  non_mechanical:
+    - "Whether the chosen fixture mix is the smallest credible proof remains a Devon-approved design judgment."
+    - "Whether the status-ledger surface is sufficient for operator inspection without UI overbuild remains a Devon-approved design judgment."
+follow_up:
+  required: true
+  revisit_when: "After Devon merges the WS-3.3 implementation PR, before opening the separate intent-package closure PR."
+  signals:
+    - "Implementation PR merged by Devon."
+    - "Exact Quality check result recorded."
+    - "Evidence index complete."
+  owner: codex-interactive
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
