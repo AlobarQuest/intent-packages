@@ -2,7 +2,7 @@ schema_version: 1
 package_id: ws-3.4-evidence-events
 title: "WS-3.4 - evidence records wired to factory-event/v1"
 revision: 2
-status: approved
+status: closed
 created_by: codex-interactive
 owner: devon
 created_at: "2026-07-06T18:45:00Z"

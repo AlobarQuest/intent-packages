@@ -1,5 +1,5 @@
 package_id: ws-3.4-evidence-events
-current_state: approved
+current_state: closed
 revisions:
 - revision: 1
   hash: a00711b9f9742e7249363a960349fee9e3b513befbca2d22355c8b4b37e8fc92
@@ -30,6 +30,42 @@ transitions:
   at: '2026-07-06T16:54:29.793285+00:00'
   actor: claude-code-interactive
   event_id: evt-4a0601ca75ff4c36981dd66f97e6f079
+- kind: transition
+  from: approved
+  to: executable
+  at: '2026-07-06T18:12:43.660099+00:00'
+  actor: claude-code-interactive
+  event_id: evt-ec04af0219384be398bbfe2a08a0f418
+- kind: transition
+  from: executable
+  to: in_execution
+  at: '2026-07-06T18:12:43.951264+00:00'
+  actor: claude-code-interactive
+  event_id: evt-954f0468a0a547209ea85f99bd227e55
+- kind: transition
+  from: in_execution
+  to: verification
+  at: '2026-07-06T18:12:44.302362+00:00'
+  actor: claude-code-interactive
+  event_id: evt-2e15e45cb2864049ad9ee4cb06098000
+- kind: transition
+  from: verification
+  to: completed
+  at: '2026-07-06T18:12:44.681945+00:00'
+  actor: claude-code-interactive
+  event_id: evt-373bef587b77416c9151418f4942749a
+- kind: transition
+  from: completed
+  to: follow_up_due
+  at: '2026-07-06T18:12:44.909623+00:00'
+  actor: claude-code-interactive
+  event_id: evt-0449dfc851fd42ecbeedfc0ad9289244
+- kind: transition
+  from: follow_up_due
+  to: closed
+  at: '2026-07-06T18:12:45.477563+00:00'
+  actor: claude-code-interactive
+  event_id: evt-9522484e44c44cbb96889012670d072a
 approvals:
 - revision: 2
   approved_hash: 8530173a7cd1ec70a40e4a177c7dae3db68170f11d3a9ea88563edf5188a9239
