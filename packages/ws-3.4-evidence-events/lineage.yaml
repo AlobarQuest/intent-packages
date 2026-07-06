@@ -1,0 +1,40 @@
+package_id: ws-3.4-evidence-events
+current_state: approved
+revisions:
+- revision: 1
+  hash: a00711b9f9742e7249363a960349fee9e3b513befbca2d22355c8b4b37e8fc92
+  created_at: '2026-07-06T18:45:00Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-06T16:54:00.599573+00:00'
+- revision: 2
+  hash: 8530173a7cd1ec70a40e4a177c7dae3db68170f11d3a9ea88563edf5188a9239
+  created_at: '2026-07-06T16:54:12.521429+00:00'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-06T16:54:29.793285+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-06T16:54:00.599573+00:00'
+  actor: claude-code-interactive
+  event_id: evt-61faf9723d854238baf7c1010d1aebb2
+- kind: revision
+  from: ready_for_review
+  to: draft
+  at: '2026-07-06T16:54:12.521429+00:00'
+  actor: claude-code-interactive
+  event_id: evt-f66db1ddbd6e4abf82a413cff9afb029
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-06T16:54:29.793285+00:00'
+  actor: claude-code-interactive
+  event_id: evt-4a0601ca75ff4c36981dd66f97e6f079
+approvals:
+- revision: 2
+  approved_hash: 8530173a7cd1ec70a40e4a177c7dae3db68170f11d3a9ea88563edf5188a9239
+  approver: devon
+  approved_at: '2026-07-06T17:07:44.032553+00:00'
+  commit: 61550f21f59b4f70c4f03205e15415bf97cd87fd
+  event_id: evt-60ca03e776484513a552e931e00dc4be
+grants: []
