@@ -1,5 +1,5 @@
 package_id: orchestrator-production-deploy
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 2f6bc7da07aa00106cb6008fc8a85878e001652f6ec645bf25a37760d84c2e7d
@@ -13,5 +13,11 @@ transitions:
   at: '2026-07-06T20:23:31.542219+00:00'
   actor: claude-code-interactive
   event_id: evt-18e6957004004a4f8aca3eba8745a66c
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 2f6bc7da07aa00106cb6008fc8a85878e001652f6ec645bf25a37760d84c2e7d
+  approver: devon
+  approved_at: '2026-07-06T20:24:28.903564+00:00'
+  commit: 68a8abb5b2f8938a77a46de4280ab944f136eadd
+  event_id: evt-a705de21b4144599ba87cc298c78bca0
 grants: []
