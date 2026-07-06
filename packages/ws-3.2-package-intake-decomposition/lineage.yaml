@@ -1,5 +1,5 @@
 package_id: ws-3.2-package-intake-decomposition
-current_state: approved
+current_state: closed
 revisions:
 - revision: 1
   hash: 84c929bc0860b6a585a62ec02fa35d9cdf89fce84773660aea1e383d955689df
@@ -13,6 +13,42 @@ transitions:
   at: '2026-07-05T22:32:28.583118+00:00'
   actor: claude-code-interactive
   event_id: evt-35a26f8f75054167a9defe47d5fd1520
+- kind: transition
+  from: approved
+  to: executable
+  at: '2026-07-06T10:14:39.952048+00:00'
+  actor: claude-code-interactive
+  event_id: evt-92f6f4ebb74e4a9b883d2e178940ce17
+- kind: transition
+  from: executable
+  to: in_execution
+  at: '2026-07-06T10:14:40.151298+00:00'
+  actor: claude-code-interactive
+  event_id: evt-d1c9d78979b7458b8810556f5cd48186
+- kind: transition
+  from: in_execution
+  to: verification
+  at: '2026-07-06T10:14:40.302165+00:00'
+  actor: claude-code-interactive
+  event_id: evt-263fb17ee0094e6dbc916f98799f1419
+- kind: transition
+  from: verification
+  to: completed
+  at: '2026-07-06T10:14:40.455692+00:00'
+  actor: claude-code-interactive
+  event_id: evt-4eff055027a948e9a85b4a205b1504ae
+- kind: transition
+  from: completed
+  to: follow_up_due
+  at: '2026-07-06T10:14:40.608389+00:00'
+  actor: claude-code-interactive
+  event_id: evt-2027a7287caf4a739f2f4c1f09826ae8
+- kind: transition
+  from: follow_up_due
+  to: closed
+  at: '2026-07-06T10:14:40.758260+00:00'
+  actor: claude-code-interactive
+  event_id: evt-b4821538bc7342c48d320d51e88a411f
 approvals:
 - revision: 1
   approved_hash: 84c929bc0860b6a585a62ec02fa35d9cdf89fce84773660aea1e383d955689df
