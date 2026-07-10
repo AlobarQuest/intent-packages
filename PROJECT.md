@@ -2,7 +2,8 @@
 name: intent-packages
 tier: active
 status: active
-purpose: 'Universal intent-package schema, lifecycle, and validate/hash/approve CLI (software factory WS-2.1).'
+purpose: Universal intent-package schema, lifecycle, and validate/hash/approve CLI
+  (software factory WS-2.1).
 version: 0.1.0
 version_source: pyproject
 updated: '2026-07-04'
@@ -41,6 +42,7 @@ required_checks:
 - [x] (P2) Recognized profile evidence tags without a declared profile now emit a targeted validation warning; historical superseded packages remain valid but no longer pass silently. — added/resolved 2026-07-04
 - [ ] (P3) software-delivery profile's `profile_fields.repo` is a single string; a workstream whose mutation spans two repos (e.g. WS-2.3: a skill in `claude-control-plane` + this repo's packages/specs) has no schema-native way to express the split — currently documented as a `rollback_plan` text note rather than a second field (design spec 2026-07-04-ws23-intent-authoring-skill.md D-Q4, deliberate, not silently worked around). Consider a `related_repos: [str]` optional profile_field if this recurs. — added 2026-07-04
 
+- [ ] (P2) `approve` records lineage.approvals[].commit as git HEAD at approval time, not the commit containing the approved content. Revision 2 was approved at hash 4e7a40a3… but recorded commit 3584ff0, which predates the package.yaml edits; revision 1 did the same. The field reads as provenance it does not carry. Either record the commit that contains the approved hash, or drop the field. — added 2026-07-10
 ## Future plans
 
 - WS-2.2 (done): domain profiles (software-delivery + infrastructure-change) shipped in `src/intent_packages/profiles/` — dispatch registry (check P), per-profile `profile_fields` schemas, and a shared tag-prefix evidence-vocabulary check (AC-004). Universal envelope proven unchanged (`tests/test_profiles_compat.py`). Next: WS-2.3, authored as the next intent package under `profile: software-delivery` (dogfood ladder).
