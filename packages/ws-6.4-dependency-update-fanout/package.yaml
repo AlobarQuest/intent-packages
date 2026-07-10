@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: ws-6.4-dependency-update-fanout
 title: "WS-6.4 — one systemic dependency update fans out across six repositories, autonomously up to the merge gate"
-revision: 2
+revision: 3
 status: approved
 created_by: claude-code-interactive
 owner: devon
