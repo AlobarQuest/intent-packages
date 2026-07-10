@@ -11,7 +11,7 @@ dev = ["pytest>=7.0", "pyyaml>=6.0", "ruff>=0.1"]
 dev = [
   "pytest>=7.0",
   "pyyaml>=6.0",
-  "ruff==0.15.20",
+  "ruff==0.15.21",
   "pyright==1.1.411",
 ]
 
