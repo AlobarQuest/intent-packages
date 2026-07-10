@@ -2,15 +2,15 @@
 name = "intent-packages"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["pyyaml>=6.0"]
+dependencies = ["pyyaml>=6.0.3"]
 
 [project.optional-dependencies]
-dev = ["pytest>=9.1.1", "pyyaml>=6.0", "ruff>=0.1"]
+dev = ["pytest>=9.1.1", "pyyaml>=6.0.3", "ruff>=0.1"]
 
 [dependency-groups]
 dev = [
   "pytest>=9.1.1",
-  "pyyaml>=6.0",
+  "pyyaml>=6.0.3",
   "ruff==0.15.21",
   "pyright==1.1.411",
 ]
