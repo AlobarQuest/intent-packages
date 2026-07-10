@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: ws-6.4-dependency-update-fanout
 title: "WS-6.4 — one systemic dependency update fans out across six repositories, autonomously up to the merge gate"
-revision: 1
+revision: 2
 status: approved
 created_by: claude-code-interactive
 owner: devon
@@ -15,6 +15,7 @@ outcome:
 scope:
   included:
     - "Author and approve this intent package before any work unit is created."
+    - "Before authoring a unit's authority envelope, prove it against the real target repository in a clean clone: execute the ordered allowed_commands list twice in succession, confirm both passes are green, confirm the working tree then carries a real diff, and confirm the verifier executed its tools rather than skipping them."
     - "Create exactly one Draft work unit per target repository through the WS-3.2 decomposition path, so that each unit is stamped with its own constraints.work_unit_id."
     - "Attest conformance per work unit, computed from that unit's own target repository's real state via security_scan.cli.scan and portfolio.compliance.build_rows."
     - "Record one named human authority approval per work unit, because each unit's authority envelope has a distinct fingerprint."
@@ -100,6 +101,12 @@ constraints:
     - "The authored authority envelope must omit constraints.work_unit_id, which the orchestrator stamps at proposal time and rejects if author-supplied."
     - "accepted_standards must originate from a real waiver source and must never be echoed from standards_touched."
     - "The canary repository must be dispatched, adjudicated, and observed before the remaining five are dispatched."
+    - "An authority envelope must be able to accomplish its own outcome: constraints.allowed_commands must contain the mutation the unit's outcome requires, and not merely the command that verifies it."
+    - "constraints.allowed_commands is an ordered list that factory-runner re-executes in full before it inspects the working tree, so every command must be idempotent under a second execution against the same checkout, and mutators must precede the verifier that attests to the tree being committed."
+    - "constraints.allowed_commands must begin with a step that installs the target repository's own dependencies, because the reusable workflow installs only factory-runner, and a tool-guarded check target otherwise exits zero having verified nothing."
+    - "constraints.allowed_commands may verify only what the hosted runner can honestly execute. A repository whose checks require a service container, environment variables, or a migrated database that the reusable workflow does not provide must not name those checks in its envelope; its tests are verified by its own named check on the pull-request head, which is where this package's acceptance criteria already place that evidence."
+    - "Before an envelope names a verifier, that verifier must be run against an unmodified clean clone of the target repository in a bare environment, so that a failure caused by the runner's environment is never mistaken for a failure caused by the dependency update."
+    - "A unit outcome that directs an edit to a pinned dependency must name every site of that pin by file and section, because uv resolves dependency groups and extras jointly and a partial pin edit renders the lockfile unsatisfiable rather than merely inconsistent."
 acceptance:
   - id: AC-001
     condition: "AlobarQuest/orchestrator, the canary, receives a factory-runner pull request that updates its pinned dependencies, and its named checks pass on the pull-request head."
@@ -237,6 +244,9 @@ risk:
     - "The kill switch is enabled before it has been observed blocking anything, so the guardrail is asserted rather than proven."
     - "A dependency pull request is merged by automation, or a GitHub App permission grants a merge path."
     - "Six concurrent pull requests collide with in-flight work in busy repositories."
+    - "An authority envelope is authored that cannot accomplish its own outcome, so a well-behaved agent obeys its authority, changes nothing, exits successfully, and the run dies at the change-detection guard, consuming a package revision and every named human approval bound to it."
+    - "An envelope command that succeeds in the coding phase fails when factory-runner re-executes the ordered list at finalize, so the unit can never open a pull request no matter how many attempts it is granted."
+    - "A retired or mis-authored work unit is left in a state from which no actor can retire it, and is later dispatched by an operator who mistook it for its corrected replacement."
   max_impact: "Six unwanted pull requests that Devon closes. Dispatch cannot merge, cannot mutate production infrastructure, cannot write secrets, and is bounded to one capability, one change class, and an explicit repository allowlist."
   stop_conditions:
     - "The canary's guardrail observations do not match the expected admission, routing, idempotency, or circuit-breaker behavior."
