@@ -1,0 +1,10 @@
+package_id: ws-p2.1-recovery-controls-drills
+current_state: draft
+revisions:
+- revision: 1
+  hash: 135af65785307707484776d74f0691f88a939fff62ae27a274f870d12071f2bd
+  created_at: '2026-07-11T01:14:02Z'
+  author: claude-code-interactive
+transitions: []
+approvals: []
+grants: []

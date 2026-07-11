@@ -1,0 +1,292 @@
+schema_version: 1
+package_id: ws-p2.1-recovery-controls-drills
+title: "WS-P2.1 — recovery controls and scripted drills: reconciliation-on-ingest, dead-letter recovery, and a report-only reconciliation runner"
+revision: 1
+status: draft
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-11T01:14:02Z"
+supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/orchestrator
+  branch: sds/wsp21-recovery-controls-drills
+  deploy_target: null
+  required_checks:
+    - Quality
+  rollback_plan: "Before deployment, revert or abandon the WS-P2.1 branch and close the draft pull request while retaining this approved package, its evidence, and the review findings. All reconciliation and database behavior is exercised only in disposable local or ephemeral databases under this package; production deployment and runner production-wiring are separately scoped, so there is no production change to roll back here."
+outcome:
+  what: "The orchestrator detects when pushed external reality (pull-request, CI, and deployment observations) disagrees with its stored lifecycle state and surfaces a reconciliation_required condition for an operator; a dead-letter view plus public-API/CLI recovery actions make terminal failures visible and actionable; a lease-expired worker can attach evidence it already produced without redoing the work; a separate, report-only reconciliation runner actively pulls external reality and pushes it back as observations; and four recovery failure modes are exercised by re-runnable scripted drills."
+  why: "Program Phase 2 Wave 1 makes the control plane dependable: the failure path must be as designed as the happy path. The delta over the Phase-1 primitives (leases, idempotent dispatch, circuit breaker, fail-closed gates) is reconciliation against external reality and operator recovery — closing program exit criteria 5 (crash/retry/reconciliation drills pass and are scripted) and 7 (operator status and recovery controls exist)."
+  beneficiary: "Devon as the operator who must recover the factory when reality and the orchestrator disagree, and the software delivery system, which gains a designed recovery path instead of relying on lease-expiry timeout plus manual retry."
+  success_signal: "Conflict detection records reconciliation_required on divergent pull-request, CI, and deployment observations without auto-mutating completed units; a lease-expired-but-finished worker attaches its evidence without redoing work; the dead-letter view enumerates terminal failures and an operator retries, requeues, or cancels through the public API/CLI within the existing transition guards; the reconciliation runner pushes observed reality back through the public API while the orchestrator process makes no outbound GitHub or Coolify call and gains no background loop; and the four scripted drills run and pass."
+scope:
+  included:
+    - "Author and approve this intent package before any design or work unit is created."
+    - "Implement conflict detection on github_pr, github_check, and deployment observation ingest that records a reconciliation_required condition when pushed reality disagrees with stored lifecycle state, treating an externally-merged pull request on a not-yet-completed unit as a never-auto-merge alarm."
+    - "Implement append-only supersession for a github_check whose result flips after verification read it, surfacing the flip for operator decision without auto-un-completing a completed unit."
+    - "Implement a defined, attributable path to attach evidence produced by a worker whose lease expired before submission, without re-executing the work and without letting the worker declare completion."
+    - "Implement a dead-letter view over terminally-failed work units, failed and blocked dispatch records, and open failure-signature circuit breakers, queryable through the public API and CLI."
+    - "Implement operator retry, requeue, and cancel actions from the dead-letter view through the public API/CLI, flowing through the existing deterministic transition and authority guards."
+    - "Audit duplicate-event protection across every event, evidence, and observation ingress path and add a duplicate-delivery regression test to any path that lacks one."
+    - "Implement a projection-vs-source consistency check as an operator-invocable audit that reports any divergence between a live projection and its source tables."
+    - "Build a separate, operator-invoked reconciliation runner that pulls pull-request, CI, deployment, and health state for in-flight units and pushes the observed reality back through the orchestrator's public observation API, reporting only."
+    - "Write the four recovery drills — orchestrator dies after dispatch, evidence submission fails after worker completion, a pull request is merged outside the session, and deployment succeeds while verification times out — as re-runnable scripted checks in the restore-drill.sh mold, documented for the quarterly cadence."
+    - "Prove every acceptance criterion against an ephemeral orchestrator and fixture or recorded observations rather than live third-party calls."
+  excluded:
+    - "Production deployment of the orchestrator or the reconciliation runner; a separate deploy step handles it, as it did for the orchestrator core."
+    - "Production-wiring the reconciliation runner: its schedule, its GitHub App credentials, and its live sds.alobar.net target."
+    - "Any outbound call to GitHub or Coolify from the orchestrator process itself."
+    - "Any autonomous background loop, scheduler, or cron inside the orchestrator process."
+    - "Any automatic merge, or any worker, agent, CI, or orchestrator path that merges a pull request."
+    - "Any event-replay or event-sourced projection-rebuild engine; the append-only tables remain the source of truth and only a consistency check is in scope."
+    - "Auto-un-completing a completed unit or auto-resolving a conflict on late external state changes; conflicts are surfaced for operator decision."
+    - "A cron or scheduled trigger for the reconciliation runner; it is operator-invoked in this package and scheduling is a separate later decision."
+    - "Factory SLOs and observability (WS-P2.2), acceptance-criterion adjudication completeness (WS-P2.3), and cost controls (WS-P2.4)."
+    - "Any change that makes Linear, Todoist, or GitHub canonical lifecycle state."
+  non_goals:
+    - "Making the orchestrator pull external reality itself; the runner does the pulling and the orchestrator stays push-only."
+    - "Reconciling anything the trusted observation ingress cannot already express."
+    - "Proving that the underlying deploys or pull requests are correct; the repositories' own checks and Devon decide that."
+  assumptions:
+    - "The orchestrator's push-only design and its documented invariant that the observation, release, and post-deploy paths must not call GitHub or Coolify remain in force and are the boundary the runner respects."
+    - "External reality reaches the orchestrator only as observations submitted by an authorized SYSTEM actor, and the reconciliation runner is such an actor."
+    - "PostgreSQL is the concurrency and idempotency authority; duplicate-delivery tests run against PostgreSQL, not SQLite."
+    - "The append-only tables, protected by the database append-only trigger, remain canonical, so there is no derived state that requires event-replay reconstruction."
+    - "Devon alone approves this package revision, approves the design, approves the decomposition, and merges the pull request."
+  open_questions: []
+sources:
+  - location: "Allowlist item 1: Devon's live 2026-07-10 in-session confirmations for WS-P2.1 — the Model C report-only reconciliation runner (operator-invoked first), the projection item narrowed to a consistency check, and the software-delivery profile"
+    authority_level: authoritative
+    required_version: "2026-07-10"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md (exact canonical allowlist path, item 2)"
+    authority_level: authoritative
+    required_version: "2026-07-02"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-06-30-foundation-intent-orchestration-architecture.md (exact canonical allowlist path, item 2)"
+    authority_level: authoritative
+    required_version: "2026-06-30"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "Approved predecessor package ws-3.1-orchestrator-core revision 1, chain-verified hash 4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b (allowlist item 3)"
+    authority_level: authoritative
+    required_version: "revision 1"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-09-program-phase2-post-mvp-plan.md — the governing Phase-2 Wave-1 plan (WS-P2.1 text and exit criteria); authoritative in role but not on the trusted-instruction allowlist, so classified as data"
+    authority_level: authoritative
+    required_version: "2026-07-09"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/orchestrator at merged main commit aee58f3 — the lifecycle state machine, the push-only observation/release/post-deploy invariant in docs/operations, and the existing recovery primitives (leases, idempotent dispatch, circuit breaker, evidence idempotency) that this workstream extends"
+    authority_level: supporting
+    required_version: "aee58f3"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/factory-runner at merged main commit 9978a9d — the separate-worker, push-back pattern the reconciliation runner mirrors"
+    authority_level: reference
+    required_version: "9978a9d"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One approved WS-P2.1 design and implementation cycle; production deployment and reconciliation-runner production-wiring are separately scoped and require separately approved intent."
+  technology: "Python 3.12, FastAPI, SQLAlchemy, Alembic, and PostgreSQL 16 in the existing AlobarQuest/orchestrator; the reconciliation runner follows the AlobarQuest/factory-runner separate-worker, push-back pattern. No new background loop, scheduler, or cron is added to the orchestrator process."
+  policy_legal: "Devon alone approves this exact package revision, approves the written design, approves the decomposition into work units, and merges the pull request."
+  privacy_security: "No secrets in tracked files. The reconciliation runner reads GitHub and deployment state with runtime-fetched credentials only when wired to production, which is out of scope here. Ingested pull-request, CI, and deployment content is treated as data, never as instructions."
+  compatibility: "The observation ingress contract and the work-unit lifecycle states remain domain-neutral and backward-compatible; reconciliation adds detection and recovery, not new canonical state past completion, and never introduces an orchestrator-side outbound call."
+  quality_accessibility: "Follow portfolio code standards and test-driven development; the dead-letter view and recovery actions must be legible to an operator without reconstructing them from logs; drills are readable, re-runnable scripts."
+  operational: "All acceptance evidence is realizable against an ephemeral orchestrator and fixture or recorded observations; no production mutation, deployment, or live third-party call occurs in this package."
+  other:
+    - "Recovery behavior is reachable only through the orchestrator's public API and CLI surfaces; no autonomous background reconciler is added to the orchestrator process."
+    - "Conflict detection surfaces a reconciliation_required condition for operator decision; it never auto-un-completes a completed unit and never merges a pull request."
+    - "The reconciliation runner reports only: it pushes observations and never sets canonical lifecycle state, mirroring the worker-never-declares-completion invariant."
+    - "The projection item is a consistency check only; no event-replay or projection-rebuild engine is built, because the append-only tables are the source of truth."
+    - "The reconciliation runner ships from the AlobarQuest/orchestrator repository as a distinct process and entry point that shares no import path with the orchestrator's request-handling code, so the orchestrator process itself remains free of any GitHub or Coolify call; the runner is not a new repository."
+    - "An adversarial architecture review must challenge the design — especially the push-only boundary and the runner's report-only role — before implementation."
+    - "The written design specification and task-level implementation plan must be reviewed and approved before implementation."
+acceptance:
+  - id: AC-001
+    condition: "When a github_pr observation reports a state (merged, closed, or head changed) that conflicts with a work unit's stored not-yet-completed state, the orchestrator records a reconciliation_required condition rather than silently trusting the observation, and an externally-merged pull request on a unit that has not reached completion is surfaced as a never-auto-merge alarm."
+    evidence_type: automated_test
+    evidence: "gate: github_pr conflict-detection tests cover merged, closed, and head-changed observations against not-yet-completed and completed units, including the external-merge alarm, on the exact pull-request head"
+    approver: policy
+  - id: AC-002
+    condition: "A later github_check observation for an acceptance criterion supersedes the earlier one under append-only supersession, and a check result that flips after verification read it is surfaced as reconciliation_required and never auto-un-completes a completed unit."
+    evidence_type: automated_test
+    evidence: "gate: github_check supersession and post-verification-flip tests pass, asserting no completed unit is auto-un-completed"
+    approver: policy
+  - id: AC-003
+    condition: "A deployment observation whose bound implementation work unit's lifecycle verification stage did not reach completion — the split-brain case in which a deployment reports success while that unit's verification timed out or stalled — is detected and recorded as reconciliation_required; a normal in-progress post-deploy verification is explicitly non-conflicting; the orchestrator does not silently accept the deployment as success; and the immutable release-binding digest equality remains enforced."
+    evidence_type: automated_test
+    evidence: "gate: split-brain detection tests flag a deployment bound to an implementation unit whose verification timed out or stalled, do not flag a normal in-progress post-deploy verification, and preserve the digest-equality guard"
+    approver: policy
+  - id: AC-004
+    condition: "A worker that completed its work but whose lease expired before it submitted evidence has a defined, attributable path to attach that evidence to the corresponding attempt without re-executing the work, the worker still cannot transition the unit to completed, and the recovery is invoked through the public API/CLI."
+    evidence_type: automated_test
+    evidence: "gate: lease-expired evidence-attach recovery tests pass, including the guard that the worker cannot declare completion"
+    approver: policy
+  - id: AC-005
+    condition: "Terminally-failed work units, failed and blocked dispatch records, and open failure-signature circuit breakers are surfaced through a single dead-letter view queryable via the public API and CLI."
+    evidence_type: automated_test
+    evidence: "gate: dead-letter view API and CLI tests enumerate failed units, failed and blocked dispatch records, and circuit-open signatures"
+    approver: policy
+  - id: AC-006
+    condition: "An operator can retry, requeue, or cancel an item from the dead-letter view through the public API/CLI; every recovery action is attributable and flows through the existing deterministic transition and authority guards, so it can never declare completion, grant a waiver, or merge a pull request."
+    evidence_type: automated_test
+    evidence: "gate: operator recovery-action tests prove attribution and that retry, requeue, and cancel respect the transition and authority guards"
+    approver: policy
+  - id: AC-007
+    condition: "Every event, evidence, and observation ingress path is proven idempotent under duplicate delivery via that path's designed mechanism — unique idempotency key, advisory lock, or replay-equality — and every path carries a duplicate-delivery regression test, added where one was missing."
+    evidence_type: automated_test
+    evidence: "gate: duplicate-delivery idempotency tests cover every event, evidence, and observation ingress path against PostgreSQL"
+    approver: policy
+  - id: AC-008
+    condition: "A re-runnable check verifies that every live projection agrees with its source tables and reports any divergence, and is wired as an operator-invocable audit; it reports zero divergence on a clean fixture and reports the seeded divergence on a corrupted fixture."
+    evidence_type: automated_test
+    evidence: "gate: projection-versus-source consistency check reports zero divergence on the clean fixture and detects the seeded divergence on the corrupted fixture"
+    approver: policy
+  - id: AC-009
+    condition: "A reconciliation runner separate from the orchestrator process pulls pull-request, CI, deployment, and health state for in-flight units and pushes the observed reality back through the orchestrator's public observation API; it is operator-invoked, and it reports only — it never sets canonical lifecycle state."
+    evidence_type: automated_test
+    evidence: "gate: reconciliation-runner tests prove it pulls fixture reality, pushes observations through the public observation API, and sets no canonical lifecycle state"
+    approver: policy
+  - id: AC-010
+    condition: "The four recovery drills — orchestrator dies after dispatch, evidence submission fails after worker completion, a pull request is merged outside the session, and deployment succeeds while verification times out — exist as re-runnable scripted checks in the restore-drill.sh mold, each mutating only disposable scratch state while remaining read-only toward production and shared systems, with trapped teardown, and pass."
+    evidence_type: automated_test
+    evidence: "gate: the four scripted recovery drills run and pass, each mutating only disposable scratch state, read-only toward production and shared systems, with trapped teardown"
+    approver: policy
+  - id: AC-011
+    condition: "The change adds no automatic merge path, no outbound GitHub or Coolify call from the orchestrator process, and no autonomous background loop, scheduler, or cron to the orchestrator; recovery behavior is reachable only through public API/CLI surfaces; workers still cannot declare completion; and no secret is written to a tracked file."
+    evidence_type: automated_test
+    evidence: "scan: security scan and repository-search assertions confirm no auto-merge path, no orchestrator-side outbound call, no background loop, workers cannot complete, and no tracked secret"
+    approver: policy
+  - id: AC-012
+    condition: "An adversarial architecture review challenges the reconciliation and recovery design — especially the push-only boundary and the runner's report-only role — before implementation, and its findings are resolved in the approved design."
+    evidence_type: human_review
+    evidence: "human: Devon approves the WS-P2.1 design after an adversarial architecture review resolves its findings"
+    approver: devon
+  - id: AC-013
+    condition: "Devon reviews and merges the pull request personally after the named Quality check succeeds on the exact head; no worker, agent, CI job, or orchestrator path merges it."
+    evidence_type: human_review
+    evidence: "human: Devon confirms the final review and merge decision, and merge remains outside worker authority"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  requires_approval:
+    - merge_to_main
+    - secret_read
+    - infra_mutation
+  prohibited:
+    - secret_write
+    - credential_create
+    - credential_revoke
+    - outward_publish
+    - email_send
+    - spend_money
+    - calendar_write
+    - third_party_contact
+    - data_delete
+    - external_system_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "Approved WS-P2.1 design specification in AlobarQuest/orchestrator covering reconciliation, recovery, the reconciliation runner, and the drills"
+    - "Adversarial architecture review findings and their resolutions"
+    - "Task-level WS-P2.1 implementation plan"
+    - "Orchestrator changes: conflict detection on observation ingest, lease-expired evidence-attach recovery, the dead-letter view with operator recovery actions, duplicate-event idempotency test coverage, and the projection-versus-source consistency check, with tests"
+    - "A separate operator-invoked reconciliation runner that pulls pull-request, CI, deployment, and health reality and pushes observations back through the public API"
+    - "Four scripted recovery drills in the restore-drill.sh mold, documented for the quarterly cadence"
+    - "Draft pull request against AlobarQuest/orchestrator with exact-revision Quality evidence"
+    - "Readable acceptance-criterion evidence index for WS-P2.1"
+  destination: "AlobarQuest/orchestrator, which also hosts the reconciliation runner as a separate process and entry point rather than a new repository; this governing package remains in AlobarQuest/intent-packages."
+  recipient: devon
+  definition_of_done: "All acceptance criteria have realized evidence and explicit outcomes, the draft pull request is reviewable with the named Quality check green on the exact head, Devon has completed final review and merge, and every recovery path is reachable only through public API/CLI while the orchestrator stays push-only and free of any background loop."
+  operator_responsibilities:
+    - "Approve or reject this exact intent revision and hash."
+    - "Approve the written design after the adversarial architecture review."
+    - "Approve the task-level implementation plan and the decomposition into work units."
+    - "Review and merge the pull request personally; no agent may merge it."
+    - "Decide, separately and later, whether to add a scheduled trigger for the reconciliation runner and to wire it to production."
+dependencies:
+  predecessor_packages:
+    - package: ws-3.1-orchestrator-core
+      revision: 1
+    - package: ws-3.4-evidence-events
+      revision: 2
+  external_decisions:
+    - "Devon approval of this exact package revision before any design or work unit."
+    - "Devon approval of the written design after the adversarial architecture review."
+    - "Devon approval of the decomposition into work units."
+    - "Devon's separate, later decision on scheduling and production-wiring the reconciliation runner."
+  required_people_systems:
+    - "Devon for package approval, design approval, decomposition approval, pull-request review, and merge"
+    - "AlobarQuest/orchestrator as the canonical lifecycle owner"
+    - "AlobarQuest/factory-runner as the separate-worker, push-back pattern the reconciliation runner follows"
+    - "GitHub and GitHub Actions for the repository, the draft pull request, and the named Quality check"
+    - "Local or ephemeral PostgreSQL 16 for idempotency and concurrency tests"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  blocking_conditions:
+    - "This exact package revision is not approved and chain-verified."
+    - "The push-only boundary or the worker-never-declares-completion invariant would be weakened by the design."
+    - "Any named acceptance criterion lacks realized evidence or an explicit adjudication."
+    - "The named Quality check is absent, failing, or not tied to the exact pull-request head."
+    - "A change would add an orchestrator-side outbound call, an autonomous background loop, an automatic merge path, a tracker-canonical path, or an event-replay rebuild engine."
+risk:
+  failure_modes:
+    - "Reconciliation is implemented as an orchestrator-side poller that calls GitHub or Coolify, breaking the push-only injection-containment boundary."
+    - "A background loop or scheduler is added to the orchestrator process, violating the public-API/CLI-only recovery invariant."
+    - "Conflict detection auto-un-completes a completed unit or auto-resolves a conflict, mutating canonical state without an operator decision."
+    - "The reconciliation runner is allowed to set canonical lifecycle state instead of only reporting, becoming a second lifecycle authority."
+    - "The evidence-attach recovery path lets a worker effectively declare completion or attach evidence for work it did not do."
+    - "Operator recovery actions bypass the deterministic transition or authority guards."
+    - "Reconciliation scope creeps into an event-replay or projection-rebuild engine the architecture does not need."
+    - "A drill mutates real production or shared state instead of disposable scratch state."
+  max_impact: "A mis-scoped reconciler could surface false conflicts or, worse, mutate canonical lifecycle truth; the blast radius is capped because production deployment, runner production-wiring, merge, and infrastructure mutation are all out of scope for this package."
+  stop_conditions:
+    - "A baseline repository or the named Quality check becomes red for an in-scope reason."
+    - "The approved package hash changes without a new revision and renewed approval."
+    - "The design requires an orchestrator-side outbound call, a background loop, secrets in tracked files, or live infrastructure mutation."
+    - "Any path can auto-merge a pull request, auto-un-complete a unit, or let the runner set canonical state."
+    - "Implementation scope crosses into WS-P2.2, WS-P2.3, or WS-P2.4 without separately approved intent."
+  rollback: "Before deployment, revert or abandon the WS-P2.1 branch and close the draft pull request; preserve this package, its evidence, and the review findings. All database and reconciliation behavior is exercised only in disposable local or ephemeral databases under this package; nothing here deploys to or mutates production."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Run an adversarial architecture review of the design before implementation, focused on the push-only boundary and the runner's report-only role."
+    - "Review every coherent implementation slice against the approved package and plan."
+    - "Run portfolio code review on the whole branch against ~/Developer/code-standards/STANDARDS.md."
+    - "Run a final whole-branch security and architecture review before Devon's merge decision."
+  non_mechanical:
+    - "Whether reconciliation genuinely reconciles against reality via the report-only runner, rather than trusting hearsay or quietly pulling from the orchestrator."
+    - "Whether the recovery actions are operable by a real operator during a real incident, not merely testable."
+    - "Whether the dead-letter view is the smallest legible surface that makes terminal failures visible."
+    - "Whether conflict-detection surfacing reliably avoids ever auto-mutating canonical state."
+    - "Whether the evidence-attach recovery authorizes the correct actor and handles the superseded-attempt case without re-opening the worker-completion gap."
+follow_up:
+  required: true
+  revisit_when: "After the first quarterly run of the scripted drills, and before scheduling or production-wiring the reconciliation runner."
+  signals:
+    - "Operator improvisation outside the declared recovery contract"
+    - "A reconciliation_required condition that had no correct operator action"
+    - "A drill that passes against a fixture but would not reflect a real production failure"
+    - "Pressure to add an orchestrator-side pull or a background loop"
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
