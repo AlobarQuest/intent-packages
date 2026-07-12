@@ -1,0 +1,10 @@
+package_id: conformance-claim-helper
+current_state: draft
+revisions:
+- revision: 1
+  hash: 6a753677334de371e55d7bfcb2e6d3adfca959de34bf0c277e85cbc4e6976608
+  created_at: '2026-07-12T00:00:00Z'
+  author: claude-code-interactive
+transitions: []
+approvals: []
+grants: []
