@@ -1,6 +1,6 @@
 schema_version: 1
 package_id: ws-p2.15-fail-closed-lifecycle-guards
-title: "WS-P2.15 — fail-closed lifecycle guards: wire or remove the declared guards, and make an unreachable guard detectable"
+title: "WS-P2.15 — fail-closed lifecycle guards: remove the guards nothing discharges, and make an unreachable guard detectable"
 revision: 1
 status: draft
 created_by: claude-code-interactive
@@ -16,22 +16,24 @@ profile_fields:
     - Quality
   rollback_plan: "Before deployment, revert or abandon the WS-P2.15 branch and close the draft pull request while retaining this approved package, its evidence, and the review findings. Every change is orchestrator-local and is exercised only in disposable local or ephemeral databases; production deployment is separately scoped, so there is no production change to roll back here."
 outcome:
-  what: "Two declared lifecycle guards that nothing forces the system to discharge are wired or removed — the human-gate age-out gains a production caller so that an unanswered approval gate becomes visible to the operator without any path by which silence becomes approval, and the orphaned authority-envelope expansion function is deleted and replaced by a structural guarantee that makes its absence safe. A new architecture guard then makes the whole class detectable, failing when a public function in the kernel or the services layer is unreachable from any production entry point, and the nine further symbols its first run surfaces are each triaged rather than exempted."
+  what: "Two declared lifecycle guards that nothing forces the system to discharge are removed and replaced by mechanisms that cannot be silently skipped — an unanswered human approval gate becomes visible as a derived read in the existing dead-letter view, with no write, no route, and no threshold that can be switched off, while the never-called age-out function and its dead configuration knob are deleted; and the orphaned authority-envelope expansion function is deleted and replaced by a structural guarantee, an architecture test proving the envelope is write-once, so that a future budget-raising path cannot appear unguarded. A new architecture guard then makes the whole class detectable, failing when a public function in the kernel or the services layer is unreachable from any production entry point over an import-resolved call graph, and every symbol it surfaces is triaged rather than exempted."
   why: "WS-P2.1 shipped a feature that was dead in production while every unit test passed: the pull-request binding writers had no production caller at all, and the writer beneath them flushed without committing. An obligation nobody is forced to discharge is not a guarantee, and a guard nobody calls is not protection; both are indistinguishable from a healthy system from the outside, and both survive a green suite indefinitely. This workstream closes the orchestrator-local instances of that pattern and, more importantly, makes the pattern itself detectable, because there are demonstrably others — the adversarial review of this package's own first revision found eleven candidate symbols where the handoff knew of two."
   beneficiary: "Devon as the operator, who must be able to trust that a declared guard is a real one, and who currently has no surface that reports an approval gate nobody answered; and the software delivery system, which gains a detector for the defect class that cost it a whole workstream to learn."
-  success_signal: "An unanswered human approval gate past its threshold appears in the dead-letter view as a blocked dispatch record while the work unit is never transitioned, so silence can never become approval, and the operator can invoke that pass without a production credential change; the orphaned expansion function is deleted, the documentation states truthfully which expansion is enforced and which is structurally impossible, and an architecture test makes the work-unit authority envelope provably write-once so a future budget-raising path cannot appear unguarded; and a new architecture guard, keyed on reachability from a production entry point rather than on mere reference, fails on a planted violation including the dead-cross-module-caller case, independently rediscovers both previously-unwired guards from the pre-change tree, and has an allowlist whose every entry is justified because the other candidates were fixed rather than exempted."
+  success_signal: "An unanswered human approval gate past its threshold appears in the dead-letter view with no parameters supplied and no value able to switch it off, while the work unit is never transitioned and every edge out of an approval state is proven to require a named human actor, so silence can never become approval; the orphaned expansion function and the never-called age-out are both deleted along with the dead code and dead configuration they leave behind, the documentation states truthfully which expansion is enforced and which is structurally impossible, and an architecture test makes the envelope provably write-once against all four mutation forms; and the new architecture guard flags a live service whose only production caller has been removed — the WS-P2.1 defect reconstructed, which a name-keyed graph misses and an import-resolved graph catches — independently rediscovers both previously-unwired guards from the pre-change tree, and carries exactly one allowlist entry because the other findings were fixed rather than exempted."
 scope:
   included:
     - "Author and approve this intent package before any design or work unit is created."
-    - "Give the already-implemented human-gate age-out function a production caller: an operator-invoked public API route and CLI command, together with a configured default threshold."
-    - "Allow the human actor as well as the system actor to invoke that pass, because it is a read-and-report operation rather than a dispatch, and because the standing production machine credential is worker-role — a system-only route is a route the operator cannot invoke without a credential change that risks a fail-closed outage."
-    - "Preserve, and prove by negative control, that the human-gate age-out reports only: it records a blocked dispatch record surfaced by the existing dead-letter view, it never transitions a work unit, and no path leaves an approval state without a named human actor."
-    - "Ensure the age-out's blocked record cannot consume a slot in the dispatch runner-attempt sequence, so that a later genuine dispatch of the same unit cannot be silently short-circuited into returning the stale age-out record."
+    - "Surface an unanswered human approval gate as a DERIVED READ in the existing dead-letter view — a predicate over work-unit state and last-update time — rather than as a written record. A stalled gate is a fact about the present, not an event that happened, and the dead-letter view is already defined as derived live from the source tables with nothing to drift out of sync. This adds no route, no CLI command, no migration, and no write."
+    - "Delete the already-implemented but never-called human-gate age-out function, together with its dispatch-settings field and its configuration knob. Wiring it is unshippable: its blocked record cannot use a zero runner-attempt because the database forbids it, and any other runner-attempt silently consumes a dispatch slot, so a later genuine dispatch of the same unit would be short-circuited into returning the stale record and never dispatch. A dead configuration knob is the same defect as a dead function."
+    - "Give the stalled-approval threshold a real default and no disabled value, because a nullable, default-disabled threshold is exactly why the age-out stayed invisible for an entire workstream; prove by test that the dead-letter view surfaces a stalled gate with no parameters supplied."
     - "State, in the dead-letter view's own contract and operator-facing copy, that the view now enumerates terminal failures and stalled approval gates, and that a stalled gate is reported but not requeue-eligible."
-    - "Delete the orphaned authority-envelope expansion function and its unit tests, and correct the architecture decision record, the repository instructions, and the open backlog item to state truthfully that the standing-context classifier enforces standing-context authority expansion, and that work-unit envelope expansion has no detector because the envelope is write-once after approval."
-    - "Add an architecture test proving the work-unit authority envelope is assigned only at unit construction, so that the deleted function's absence is safe by construction and any future budget-raising or capability-raising path — such as the one WS-P2.4 may introduce — trips the test and is forced to introduce a fail-closed check with it."
-    - "Add an architecture guard that fails when a public function in the kernel or the services layer is unreachable from any production entry point — the API route handlers, the web handlers, the CLI commands, and the module entry points — computed over a call graph rather than by mere reference, so that a function reachable only from another dead function is still reported."
-    - "Verify that architecture guard by planting violations and observing it fail, including the case of a function whose only caller is itself dead in another module, which is the case a reference-counting predicate cannot distinguish."
+    - "Prove against the kernel's own edge table that every transition out of an approval state requires a named human actor, so that silence can never become approval — a property this package must assert explicitly, because the derived read adds no code that would otherwise carry it."
+    - "Delete the orphaned authority-envelope expansion function, the restriction ladder whose only readers are that function, and the budget-expansion helpers it alone used; delete only the assertion lines that reference it from tests whose real subject is the live envelope-normalisation behavior, keeping those tests."
+    - "Correct the architecture decision record, the repository instructions, and the open backlog item to state truthfully that the standing-context classifier enforces standing-context authority expansion, and that work-unit envelope expansion — including budget and capability-level expansion — has no detector because the envelope is write-once after approval; and correct the two docstrings that assert an unknown-fields fail-closed gate which does not exist anywhere."
+    - "Add an architecture test proving the work-unit authority envelope is assigned only at unit construction, scanning attribute assignment, setattr, bulk update statements, and in-place mutation of the stored JSON document, so that any future budget-raising or capability-raising path — such as the one WS-P2.4 may introduce — trips the test and is forced to introduce a fail-closed check with it."
+    - "Add an architecture guard that fails when a public function in the kernel or the services layer is unreachable from any production entry point, computed over a call graph whose nodes are import-resolved module-and-symbol pairs rather than bare names, so that a service function is not marked reachable merely because a command-line client proxying it over HTTP happens to share its name."
+    - "Verify that architecture guard by removing the only production caller of a live service and observing the guard flag it — the WS-P2.1 defect reconstructed — and additionally by planting a function laundered behind a dead cross-module caller and a function sharing its name with a live function in another module."
+    - "Fix the post-deploy envelope minting path, which passes an unknown-fields key that is not itself a known field and so mints every post-deploy unit with a spurious unknown field; harmless only while nothing reads unknown fields, and a landmine under the very message this package sends to WS-P2.4."
     - "Triage every symbol the guard's first run surfaces beyond the two known instances — by wiring it, making it private, or deleting it — and allowlist a symbol only where an exemption is genuinely justified, recording that justification entry by entry."
     - "Cover the age-out with a drill in the existing drill mould, driving the real public HTTP surface rather than calling services in-process, because that is what caught the WS-P2.1 defect a green unit suite did not."
     - "Prove persistence of any new write by expiring the session and re-reading, never by asserting on the object a call returned."
@@ -109,81 +111,96 @@ constraints:
     - "An adversarial review must challenge the design before implementation, and the acceptance criteria must be adjudicated by an agent that neither wrote the implementation nor produced its evidence — recorded as distinct session identifiers, not as an attestation."
 acceptance:
   - id: AC-001
-    condition: "The human-gate age-out has a production caller: an operator-invoked public API route and CLI command with a configured default threshold, invocable by a human actor as well as the system actor; invoking it on a work unit whose approval gate has gone unanswered past that threshold records a blocked dispatch record with a named reason code, and that record is enumerated by the existing dead-letter view."
+    condition: "A work unit whose human approval gate has gone unanswered past a threshold is enumerated by the existing dead-letter view as a stalled approval, derived live from the work unit's state and last-update time; the view continues to enumerate terminal failures, and its stated contract and operator-facing copy say that it now reports terminal failures and stalled approval gates. No route, no command, no migration, and no write is added to produce it."
     evidence_type: automated_test
-    evidence: "gate: age-out route and CLI tests prove human and system actors may invoke it, that other roles are refused, that the threshold governs, and that the resulting blocked record appears in the dead-letter view"
+    evidence: "gate: dead-letter tests enumerate a stalled approval gate alongside terminal failures, and an architecture assertion proves the stalled-approval source performs no write"
     approver: policy
   - id: AC-002
-    condition: "The human-gate age-out reports only: it never transitions a work unit, and no code path transitions a work unit out of awaiting_approval or awaiting_review without a named human actor, so an unanswered approval gate can never become an approval however long it goes unanswered; a stalled gate reported in the dead-letter view is not requeue-eligible."
+    condition: "Silence can never become approval: every edge out of awaiting_approval and awaiting_review in the kernel's own edge table requires a named human actor, asserted explicitly; the stalled-approval report sets no lifecycle state; and a stalled gate enumerated in the dead-letter view is not requeue-eligible."
     evidence_type: automated_test
-    evidence: "gate: tests prove the age-out sets no lifecycle state, that every edge out of an approval state requires a named human actor, and that a stalled entry is not requeue-eligible"
+    evidence: "gate: a kernel test enumerates every edge out of both approval states and asserts each requires the human role; tests prove the stalled report transitions nothing and is not requeue-eligible"
     approver: policy
   - id: AC-003
-    condition: "The age-out's blocked record does not consume a slot in the dispatch runner-attempt sequence: after a unit is aged out, approved, and returned to ready, a subsequent genuine dispatch of that unit dispatches, and does not short-circuit into returning the stale age-out record."
+    condition: "The stalled-approval threshold has a real default and no disabled value: it is not nullable, no configuration or parameter can switch it off, and the dead-letter view surfaces a stalled gate when invoked with no parameters at all. A nullable, default-disabled threshold is why the deleted age-out function stayed invisible for an entire workstream, and reintroducing one would ship that defect in a new mechanism."
     evidence_type: automated_test
-    evidence: "gate: a test drives age-out, approval, return to ready, and re-dispatch, and asserts the unit is genuinely dispatched rather than served the stale blocked record"
+    evidence: "gate: tests assert the threshold default is not null, that no value disables the report, and that the dead-letter view with no parameters surfaces a stalled gate"
     approver: policy
   - id: AC-004
-    condition: "The stalled-approval path is proven through the public HTTP surface by a re-runnable drill in the existing drill mould, which drives a work unit into an unanswered approval gate, invokes the age-out through the public API, observes the unit appear in the dead-letter view, and observes that the unit's lifecycle state is unchanged."
+    condition: "The never-called human-gate age-out function is deleted together with its dispatch-settings field and its configuration knob, and no stale environment variable can fail the application closed at startup; a dead configuration knob is the same defect as a dead function."
+    evidence_type: automated_test
+    evidence: "gate: the deleted symbols are absent from the sources, and a startup test proves an unrecognised environment variable is ignored rather than fatal"
+    approver: policy
+  - id: AC-005
+    condition: "The stalled-approval path is proven through the public HTTP surface by a re-runnable drill in the existing drill mould, which drives a work unit into an unanswered approval gate through the public API, reads the dead-letter view with no threshold parameter, observes the unit reported as a stalled approval and not requeue-eligible, and observes that the unit's lifecycle state is unchanged."
     evidence_type: automated_test
     evidence: "gate: the stalled-approval drill runs against an ephemeral orchestrator over HTTP and passes, asserting the unit's lifecycle state is unchanged, mutating only disposable scratch state with trapped teardown"
     approver: policy
-  - id: AC-005
-    condition: "The orphaned authority-envelope expansion function and its unit tests are deleted, and the architecture decision record, the repository instructions, and the open backlog item are corrected to state that the standing-context classifier enforces standing-context authority expansion — bound to a named human approval and the exact standing-context fingerprint — and that work-unit envelope expansion, including budget and capability-level expansion, has no detector because the envelope is write-once after approval."
-    evidence_type: automated_test
-    evidence: "gate: the deleted symbol is absent from the sources, the standing-context enforcement test passes, and the corrected documents state which expansion is enforced and which is structurally impossible"
-    approver: policy
   - id: AC-006
-    condition: "An architecture test proves the work-unit authority envelope is assigned only at unit construction, so that deleting the expansion function is safe by construction and any future path that raises a unit's budget or capabilities — such as one WS-P2.4 might introduce — fails that test and is forced to introduce a fail-closed check alongside it."
+    condition: "The orphaned authority-envelope expansion function is deleted, together with the restriction ladder and budget-expansion helpers whose only reader it was, leaving no new dead code behind; tests whose real subject is the live envelope-normalisation behavior are kept, with only their references to the deleted function removed."
     evidence_type: automated_test
-    evidence: "gate: the write-once architecture test passes on the branch and fails when a planted assignment mutates a work unit's authority outside construction"
+    evidence: "gate: the deleted symbols are absent from the sources, no newly-dead symbol is introduced, and the envelope-normalisation fail-closed tests still pass"
     approver: policy
   - id: AC-007
-    condition: "An architecture guard fails when a public function in the kernel or the services layer is unreachable from any production entry point — the API route handlers, the web handlers, the CLI commands, and the module entry points — determined by call-graph reachability rather than by counting references, so that a function reachable only from another dead function is reported rather than laundered."
+    condition: "The documentation states truthfully what is and is not detected: the architecture decision record, the repository instructions, and the open backlog item say that the standing-context classifier enforces standing-context authority expansion — bound to a named human approval and the exact standing-context fingerprint — and that work-unit envelope expansion, INCLUDING budget and capability-level expansion, has no detector because the envelope is write-once after approval; and the two docstrings asserting an unknown-fields fail-closed gate that exists nowhere are corrected. Recording a false equivalence here would tell the cost-controls workstream that budget expansion is checked when it is not, which is worse than the dead function."
     evidence_type: automated_test
-    evidence: "gate: the unreachable-guard architecture test passes on the branch and is implemented as a reachability analysis from a named entry-point root set"
+    evidence: "gate: the corrected documents state which expansion is enforced and which is structurally impossible, and no surviving docstring asserts an unknown-fields gate that does not exist"
     approver: policy
   - id: AC-008
-    condition: "The architecture guard is proven capable of failing: it fails on a planted unreachable function, and it fails on a planted function whose only caller is itself unreachable in another module — the case a reference-counting predicate cannot distinguish from a live one — and when run against the repository tree as it stood before this change it independently identifies both previously-unwired guards, the authority-expansion function and the human-gate age-out."
+    condition: "An architecture test proves the work-unit authority envelope is assigned only at unit construction, scanning attribute assignment, setattr, bulk update statements, and in-place mutation of the stored JSON document; the negative control plants the in-place JSON mutation, because that is the form a naive scan misses and the form a budget-raiser would most naturally write. Any future path that raises a unit's budget or capabilities then fails this test and is forced to introduce a fail-closed check alongside it."
     evidence_type: automated_test
-    evidence: "gate: the guard fails on both planted violations, and its run against the pre-change tree names both previously-unwired guards"
+    evidence: "gate: the write-once test passes on the branch, scans all four mutation forms, and fails when the in-place JSON mutation is planted"
     approver: policy
   - id: AC-009
-    condition: "Every symbol the guard surfaces beyond the two known instances is triaged — wired to a production caller, made private, or deleted — and a symbol is allowlisted only where an exemption is genuinely justified, with that justification recorded entry by entry; no symbol is allowlisted on the grounds that it is in fact reachable, because that would mean the predicate is wrong rather than the symbol exempt. An anti-rot check fails when an allowlisted symbol has since become reachable and its exemption was not removed."
+    condition: "An architecture guard fails when a public function in the kernel or the services layer is unreachable from any production entry point, computed over a call graph whose nodes are import-resolved module-and-symbol pairs rather than bare names. Name-keyed reachability is insufficient and must not be shipped: the command-line client reaches services only over HTTP while its commands share their names, so a name-keyed graph marks twelve service functions reachable that no production code calls."
+    evidence_type: automated_test
+    evidence: "gate: the unreachable-guard test passes on the branch and resolves call edges through each module's import map rather than by bare name"
+    approver: policy
+  - id: AC-010
+    condition: "The architecture guard is proven capable of failing, by the control that matters: removing the only production caller of a live service — the WS-P2.1 defect reconstructed — makes the guard flag that service. It additionally fails on a function laundered behind a dead cross-module caller and on a function sharing its name with a live function in another module. Run against the repository tree as it stood before this change, it independently identifies both previously-unwired guards."
+    evidence_type: automated_test
+    evidence: "gate: the guard flags a service whose only production caller was removed, fails on both other planted violations, and names both previously-unwired guards on the pre-change tree"
+    approver: policy
+  - id: AC-011
+    condition: "Every symbol the guard surfaces is triaged — deleted, wired, or made private — and a symbol is allowlisted only where an exemption is genuinely justified, with that justification recorded entry by entry; no symbol is allowlisted on the grounds that it is in fact reachable, because that would mean the predicate is wrong rather than the symbol exempt. An anti-rot check fails when an allowlisted symbol has since become reachable and its exemption was not removed."
     evidence_type: automated_test
     evidence: "gate: every surfaced symbol has a recorded disposition, every allowlist entry carries its justification, and the anti-rot check fails on a stale exemption"
     approver: policy
-  - id: AC-010
+  - id: AC-012
+    condition: "The post-deploy envelope minting path no longer passes an unknown-fields key that is not itself a known field, so a post-deploy unit's envelope is a fixed point of normalisation rather than carrying a spurious unknown field; without this, any future unknown-fields fail-closed gate would reject every post-deploy verification unit."
+    evidence_type: automated_test
+    evidence: "gate: a test proves the minted post-deploy envelope carries no unknown fields and round-trips through normalisation unchanged"
+    approver: policy
+  - id: AC-013
     condition: "Every write introduced by this package is proven durable by expiring the session and re-reading it rather than by asserting on a returned object; a request entry point commits its own transaction, and a function invoked inside another transaction does not commit."
     evidence_type: automated_test
     evidence: "gate: persistence tests expire the session and re-read, and a review of every new writer confirms the transaction-ownership rule"
     approver: policy
-  - id: AC-011
+  - id: AC-014
     condition: "Each guard added by this package is proven by negative control: with the guard's body removed, a named test goes red. A guard for which no test changes colour when it is removed is decoration and does not satisfy this criterion."
     evidence_type: automated_test
     evidence: "gate: for each guard, the negative-control run with the guard body removed is recorded, naming the test that goes red"
     approver: policy
-  - id: AC-012
+  - id: AC-015
     condition: "The change adds no automatic merge path, no outbound GitHub or Coolify call from the orchestrator process, no autonomous background loop, scheduler, or cron, and no automatic transition out of an approval state; workers still cannot declare completion; the cross-repository authority-envelope fixture and contract hash are unchanged; and no secret is written to a tracked file."
     evidence_type: automated_test
     evidence: "scan: the repo-wide invariant scan, the envelope contract test, and the security scan all pass"
     approver: policy
-  - id: AC-013
+  - id: AC-016
     condition: "The full repository check is green, every existing drill still passes alongside the drill added here, and the named Quality check succeeds on the exact pull-request head, with the collected test count read rather than the exit code trusted."
     evidence_type: automated_test
     evidence: "gate: the repository check and every drill pass, and the named Quality check is green on the exact head with a read collected-test count"
     approver: policy
-  - id: AC-014
+  - id: AC-017
     condition: "An adversarial architecture review challenges the design before implementation — especially whether each guard is genuinely fail-closed rather than merely present, whether each guard's predicate matches the defect it is for, and whether the allowlist is a justified exemption rather than a loosened rule — and its findings are resolved in the approved design."
     evidence_type: human_review
     evidence: "human: Devon approves the WS-P2.15 design after an adversarial architecture review resolves its findings"
     approver: devon
-  - id: AC-015
+  - id: AC-018
     condition: "The acceptance criteria of this package are adjudicated by a verifier agent that neither wrote the implementation nor produced its evidence, and this is mechanically checkable rather than attested: the evidence index records the implementing session's identifier and the adjudicating session's identifier, and the criterion is satisfied only if they differ. Any disagreement the adjudicator raises is recorded."
     evidence_type: human_review
     evidence: "human: the evidence index records distinct implementer and adjudicator session identifiers, and Devon confirms the adjudication and its recorded findings"
     approver: devon
-  - id: AC-016
+  - id: AC-019
     condition: "Devon reviews and merges the pull request personally after the named Quality check succeeds on the exact head; no worker, agent, CI job, or orchestrator path merges it."
     evidence_type: human_review
     evidence: "human: Devon confirms the final review and merge decision, and merge remains outside worker authority"
