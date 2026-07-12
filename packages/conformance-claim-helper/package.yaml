@@ -1,0 +1,179 @@
+schema_version: 1
+package_id: conformance-claim-helper
+title: "Conformance claim helper — compute authority.conformance from real repo state"
+revision: 1
+status: approved
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-12T00:00:00Z"
+supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/orchestrator
+  branch: sds/conformance-claim-helper
+  deploy_target: null
+  required_checks:
+    - Quality
+  rollback_plan: "Revert the implementation commit on AlobarQuest/orchestrator (git revert) and close the pull request. The helper is additive and read-only: it introduces no migration, no route, no lifecycle transition, and no production configuration change, and nothing in the dispatch path calls it. Reverting it restores the status quo in which decomposition authors hand-type the conformance claim."
+outcome:
+  what: "A helper that computes a work unit's authority.conformance claim (standards_touched, accepted_standards, status) from real repository state, so a decomposition author no longer hand-types the claim the dispatch gate then trusts."
+  why: "The dispatch conformance gate (services/dispatch.py::_conformance_blocked_reason) admits a unit when its envelope claims status green, or when standards_touched is a subset of accepted_standards. Today that claim is typed by hand by whoever authors the decomposition. A hand-typed attestation about machine-checkable facts is exactly the attestation-instead-of-refusal pattern the program has an open P1 to eliminate: nothing forces the claim to correspond to the repository it describes, and the subset branch is a tautology if an author ever echoes accepted = touched."
+  beneficiary: "Devon, as the human who approves each unit's authority envelope and whose approval is what the conformance claim rides on."
+  success_signal: "A decomposition author can obtain the conformance claim for a target repository by running one command, and the resulting claim is derived from the same scanners that would judge the repository, not from the author's memory."
+scope:
+  included:
+    - "A helper that computes standards_touched, accepted_standards, and status for a given repository path and change surface."
+    - "Derivation of accepted_standards from real waiver sources only (project-standards exceptions frontmatter and the security-standards allowlist), never echoed from standards_touched."
+    - "A command-line surface so the claim can be produced without importing the module."
+    - "Tests, including a test that the tautological claim (accepted echoing touched) cannot be produced by the helper."
+  excluded:
+    - "Any change to the dispatch conformance gate itself."
+    - "Any change to how authority envelopes are approved or fingerprinted."
+    - "Automatic insertion of the computed claim into a decomposition proposal."
+    - "Tightening of the subset branch in _conformance_blocked_reason (tracked separately in the orchestrator backlog as a P3)."
+  non_goals:
+    - "Making the orchestrator call the scanners at dispatch time. The claim stays authored and human-approved; this package only removes the hand-typing."
+    - "A new standards vocabulary. The helper reports the standards that already exist."
+  assumptions:
+    - "security_scan.cli and portfolio.compliance are importable and local-only, as recorded in the orchestrator backlog item that requests this helper. Verified importable 2026-07-12 before authoring."
+    - "The helper runs on a local checkout of the target repository; it makes no network calls."
+  open_questions: []
+sources:
+  - location: "Allowlist item 1: Devon's live 2026-07-12 in-session decision to run the factory improvisation diagnostic against a real, ordinary backlog feature, and his selection of this backlog item as its subject."
+    authority_level: authoritative
+    required_version: "2026-07-12"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "AlobarQuest/orchestrator PROJECT.md backlog, P2 item: 'Provide a helper that computes authority.conformance from real repo state (security_scan.cli.scan + portfolio.compliance.build_rows, both importable and local-only) so decomposition authors do not hand-type the claim' — added 2026-07-09."
+    authority_level: supporting
+    required_version: "2026-07-09"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "AlobarQuest/orchestrator src/orchestrator/services/dispatch.py::_conformance_blocked_reason — the consumer of the claim, whose docstring states that accepted_standards must come from a real waiver source and never be echoed from standards_touched."
+    authority_level: supporting
+    required_version: "2026-07-12"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-02-software-factory-master-plan.md (canonical allowlist path) — Part 2 constraint 5, deterministic gates decide correctness; LLMs propose and produce, validation is mechanical wherever possible."
+    authority_level: authoritative
+    required_version: "2026-07-02"
+    trust: trusted_instruction
+    sensitivity: internal
+constraints:
+  time_budget: null
+  technology: "Python 3.12, matching the orchestrator's existing toolchain. The helper must import security_scan and portfolio from their existing local sources rather than vendoring or reimplementing either scanner."
+  policy_legal: null
+  privacy_security: "The helper reads repository state only. It must not read secrets, must not emit any file content into its output, and must not write to any tracked file."
+  compatibility: "Additive only. No change to the authority envelope shape, which is a byte-pinned cross-repo contract with AlobarQuest/factory-runner."
+  quality_accessibility: null
+  operational: "Local-only and read-only: no network calls, no orchestrator API calls, no production configuration change."
+  other: []
+acceptance:
+  - id: AC-001
+    condition: "A helper computes standards_touched for a target repository from its real state, reporting the standards that actually apply rather than a hand-typed list."
+    evidence_type: automated_test
+    evidence: "gate: tests prove standards_touched is derived from repository state and that a repository touching a standard is reported as touching it"
+    approver: policy
+  - id: AC-002
+    condition: "accepted_standards is derived exclusively from real waiver sources — project-standards exceptions frontmatter and the security-standards allowlist — and the helper cannot produce a claim in which accepted_standards merely echoes standards_touched."
+    evidence_type: automated_test
+    evidence: "gate: a named test proves the tautological claim is not producible, and that an accepted standard appears only when a real waiver source declares it"
+    approver: policy
+  - id: AC-003
+    condition: "status is computed from the same scanners that would judge the repository (security_scan.cli.scan and portfolio.compliance.build_rows), and is green only when no unaccepted violation exists."
+    evidence_type: automated_test
+    evidence: "gate: tests prove status is green for a clean repository and not green when an unaccepted violation is present"
+    approver: policy
+  - id: AC-004
+    condition: "A decomposition author can obtain the claim for a target repository through a single command without importing the module or hand-typing any part of the result."
+    evidence_type: automated_test
+    evidence: "gate: a test exercises the command surface and asserts it emits the complete claim"
+    approver: policy
+  - id: AC-005
+    condition: "The change is additive and read-only: it adds no migration, no route, no lifecycle transition, and no production configuration change; it does not alter the authority envelope shape or the cross-repository envelope contract; and it introduces no path by which the orchestrator computes conformance for itself at dispatch time."
+    evidence_type: automated_test
+    evidence: "scan: the repository-wide scope guards, the cross-repository envelope contract test, and the security scan all pass"
+    approver: policy
+  - id: AC-006
+    condition: "The repository's full quality gate passes on the pull-request head, with a non-zero collected test count."
+    evidence_type: automated_test
+    evidence: "gate: the Quality check passes on the pull-request head and its log reports a non-zero collected test count"
+    approver: policy
+  - id: AC-007
+    condition: "An adversarial review challenges the helper before merge — specifically whether accepted_standards can be made to echo standards_touched by any input, and whether the helper's status can disagree with the scanner that would actually judge the repository — and its findings are resolved."
+    evidence_type: human_review
+    evidence: "human: Devon approves the implementation after an adversarial review resolves its findings"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  requires_approval:
+    - merge_to_main
+    - secret_read
+    - infra_mutation
+  prohibited:
+    - secret_write
+    - credential_create
+    - credential_revoke
+    - outward_publish
+    - email_send
+    - spend_money
+    - calendar_write
+    - third_party_contact
+    - data_delete
+    - external_system_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "A conformance-claim helper module in AlobarQuest/orchestrator."
+    - "A command surface exposing it."
+    - "Tests, including the named anti-tautology test required by AC-002."
+  destination: "AlobarQuest/orchestrator, via a pull request Devon merges."
+  recipient: "Devon, and any future decomposition author."
+  definition_of_done: "The pull request is merged, the Quality check passed on its head, and every acceptance criterion carries a canonical adjudicated outcome."
+  operator_responsibilities:
+    - "Devon approves the package, approves the decomposition, approves each unit's authority envelope, and merges the pull request. No agent path merges anything."
+dependencies:
+  predecessor_packages:
+    - package: ws-3.1-orchestrator-core
+      revision: 1
+  external_decisions: []
+  required_people_systems:
+    - "Devon, for package approval, decomposition approval, authority approval, and merge."
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+  blocking_conditions: []
+risk:
+  failure_modes:
+    - "The helper reports green for a repository the real scanner would fail, producing a confident false attestation — strictly worse than the hand-typed claim it replaces, because it carries the authority of a machine."
+    - "accepted_standards is derived in a way that can be made to echo standards_touched, which silently re-opens the tautology branch in the dispatch gate."
+    - "The helper drifts from the scanners it wraps, so its answer and the gate's answer diverge over time."
+  max_impact: "Bounded to the orchestrator repository and to the decomposition-authoring step. The helper is not called by the dispatch path, is read-only, and cannot mutate a work unit, an envelope, or production."
+  stop_conditions:
+    - "If the helper cannot derive accepted_standards from a real waiver source without echoing standards_touched, stop and escalate rather than shipping a claim that re-opens the tautology."
+  rollback: "Revert the implementation commit and close the pull request; nothing else in the system depends on the helper."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "An adversarial review before merge, per AC-007, targeting the two failure modes above."
+  non_mechanical:
+    - "Whether the helper's notion of 'the standards this change touches' matches what a human would mean by it — a judgment no test can make."
+follow_up:
+  required: true
+  revisit_when: "When the orchestrator backlog's P3 item tightens the dispatch conformance gate's subset branch, since this helper is what would make requiring status green affordable."
+  signals:
+    - "A unit dispatches on a conformance claim this helper produced, and the repository's real scanner later disagrees."
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
