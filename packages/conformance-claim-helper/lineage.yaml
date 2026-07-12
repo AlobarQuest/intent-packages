@@ -1,10 +1,23 @@
 package_id: conformance-claim-helper
-current_state: draft
+current_state: approved
 revisions:
 - revision: 1
   hash: 6a753677334de371e55d7bfcb2e6d3adfca959de34bf0c277e85cbc4e6976608
   created_at: '2026-07-12T00:00:00Z'
   author: claude-code-interactive
-transitions: []
-approvals: []
+  snapshotted_at: '2026-07-12T19:40:49.375913+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-12T19:40:49.375913+00:00'
+  actor: claude-code-interactive
+  event_id: evt-e49e10aa828c41b98145a1cec7a3ba38
+approvals:
+- revision: 1
+  approved_hash: 6a753677334de371e55d7bfcb2e6d3adfca959de34bf0c277e85cbc4e6976608
+  approver: devon
+  approved_at: '2026-07-12T19:41:01.739027+00:00'
+  commit: 8b5c929e753e0840d77684a1359478204fd904fd
+  event_id: evt-178ec347a1f6414886ca8504275f2fb8
 grants: []
