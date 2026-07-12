@@ -2,7 +2,7 @@ schema_version: 1
 package_id: ws-p2.15-fail-closed-lifecycle-guards
 title: "WS-P2.15 — fail-closed lifecycle guards: remove the guards nothing discharges, and make an unreachable guard detectable"
 revision: 1
-status: draft
+status: approved
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-12T00:00:00Z"
