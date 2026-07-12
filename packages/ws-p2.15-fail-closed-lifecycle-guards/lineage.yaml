@@ -1,0 +1,10 @@
+package_id: ws-p2.15-fail-closed-lifecycle-guards
+current_state: draft
+revisions:
+- revision: 1
+  hash: 27a10d19f45cc67ac7656b989345b18b7c1eeacd048c41677775c7c4e7838fd3
+  created_at: '2026-07-12T00:00:00Z'
+  author: claude-code-interactive
+transitions: []
+approvals: []
+grants: []
