@@ -1,5 +1,5 @@
 package_id: ws-6.4-dependency-update-fanout
-current_state: approved
+current_state: ready_for_review
 revisions:
 - revision: 1
   hash: 007d3b1010c0e5428cdb43aae350eaa2fabd6bb9f16995188a2994b7a3bcc922
@@ -16,6 +16,11 @@ revisions:
   created_at: '2026-07-10T20:43:08.486128+00:00'
   author: claude-code-interactive
   snapshotted_at: '2026-07-10T20:43:08.672317+00:00'
+- revision: 4
+  hash: c21f7aafc9c5790b410a8510e434711d33570adf616b8931a2566845b2463da7
+  created_at: '2026-07-15T11:42:02.519445+00:00'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-15T11:49:02.675395+00:00'
 transitions:
 - kind: transition
   from: draft
@@ -47,6 +52,30 @@ transitions:
   at: '2026-07-10T20:43:08.672317+00:00'
   actor: claude-code-interactive
   event_id: evt-36a81fd3ec164df998f63618bd28d936
+- kind: revision
+  from: approved
+  to: draft
+  at: '2026-07-15T11:42:02.519445+00:00'
+  actor: claude-code-interactive
+  event_id: evt-78eca39399624de495947f2a7a3872ae
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-15T11:44:35.988369+00:00'
+  actor: claude-code-interactive
+  event_id: evt-8a3895591edc47489942441c4da18251
+- kind: transition
+  from: ready_for_review
+  to: needs_clarification
+  at: '2026-07-15T11:48:49.109311+00:00'
+  actor: claude-code-interactive
+  event_id: evt-9893550190334adda2f7faf856f9451e
+- kind: transition
+  from: needs_clarification
+  to: ready_for_review
+  at: '2026-07-15T11:49:02.675395+00:00'
+  actor: claude-code-interactive
+  event_id: evt-bc69b516f83a45d9b7d31d1618035705
 approvals:
 - revision: 1
   approved_hash: 007d3b1010c0e5428cdb43aae350eaa2fabd6bb9f16995188a2994b7a3bcc922
