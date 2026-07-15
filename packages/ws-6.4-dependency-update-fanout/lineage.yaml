@@ -1,5 +1,5 @@
 package_id: ws-6.4-dependency-update-fanout
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 007d3b1010c0e5428cdb43aae350eaa2fabd6bb9f16995188a2994b7a3bcc922
@@ -118,3 +118,9 @@ approvals:
   approved_at: '2026-07-15T11:59:25.167855+00:00'
   commit: 14a5f9dd4590e1bbea0825f5890495a2edb2b312
   event_id: evt-3b2b1d51ad7b41eab2731bdcf603fa13
+- revision: 5
+  approved_hash: 578282d6932e8f8da6bcac08bb0adbecf4c560abe95d341543db82b8b6fb0988
+  approver: devon
+  approved_at: '2026-07-15T16:49:14.366896+00:00'
+  commit: 16c8b885bffc631683a1bd4ffbd663f36e6189bd
+  event_id: evt-f8ac419f77a747b3b3c00f3d1b5a791c
