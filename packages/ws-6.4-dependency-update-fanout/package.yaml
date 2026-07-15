@@ -1,32 +1,32 @@
 schema_version: 1
 package_id: ws-6.4-dependency-update-fanout
 title: "WS-6.4 — sequentially re-prove one systemic dependency update across six repositories, autonomously up to the merge gate"
-revision: 4
-status: approved
+revision: 5
+status: ready_for_review
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-09T21:57:24Z"
 supersedes: null
 outcome:
-  what: "Re-prove the six repositories sequentially under the repaired dependency-update authority contract. Revision 4 realizes only the AC-006 target: one Change Manager work unit updates the httpx2 development dependency from 2.5.0 to at least 2.6.0, refreshes pyproject.toml and uv.lock, opens one pull request, and proves the named Quality check green while Devon retains every approval and merge decision."
+  what: "Re-prove the six repositories sequentially under the repaired dependency-update authority contract. Revision 5 realizes only the AC-001 canary target: one Orchestrator work unit updates the httpx2 development dependency from 2.5.0 to at least 2.7.0, refreshes pyproject.toml and uv.lock, opens one pull request, and proves the named Quality check green while Devon retains every approval and merge decision."
   why: "Historical 6/6 completion labels are not lifecycle or evidence authority. Each repository must be separately re-proven under the repaired, fingerprinted mutation_commands contract before its acceptance criterion can be treated as realized."
-  beneficiary: "Devon gets a bounded, reviewable proof of the repaired factory path against a real repository before any later repository proof is attempted."
-  success_signal: "Exactly one AC-006 Change Manager unit is created from a Devon-approved revision and decomposition; its approved authority envelope permits only the exact mutation-first command sequence; its pull request's named Quality check reports Ruff, Pyright, and 105 passing tests on the exact head; the WS-5.1 verifier adjudicates the evidence; and no agent, workflow, API, CLI, or orchestrator path approves in batch or merges anything."
+  beneficiary: "Devon gets a bounded, reviewable canary proof of the repaired factory path before the four still-unproven non-canary repositories are attempted."
+  success_signal: "Exactly one AC-001 Orchestrator unit is created from a Devon-approved revision and decomposition; its approved authority envelope permits only the exact preflight-proven command sequence; its pull request's named Quality check reports the repository's full gate green on the exact head; the WS-5.1 verifier adjudicates the evidence; and no agent, workflow, API, CLI, or orchestrator path approves in batch or merges anything."
 scope:
   included:
     - "Author and approve this intent package before any work unit is created."
-    - "Treat all historical 6/6 completion claims as non-authoritative; the six repositories are being re-proven sequentially, and revision 4 maps only AC-006 to Change Manager while AC-001..AC-005 and AC-007..AC-011 remain retained and incomplete."
-    - "Before authoring the Change Manager authority envelope, prove it against the real target repository in a clean clone: execute the ordered allowed_commands list twice in succession, confirm both passes are green, confirm the working tree then carries a real diff, and confirm the verifier executed its tools rather than skipping them."
-    - "Create exactly one Draft Change Manager work unit through the WS-3.2 decomposition path, so that the unit is stamped with its own constraints.work_unit_id."
-    - "Authorize the complete Change Manager outcome with target_repository AlobarQuest/change-manager, change_class dependency-update, required_capability repo.edit, allowed_commands ordered as uv add --dev 'httpx2>=2.6.0', uv sync --locked, then uv run make check, and mutation_commands containing only uv add --dev 'httpx2>=2.6.0'."
-    - "Attest conformance for the Change Manager unit from the target repository's real state via security_scan.cli.scan and portfolio.compliance.build_rows."
-    - "Record one named human authority approval bound to the Change Manager unit's own authority fingerprint."
-    - "Prove the WS-4.2 kill switch blocks dispatch, on live production, before dispatch is enabled for any change class."
-    - "Enable production dispatch for the single change class dependency-update, the single capability repo.edit, and only AlobarQuest/change-manager, after Devon's explicit approval."
-    - "Dispatch Change Manager once and observe admission, target routing, idempotency, and failure-signature circuit-breaker behavior."
-    - "Let factory-runner open one Change Manager pull request that updates pyproject.toml and uv.lock and runs the named Quality check."
-    - "Submit AC-006 evidence and let the WS-5.1 verifier adjudicate it."
-    - "Record the Change Manager dispatch identifier, pull-request URL, exact-head Quality result, verifier outcome, and guardrail observations without projecting them onto the other ten acceptance criteria."
+    - "Treat all historical 6/6 completion claims as non-authoritative; revision 4 proved only AC-006 for Change Manager, and revision 5 maps only AC-001 to Orchestrator while AC-002..AC-005 and AC-007..AC-011 remain retained and incomplete."
+    - "Before authoring the Orchestrator authority envelope, prove it against the real target repository in a clean checkout: execute the ordered allowed_commands list twice in succession, confirm both passes are green, confirm the working tree then carries a real diff, and confirm the second pass leaves the identical diff digest."
+    - "Create exactly one Draft Orchestrator work unit through the WS-3.2 decomposition path, so that the unit is stamped with its own constraints.work_unit_id."
+    - "Authorize the complete Orchestrator outcome with target_repository AlobarQuest/orchestrator, change_class dependency-update, required_capability repo.edit, allowed_commands ordered as uv sync --locked, uv add --dev 'httpx2>=2.7.0', then uv lock --check, and mutation_commands containing only uv add --dev 'httpx2>=2.7.0'."
+    - "Attest conformance for the Orchestrator unit from the target repository's real state via security_scan.cli.scan and portfolio.compliance.build_rows."
+    - "Record one named human authority approval bound to the Orchestrator unit's own authority fingerprint."
+    - "Prove the WS-4.2 kill switch blocks the Orchestrator unit on live production before the revision-5 target scope is enabled."
+    - "Replace the previous Change Manager-only production target scope with the single target AlobarQuest/orchestrator, while retaining only change class dependency-update and capability repo.edit, after Devon's explicit approval."
+    - "Dispatch Orchestrator once and observe admission, target routing, idempotency, and failure-signature circuit-breaker behavior."
+    - "Let factory-runner open one Orchestrator pull request that updates pyproject.toml and uv.lock and runs the named Quality check."
+    - "Submit AC-001 evidence and let the WS-5.1 verifier adjudicate it."
+    - "Record the Orchestrator dispatch identifier, pull-request URL, exact-head Quality result, verifier outcome, and guardrail observations without projecting them onto the retained acceptance criteria."
   excluded:
     - "Any automatic merge, or any worker, agent, API, CLI, CI, or orchestrator path that merges a pull request."
     - "Any automatic Brain approval or knowledge promotion."
@@ -44,10 +44,10 @@ scope:
     - "Extending the fan-out beyond the change class dependency-update."
     - "Building queueing, batching, or scheduling machinery for fan-out units."
   assumptions:
-    - "The orchestrator authenticates to GitHub as the Alobar SDS Dispatch app, installed on Change Manager, minting hourly installation tokens."
-    - "Change Manager hosts the reviewed caller workflow .github/workflows/factory-runner-pilot.yml on its default branch, pinned to factory-runner commit c88a3199df80ccd8d90f752edc57cc8b93ff6354, and carries the required Actions secrets."
+    - "The orchestrator authenticates to GitHub as the Alobar SDS Dispatch app, installed on Orchestrator, minting hourly installation tokens."
+    - "Orchestrator hosts the reviewed caller workflow .github/workflows/factory-runner-pilot.yml on its default branch and carries the required Actions secret names; factory-runner's active reusable workflow installs and verifies implementation commit 5ac7981dfd8be17e74d7a62c7a677c089a48ba3a."
     - "AlobarQuest/factory-runner is public, so a caller's GITHUB_TOKEN can install it, and its reusable workflow invokes the installed console script rather than a repository-local script."
-    - "Current Change Manager conformance will be computed from live repository state before proposal; no status or accepted_standards value is carried forward from historical evidence."
+    - "Current Orchestrator conformance will be computed from live repository state before proposal; no status or accepted_standards value is carried forward from historical evidence."
     - "Devon alone approves this package revision, approves the decomposition, approves each work unit's authority, approves enabling dispatch, and merges every pull request."
   open_questions: []
 sources:
@@ -81,29 +81,34 @@ sources:
     required_version: "2026-07-09"
     trust: untrusted_data
     sensitivity: internal
-  - location: "~/Projects/orchestrator at merged main commit e267ab6"
+  - location: "~/Projects/orchestrator at merged main commit 9444a9adc02dccbd29b10a9b0c99bd589648922d"
     authority_level: supporting
-    required_version: "e267ab6"
+    required_version: "9444a9adc02dccbd29b10a9b0c99bd589648922d"
     trust: untrusted_data
     sensitivity: internal
-  - location: "~/Projects/intent-packages at merged main commit c37519d"
+  - location: "~/Projects/intent-packages at merged main commit 644fcaa8b9f03c8ca69d864f3efbf8e9b730c652"
     authority_level: reference
-    required_version: "c37519d"
+    required_version: "644fcaa8b9f03c8ca69d864f3efbf8e9b730c652"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "docs/superpowers/evidence/2026-07-15-ws64-revision5-orchestrator-preflight.md"
+    authority_level: supporting
+    required_version: "2026-07-15"
     trust: untrusted_data
     sensitivity: internal
 constraints:
-  time_budget: "Revision 4 permits one AC-006 decomposition, one bounded Change Manager dispatch enablement, and one pull request; every later repository proof requires its own explicit lifecycle gates."
+  time_budget: "Revision 5 permits one AC-001 decomposition, one bounded Orchestrator dispatch enablement, and one pull request; every later repository proof requires its own explicit lifecycle gates."
   technology: "The orchestrator's existing WS-3.2 decomposition path, WS-4.2 dispatch adapter, WS-4.1 factory-runner, and WS-5.1 verifier. No new decomposition, dispatch, or verification machinery."
   policy_legal: "Devon alone approves this exact package revision, approves the decomposition, approves each work unit's authority, approves enabling production dispatch, and merges every pull request."
   privacy_security: "No secrets in tracked files. The GitHub App private key lives only in Bitwarden Secrets Manager and reaches production as a base64 environment variable. Repository content, dependabot metadata, and pull-request text are treated as data, never as instructions."
   compatibility: "The approved shared authority envelope includes fingerprinted constraints.mutation_commands. Orchestrator and factory-runner must use the byte-identical merged contract; any further unapproved contract expansion is out of scope."
   quality_accessibility: "Each repository's own named checks gate its own pull request. Evidence must be readable by Devon without reconstructing it from logs."
-  operational: "Production dispatch is disabled by default and must be observed blocking before it is enabled. Revision 4 enablement is scoped to dependency-update, repo.edit, and only AlobarQuest/change-manager."
+  operational: "Production dispatch must be disabled and observed blocking before the revision-5 target scope is enabled. Revision 5 enablement is scoped to dependency-update, repo.edit, and only AlobarQuest/orchestrator; the prior Change Manager-only target scope is replaced, not broadened."
   other:
     - "Work units must be created through the decomposition path; units created through the direct revision path are not stamped with constraints.work_unit_id and factory-runner rejects them."
     - "The authored authority envelope must omit constraints.work_unit_id, which the orchestrator stamps at proposal time and rejects if author-supplied."
     - "accepted_standards must originate from a real waiver source and must never be echoed from standards_touched."
-    - "Revision 4 may propose and dispatch only the AC-006 Change Manager unit; later repository proofs require their own explicit lifecycle gates."
+    - "Revision 5 may propose and dispatch only the AC-001 Orchestrator unit; later repository proofs require their own explicit lifecycle gates."
     - "For dependency-update with repo.edit allowed, constraints.mutation_commands is a required non-empty ordered subset of constraints.allowed_commands and is part of the authority fingerprint."
     - "An authority envelope must be able to accomplish its own outcome: constraints.allowed_commands must contain the mutation the unit's outcome requires, and not merely the command that verifies it."
     - "constraints.allowed_commands is an ordered list that factory-runner re-executes in full before it inspects the working tree, so every command must be idempotent under a second execution against the same checkout, and mutators must precede the verifier that attests to the tree being committed."
@@ -115,57 +120,57 @@ acceptance:
   - id: AC-001
     condition: "AlobarQuest/orchestrator, the canary, receives a factory-runner pull request that updates its pinned dependencies, and its named checks pass on the pull-request head."
     evidence_type: automated_check
-    evidence: "Retained and incomplete in revision 4; requires a separate Orchestrator proof whose pull request named check succeeds on the exact head commit and whose dispatch record names this repository."
+    evidence: "Revision 5 target only; incomplete until the Orchestrator pull request's named Quality check succeeds on the exact head commit, the dispatch record names AlobarQuest/orchestrator, and the WS-5.1 verifier adjudicates the evidence."
     approver: policy
   - id: AC-002
     condition: "AlobarQuest/brain receives a factory-runner pull request that updates its pinned dependencies, and its named checks pass on the pull-request head."
     evidence_type: automated_check
-    evidence: "Retained and incomplete in revision 4; requires a separate Brain proof whose pull request named check succeeds on the exact head commit and whose dispatch record names this repository."
+    evidence: "Retained and incomplete in revision 5; requires a separate Brain proof whose pull request named check succeeds on the exact head commit and whose dispatch record names this repository."
     approver: policy
   - id: AC-003
     condition: "AlobarQuest/security-standards receives a factory-runner pull request that updates its pinned dependencies, and its named checks pass on the pull-request head."
     evidence_type: automated_check
-    evidence: "Retained and incomplete in revision 4; requires a separate Security Standards proof whose pull request named check succeeds on the exact head commit and whose dispatch record names this repository."
+    evidence: "Retained and incomplete in revision 5; requires a separate Security Standards proof whose pull request named check succeeds on the exact head commit and whose dispatch record names this repository."
     approver: policy
   - id: AC-004
     condition: "AlobarQuest/infraops-mcp-server receives a factory-runner pull request that updates its pinned dependencies, and its named checks pass on the pull-request head."
     evidence_type: automated_check
-    evidence: "Retained and incomplete in revision 4; requires a separate InfraOps MCP Server proof whose pull request named check succeeds on the exact head commit and whose dispatch record names this repository."
+    evidence: "Retained and incomplete in revision 5; requires a separate InfraOps MCP Server proof whose pull request named check succeeds on the exact head commit and whose dispatch record names this repository."
     approver: policy
   - id: AC-005
     condition: "AlobarQuest/intent-packages receives a factory-runner pull request that updates its pinned dependencies, and its named checks pass on the pull-request head."
     evidence_type: automated_check
-    evidence: "Retained and incomplete in revision 4; requires a separate Intent Packages proof whose pull request named check succeeds on the exact head commit and whose dispatch record names this repository."
+    evidence: "Retained and incomplete in revision 5; requires a separate Intent Packages proof whose pull request named check succeeds on the exact head commit and whose dispatch record names this repository."
     approver: policy
   - id: AC-006
     condition: "AlobarQuest/change-manager receives a factory-runner pull request that updates its pinned dependencies, and its named checks pass on the pull-request head."
     evidence_type: automated_check
-    evidence: "Revision 4 target only; incomplete until the Change Manager pull request's named Quality check reports Ruff, Pyright, and 105 passing tests on the exact head commit and the dispatch record names AlobarQuest/change-manager."
+    evidence: "Proven by revision 4: Change Manager unit 4c8c2af4-f963-5511-b3c3-330da81f6373 completed with verifier adjudication 7b3d434d-bc28-444a-8268-88380b4b90a3 on exact pull-request head a8297cf18c76549295bf16ae32466fa40e15f19e; Devon then squash-merged pull request 26 as 3f543fdd59942c042caeeb7899968ff04cac5291."
     approver: policy
   - id: AC-007
     condition: "Every work unit in this fan-out carries its own named human authority approval bound to that unit's own authority fingerprint, and no batch approval path was created or used."
     evidence_type: automated_test
-    evidence: "Retained and incomplete in revision 4; requires separately approved units whose authority_approval_id values are present and distinct and whose fingerprints reflect their own target_repository and server-stamped work_unit_id."
+    evidence: "Retained and incomplete in revision 5; requires separately approved units whose authority_approval_id values are present and distinct and whose fingerprints reflect their own target_repository and server-stamped work_unit_id."
     approver: policy
   - id: AC-008
-    condition: "Dispatching a ready work unit while the kill switch is disabled records a skipped dispatch with reason code dispatch_disabled and never calls GitHub, and this is observed on live production before dispatch is enabled for any change class."
+    condition: "Before each repository's target scope is enabled, dispatching that revision's ready work unit while the kill switch is disabled records a skipped dispatch with reason code dispatch_disabled and never calls GitHub."
     evidence_type: automated_check
-    evidence: "Retained and incomplete in revision 4; requires a live dispatch record with status skipped and reason_code dispatch_disabled timestamped before Change Manager dispatch enablement."
+    evidence: "Retained and incomplete in revision 5; revision 5 requires a fresh live dispatch record with status skipped and reason_code dispatch_disabled before Orchestrator target enablement."
     approver: policy
   - id: AC-009
-    condition: "Production dispatch is enabled for exactly one change class, one capability, and the six allowlisted target repositories, and the canary is dispatched and adjudicated before the remaining five."
+    condition: "Production dispatch is enabled for exactly one change class, one capability, and one target repository at a time; after the completed Change Manager repair proof, the Orchestrator canary is dispatched and adjudicated before the remaining four unproven repositories."
     evidence_type: human_review
-    evidence: "Retained and incomplete in revision 4; requires Devon to confirm each sequential enablement scope and that the required guardrail observations preceded dispatch."
+    evidence: "Retained and incomplete in revision 5; requires Devon to confirm each sequential one-target enablement scope and that the required guardrail observations preceded dispatch."
     approver: devon
   - id: AC-010
     condition: "The WS-5.1 verifier adjudicates each unit's evidence; no worker, agent, or dispatch path declares a unit complete."
     evidence_type: automated_test
-    evidence: "Retained and incomplete in revision 4; requires every sequential unit's completion to be attributable to a verifier actor and lifecycle guards to reject worker-declared completion."
+    evidence: "Retained and incomplete in revision 5; requires every sequential unit's completion to be attributable to a verifier actor and lifecycle guards to reject worker-declared completion."
     approver: policy
   - id: AC-011
     condition: "Devon merges every pull request personally; no agent, workflow, CI job, orchestrator path, or GitHub App permission merges anything, and merge_to_main is never projected into a work-unit authority envelope."
     evidence_type: human_review
-    evidence: "Retained and incomplete in revision 4; requires Devon to confirm every merge is his own and the served authority envelopes contain no merge capability."
+    evidence: "Retained and incomplete in revision 5; requires Devon to confirm every merge is his own and the served authority envelopes contain no merge capability."
     approver: devon
 authority:
   allowed:
@@ -194,35 +199,35 @@ authority:
     max_llm_calls: 4
 deliverables:
   artifacts:
-    - "One Draft Change Manager work unit created from a one-unit AC-006 decomposition proposal"
-    - "One Change Manager pull request opened by factory-runner"
-    - "The Change Manager dispatch record plus the kill-switch skipped record that precedes it"
-    - "The AC-006 verifier adjudication"
-    - "Evidence that AC-001..AC-005 and AC-007..AC-011 remain retained and incomplete"
-  destination: "Change Manager receives the revision-4 pull request; lifecycle records live in the orchestrator at sds.alobar.net; this governing package remains in AlobarQuest/intent-packages."
+    - "One Draft Orchestrator work unit created from a one-unit AC-001 decomposition proposal"
+    - "One Orchestrator pull request opened by factory-runner"
+    - "The Orchestrator dispatch record plus the fresh kill-switch skipped record that precedes it"
+    - "The AC-001 verifier adjudication"
+    - "Evidence that AC-006 remains proven while AC-002..AC-005 and AC-007..AC-011 remain retained and incomplete"
+  destination: "Orchestrator receives the revision-5 pull request; lifecycle records live in the orchestrator at sds.alobar.net; this governing package remains in AlobarQuest/intent-packages."
   recipient: devon
-  definition_of_done: "Revision 4 is complete only when AC-006 has realized evidence and verifier adjudication, Devon has personally merged or closed the Change Manager pull request, the other ten criteria remain explicitly incomplete, and no permanent gate was weakened. The six-repository proof is not complete at that point."
+  definition_of_done: "Revision 5 is complete only when AC-001 has realized evidence and verifier adjudication, Devon has personally merged or closed the Orchestrator pull request, AC-006 remains proven, the other nine criteria remain explicitly incomplete, and no permanent gate was weakened. The six-repository proof is not complete at that point."
   operator_responsibilities:
     - "Approve or reject this exact intent revision and hash."
-    - "Approve the one-unit AC-006 decomposition proposal."
-    - "Approve the Change Manager work unit's authority envelope by its own fingerprint."
-    - "Approve enabling production dispatch only for dependency-update, repo.edit, and AlobarQuest/change-manager."
-    - "Review and merge the Change Manager pull request personally."
-    - "Decide the standing dispatch posture after the Change Manager proof."
+    - "Approve the one-unit AC-001 decomposition proposal."
+    - "Approve the Orchestrator work unit's authority envelope by its own fingerprint."
+    - "Approve replacing the production target scope with only dependency-update, repo.edit, and AlobarQuest/orchestrator."
+    - "Review and merge the Orchestrator pull request personally."
+    - "Decide the standing dispatch posture after the Orchestrator proof."
 dependencies:
   predecessor_packages:
     - package: ws-3.2-package-intake-decomposition
       revision: 1
   external_decisions:
     - "Devon approval of this exact package revision before any work unit is created."
-    - "Devon approval to enable production dispatch for dependency-update, repo.edit, and only AlobarQuest/change-manager, kill-switch-verified first."
-    - "Devon decision on the standing dispatch posture after the Change Manager proof."
+    - "Devon approval to replace the production target scope with dependency-update, repo.edit, and only AlobarQuest/orchestrator, kill-switch-verified first."
+    - "Devon decision on the standing dispatch posture after the Orchestrator proof."
   required_people_systems:
-    - "Devon for revision-4 package approval, one-unit decomposition approval, Change Manager authority approval, dispatch enablement, pull-request review, and merge"
+    - "Devon for revision-5 package approval, one-unit decomposition approval, Orchestrator authority approval, dispatch enablement, pull-request review, and merge"
     - "The orchestrator at sds.alobar.net as canonical lifecycle owner"
     - "AlobarQuest/factory-runner as the WS-4.1 worker, invoked by workflow_dispatch"
-    - "The Alobar SDS Dispatch GitHub App, installed on Change Manager"
-    - "GitHub Actions for the Change Manager named Quality check"
+    - "The Alobar SDS Dispatch GitHub App, installed on Orchestrator"
+    - "GitHub Actions for the Orchestrator named Quality check"
     - "Alobar ID forward-auth for every human action"
   required_capabilities:
     - repository_read
@@ -244,22 +249,22 @@ risk:
     - "A unit is dispatched to the wrong repository, opening a dependency pull request against a repository it was not authorized for."
     - "Batch approval is introduced to reduce the friction of sequential named authority approvals, collapsing the per-unit human gate."
     - "Conformance is hand-typed or accepted_standards echoes standards_touched, turning the admission gate into a tautology that admits everything."
-    - "Dispatch is enabled for more than dependency-update and repo.edit, or for any target other than AlobarQuest/change-manager."
+    - "Dispatch is enabled for more than dependency-update and repo.edit, or for any target other than AlobarQuest/orchestrator."
     - "The kill switch is enabled before it has been observed blocking anything, so the guardrail is asserted rather than proven."
     - "A dependency pull request is merged by automation, or a GitHub App permission grants a merge path."
-    - "The Change Manager pull request collides with in-flight work in that repository."
+    - "The Orchestrator pull request collides with in-flight work in that repository."
     - "An authority envelope is authored that cannot accomplish its own outcome, so a well-behaved agent obeys its authority, changes nothing, exits successfully, and the run dies at the change-detection guard, consuming a package revision and every named human approval bound to it."
     - "An envelope command that succeeds in the coding phase fails when factory-runner re-executes the ordered list at finalize, so the unit can never open a pull request no matter how many attempts it is granted."
     - "A retired or mis-authored work unit is left in a state from which no actor can retire it, and is later dispatched by an operator who mistook it for its corrected replacement."
-  max_impact: "One unwanted Change Manager pull request that Devon closes. Dispatch cannot merge, cannot mutate production infrastructure, cannot write secrets, and is bounded to repo.edit, dependency-update, and AlobarQuest/change-manager."
+  max_impact: "One unwanted Orchestrator pull request that Devon closes. Dispatch cannot merge, cannot mutate production infrastructure, cannot write secrets, and is bounded to repo.edit, dependency-update, and AlobarQuest/orchestrator."
   stop_conditions:
     - "Routine local invocation mistakes are recoverable after refreshing state and proving they did not mutate factory state."
     - "Stop when the factory process behaves incorrectly, including admission, routing, idempotency, circuit-breaker, command-enforcement, result-classification, evidence, or lifecycle behavior that differs from the approved contract."
-    - "The Change Manager dispatch record names any repository other than AlobarQuest/change-manager."
+    - "The Orchestrator dispatch record names any repository other than AlobarQuest/orchestrator."
     - "A work unit reaches a dispatchable state without a named human authority approval."
     - "The approved package hash changes without a new revision and renewed approval."
     - "Any change would create an automatic merge, automatic Brain approval, tracker canonicalization, graduation automation, or automatic follow-up generation."
-  rollback: "Disable dispatch by unsetting ORCHESTRATOR_DISPATCH_ENABLED and restarting; close the unwanted Change Manager pull request; cancel the affected work unit. Revision-4 dispatch mutates only a Change Manager feature branch, never its default branch, and never production infrastructure."
+  rollback: "Disable dispatch by unsetting ORCHESTRATOR_DISPATCH_ENABLED and restarting; close the unwanted Orchestrator pull request; cancel the affected work unit. Revision-5 dispatch mutates only an Orchestrator feature branch, never its default branch, and never production infrastructure."
   escalation_target: devon
 verification:
   independent_review:
@@ -267,12 +272,12 @@ verification:
     - "Each target repository's own named checks gate its own pull request."
     - "Devon reviews each pull request before merging it."
   non_mechanical:
-    - "Whether the Change Manager guardrail observations are strong enough to justify treating AC-006 as realized."
-    - "Whether the Change Manager dependency update is desirable right now, which is a judgment the checks cannot make."
+    - "Whether the Orchestrator guardrail observations are strong enough to justify treating AC-001 as realized."
+    - "Whether the Orchestrator dependency update is desirable right now, which is a judgment the checks cannot make."
     - "Whether the friction of sequential named authority approvals is the correct price for the per-unit human gate."
 follow_up:
   required: true
-  revisit_when: "After the Change Manager pull request is merged or explicitly closed and AC-006 is adjudicated, before selecting any later repository proof."
+  revisit_when: "After the Orchestrator pull request is merged or explicitly closed and AC-001 is adjudicated, before selecting the next unproven repository proof."
   signals:
     - "A named human authority approval was felt to be a formality rather than a decision"
     - "A dependency update needed judgment that no acceptance criterion represented"
