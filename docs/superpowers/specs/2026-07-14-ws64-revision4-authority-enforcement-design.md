@@ -1,8 +1,8 @@
 # WS-6.4 Revision 4 — Authority Enforcement and Change Manager Proof
 
-**Date:** 2026-07-14  
-**Status:** Approved design  
-**Target repository:** `AlobarQuest/change-manager`  
+**Date:** 2026-07-14
+**Status:** Approved design
+**Target repository:** `AlobarQuest/change-manager`
 **Governing package:** `ws-6.4-dependency-update-fanout`
 
 ## 1. Purpose
