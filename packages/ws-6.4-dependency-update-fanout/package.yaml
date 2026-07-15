@@ -2,7 +2,7 @@ schema_version: 1
 package_id: ws-6.4-dependency-update-fanout
 title: "WS-6.4 — sequentially re-prove one systemic dependency update across six repositories, autonomously up to the merge gate"
 revision: 4
-status: ready_for_review
+status: approved
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-09T21:57:24Z"
