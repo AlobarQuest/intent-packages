@@ -7,6 +7,9 @@ dependencies = ["pyyaml>=6.0.3"]
 [project.optional-dependencies]
 dev = ["pytest>=9.1.1", "pyyaml>=6.0.3", "ruff>=0.1"]
 
+[project.scripts]
+factory = "intent_packages.factory_cli:main"
+
 [dependency-groups]
 dev = [
   "pytest>=9.1.1",
