@@ -32,6 +32,10 @@ def _criteria_uuid_map(intake: dict) -> dict[str, str]:
     return {c["ac_id"]: c["id"] for c in criteria}
 
 
+def _repo_name(target_repo: str) -> str:
+    return target_repo.split("/", 1)[-1]
+
+
 def build_proposal(
     intake: dict,
     ac: str,
@@ -58,7 +62,7 @@ def build_proposal(
     return {
         "idempotency_key": f"factory-decompose-{target_repo}-{package}-{new}".replace("/", "-"),
         "expected_version": 0,
-        "rationale": rationale or f"Dependency update: {package} {old} -> {new} in {target_repo}.",
+        "rationale": f"Dependency update: {package} {old} -> {new} in {target_repo}.",
         "proposed_units": [
             {
                 "unit_key": unit_key,
@@ -81,7 +85,7 @@ def build_proposal(
 def _resolve_repo_path(target_repo: str, repo_path: str) -> Path:
     if repo_path:
         return Path(repo_path).expanduser()
-    return Path(os.environ["HOME"]) / "Projects" / target_repo.split("/", 1)[-1]
+    return Path.home() / "Projects" / _repo_name(target_repo)
 
 
 def run(
@@ -101,7 +105,7 @@ def run(
     client: OrchestratorClient | None = None,
 ) -> int:
     client = client or OrchestratorClient()
-    resolved_key = unit_key or f"{target_repo.split('/', 1)[-1]}-{ac.lower()}"
+    resolved_key = unit_key or f"{_repo_name(target_repo)}-{ac.lower()}"
     local_repo = _resolve_repo_path(target_repo, repo_path)
     try:
         if not local_repo.is_dir():

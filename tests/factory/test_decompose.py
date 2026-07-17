@@ -42,6 +42,30 @@ def test_build_proposal_maps_uuid_and_covers_all_acs():
     assert "work_unit_id" not in unit["authority"]["constraints"]
 
 
+def test_build_proposal_rationale_applies_to_retained_only():
+    sites = [PinSite("requirements.txt", "requirements.txt", "0.139.0")]
+    rationale = "retained: not this run"
+    proposal = decompose.build_proposal(
+        _INTAKE,
+        "AC-002",
+        "brain-ac002",
+        "AlobarQuest/brain",
+        "pip",
+        "fastapi",
+        "0.139.0",
+        "0.139.2",
+        _CONFORMANCE,
+        sites,
+        rationale,
+    )
+    assert proposal["rationale"] == (
+        "Dependency update: fastapi 0.139.0 -> 0.139.2 in AlobarQuest/brain."
+    )
+    assert proposal["rationale"] != rationale
+    assert proposal["retained_acs"]
+    assert all(r["rationale"] == rationale for r in proposal["retained_acs"])
+
+
 def test_build_proposal_unknown_ac_raises():
     with pytest.raises(decompose.DecomposeError, match="AC-999"):
         decompose.build_proposal(

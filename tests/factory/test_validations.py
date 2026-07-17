@@ -73,3 +73,26 @@ def test_runner_honest_rejects_make_check():
 
 def test_runner_honest_allows_uv_lock_check():
     assert assert_runner_honest(["uv add 'x>=1'", "uv lock --check"]) is None
+
+
+def test_dry_run_fails_closed_on_command_error(tmp_path):
+    repo = _git_repo(tmp_path, {"requirements.txt": "fastapi==0.139.0\n"})
+    with pytest.raises(ValidationError, match="mutation command failed"):
+        dry_run_mutation(
+            repo,
+            [
+                "perl -pi -e 's/^fastapi==0\\.139\\.0$/fastapi==0.139.2/' requirements.txt",
+                "sh -c 'exit 3'",
+            ],
+        )
+
+
+def test_dry_run_fails_closed_on_content_non_idempotent(tmp_path):
+    repo = _git_repo(tmp_path, {"tracked.txt": "base\n"})
+    with pytest.raises(ValidationError, match="idempoten"):
+        dry_run_mutation(
+            repo,
+            [
+                "sh -c 'echo x >> tracked.txt'",
+            ],
+        )

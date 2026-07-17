@@ -29,6 +29,21 @@ def _diff_names(repo: Path) -> set[str]:
     return {line for line in result.stdout.splitlines() if line}
 
 
+def _diff_content(repo: Path) -> str:
+    result = subprocess.run(["git", "diff"], cwd=repo, capture_output=True, text=True, check=True)
+    return result.stdout
+
+
+def _run_command(command: str, cwd: Path) -> None:
+    try:
+        subprocess.run(command, shell=True, cwd=cwd, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as exc:
+        raise ValidationError(
+            f"mutation command failed: {command!r} exited {exc.returncode}: "
+            f"{(exc.stderr or exc.stdout or '').strip()}"
+        ) from exc
+
+
 def dry_run_mutation(repo_path: Path, allowed_commands: list[str]) -> set[str]:
     workdir = Path(tempfile.mkdtemp(prefix="factory-dryrun-"))
     target = workdir / "repo"
@@ -37,19 +52,17 @@ def dry_run_mutation(repo_path: Path, allowed_commands: list[str]) -> set[str]:
             ["git", "clone", "--local", "--quiet", str(repo_path), str(target)], check=True
         )
         for command in allowed_commands:
-            subprocess.run(command, shell=True, cwd=target, check=True)
-        first = _diff_names(target)
-        if not first:
+            _run_command(command, target)
+        names = _diff_names(target)
+        if not names:
             raise ValidationError("mutation produced no diff (already at target, or no-op mutator)")
+        first_content = _diff_content(target)
         for command in allowed_commands:
-            subprocess.run(command, shell=True, cwd=target, check=True)
-        second = _diff_names(target)
-        if second != first:
-            raise ValidationError(
-                f"mutation is not idempotent: changed files differ on second run "
-                f"({sorted(first)} -> {sorted(second)})"
-            )
-        return first
+            _run_command(command, target)
+        second_content = _diff_content(target)
+        if second_content != first_content:
+            raise ValidationError("mutation is not idempotent: diff content changed on second run")
+        return names
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
 
