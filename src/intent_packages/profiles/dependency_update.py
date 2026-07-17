@@ -89,8 +89,6 @@ def _pip_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str
 
 # ----- uv / pyproject.toml -----
 
-_UV_PIN_RE = re.compile(r"^\s*(?:==|>=)\s*(.+?)\s*$")
-
 
 def _uv_pin_version(spec: str, package: str) -> str | None:
     """Extract version from a PEP 508 requirement string.
@@ -105,12 +103,9 @@ def _uv_pin_version(spec: str, package: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _uv_discover(repo: Path, package: str) -> list[PinSite]:  # noqa: C901
-    path = repo / "pyproject.toml"
-    if not path.is_file():
-        return []
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
-    sections: list[tuple[str, list]] = []
+def _uv_sections(data: dict) -> list[tuple[str, list[str]]]:
+    """Build the (label, specs) sections of a parsed pyproject.toml to scan for pins."""
+    sections: list[tuple[str, list[str]]] = []
     project = data.get("project", {})
     if isinstance(project.get("dependencies"), list):
         sections.append(("project.dependencies", project["dependencies"]))
@@ -120,8 +115,16 @@ def _uv_discover(repo: Path, package: str) -> list[PinSite]:  # noqa: C901
     for extra, specs in (project.get("optional-dependencies") or {}).items():
         if isinstance(specs, list):
             sections.append((f"optional-dependencies.{extra}", specs))
+    return sections
+
+
+def _uv_discover(repo: Path, package: str) -> list[PinSite]:
+    path = repo / "pyproject.toml"
+    if not path.is_file():
+        return []
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
     sites: list[PinSite] = []
-    for label, specs in sections:
+    for label, specs in _uv_sections(data):
         for spec in specs:
             if not isinstance(spec, str):
                 continue

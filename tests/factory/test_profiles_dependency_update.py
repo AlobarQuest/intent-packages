@@ -47,6 +47,19 @@ def test_uv_discovers_project_and_group(tmp_path):
     assert all(s.file == "pyproject.toml" and s.current_version == "0.139.0" for s in sites)
 
 
+def test_uv_skips_unpinned_occurrence(tmp_path):
+    _write(
+        tmp_path,
+        "pyproject.toml",
+        ('[project]\ndependencies = ["fastapi==0.139.0", "httpx"]\n'),
+    )
+    # fastapi is pinned -> a site; httpx is unpinned -> not a site.
+    assert [
+        s.current_version for s in dep.PROFILES["uv"].discover_pin_sites(tmp_path, "fastapi")
+    ] == ["0.139.0"]
+    assert dep.PROFILES["uv"].discover_pin_sites(tmp_path, "httpx") == []
+
+
 def test_uv_mutation_runtime_dep_no_dev_flag(tmp_path):
     sites = [dep.PinSite("pyproject.toml", "project.dependencies", "0.139.0")]
     cmds = dep.PROFILES["uv"].mutation_commands("fastapi", "0.139.0", "0.139.2", sites)
