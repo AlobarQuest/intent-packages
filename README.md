@@ -39,3 +39,16 @@ packages/<package_id>/
 ## Design
 
 See `docs/superpowers/specs/2026-07-03-ws21-intent-package-schema.md`.
+
+## factory decompose
+
+Author + validate a dependency-update decomposition proposal for an intaken revision:
+
+```bash
+factory decompose --revision <id> --ac AC-002 --target-repo AlobarQuest/brain \
+  --tooling pip --package fastapi --from 0.139.0 --to 0.139.2 [--out proposal.json] [--submit]
+```
+
+Requires the `orchestrator` CLI on PATH and `ORCHESTRATOR_API_URL` / `ORCHESTRATOR_API_TOKEN` /
+`ORCHESTRATOR_API_CREDENTIAL_KEY_ID` set (use the **system** M2M credential for `--submit`).
+Without `--submit` it validates and prints the proposal only. It never approves or merges.

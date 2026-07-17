@@ -20,6 +20,9 @@ PYTHONPATH=src python3 -m intent_packages <cmd>   # validate | hash | transition
   hash-chained factory-events store (a YAML ledger alone is forgeable and not
   sufficient proof).
 - Never merge — PRs wait for Devon.
+- `factory decompose` (WS-P2.9 slice) shells the `orchestrator` CLI and never accepts a
+  hand-typed conformance; the emitted envelope omits `constraints.work_unit_id` (orchestrator
+  stamps it) and `ac_mappings`/`retained_acs` carry criterion DB UUIDs, not the "AC-001" string.
 
 ## Spec
 

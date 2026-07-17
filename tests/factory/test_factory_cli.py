@@ -13,7 +13,14 @@ def test_decompose_requires_revision():
         main(["decompose", "--ac", "AC-001"])
 
 
-def test_decompose_parses_all_args(capsys):
+def test_decompose_delegates_to_run(monkeypatch):
+    seen = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        return 0
+
+    monkeypatch.setattr("intent_packages.factory.decompose.run", fake_run)
     rc = main(
         [
             "decompose",
@@ -31,8 +38,10 @@ def test_decompose_parses_all_args(capsys):
             "0.139.0",
             "--to",
             "0.139.2",
+            "--submit",
         ]
     )
     assert rc == 0
-    out = capsys.readouterr().out
-    assert "rev-1" in out and "AC-002" in out and "pip" in out
+    assert seen["revision"] == "rev-1" and seen["ac"] == "AC-002"
+    assert seen["from_version"] == "0.139.0" and seen["to_version"] == "0.139.2"
+    assert seen["submit"] is True

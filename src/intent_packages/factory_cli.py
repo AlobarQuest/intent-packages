@@ -36,11 +36,20 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.cmd == "decompose":
-        # Wired to factory.decompose.run in Task 7. For now echo the parsed request.
-        print(
-            f"decompose revision={args.revision} ac={args.ac} "
-            f"target={args.target_repo} tooling={args.tooling} "
-            f"package={args.package} {args.from_version}->{args.to_version}"
+        from intent_packages.factory import decompose
+
+        return decompose.run(
+            revision=args.revision,
+            ac=args.ac,
+            target_repo=args.target_repo,
+            repo_path=args.repo_path,
+            tooling=args.tooling,
+            package=args.package,
+            from_version=args.from_version,
+            to_version=args.to_version,
+            unit_key=args.unit_key,
+            rationale=args.rationale,
+            out=args.out,
+            submit=args.submit,
         )
-        return 0
     return 0
