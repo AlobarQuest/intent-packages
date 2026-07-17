@@ -413,7 +413,7 @@ git commit -m "feat: dependency-update profile registry + pip variant"
 
 **Interfaces:**
 - Consumes: `PinSite`, `ToolingProfile`, `PROFILES` from Task 2.
-- Produces: `PROFILES["uv"]`. uv `discover_pin_sites` parses `pyproject.toml` with `tomllib` across `[project.dependencies]`, `[dependency-groups.*]`, `[project.optional-dependencies.*]`; each `PinSite.file == "pyproject.toml"`, `.label` == the section (e.g. `"dependency-groups.dev"`), `.current_version` == the version after `==`/`>=` (or `None` if unpinned). Mutation: single `uv add [--dev] 'PKG>=NEW'` (`--dev` when every site label starts with `dependency-groups` or `optional-dependencies`). Verifier: `uv lock --check`.
+- Produces: `PROFILES["uv"]`. uv `discover_pin_sites` parses `pyproject.toml` with `tomllib` across `[project.dependencies]`, `[dependency-groups.*]`, `[project.optional-dependencies.*]`; each `PinSite.file == "pyproject.toml"`, `.label` == the section (e.g. `"dependency-groups.dev"`), `.current_version` == the version after `==`/`>=`. **Pinned sites only** — an occurrence of the package with no `==`/`>=` version is not a pin site (nothing to move OLD→NEW) and is not returned. Mutation: single `uv add [--dev] 'PKG>=NEW'` (`--dev` when every site label starts with `dependency-groups` or `optional-dependencies`). Verifier: `uv lock --check`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -459,8 +459,6 @@ Expected: FAIL with `KeyError: 'uv'`
 ```python
 # add to src/intent_packages/profiles/dependency_update.py
 import tomllib
-
-_UV_PIN_RE = re.compile(r"^\s*(?:==|>=)\s*(.+?)\s*$")
 
 
 def _uv_pin_version(spec: str, package: str) -> str | None:

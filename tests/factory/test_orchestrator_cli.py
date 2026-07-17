@@ -42,3 +42,35 @@ def test_conformance_builds_expected_argv():
 
     OrchestratorClient(runner=runner).conformance_claim("/tmp/repo")
     assert seen["argv"] == ["orchestrator", "conformance-claim", "/tmp/repo", "--json"]
+
+
+def test_propose_decomposition_builds_expected_argv():
+    seen = {}
+
+    def runner(argv):
+        seen["argv"] = argv
+        return subprocess.CompletedProcess(
+            argv, 0, stdout=json.dumps({"proposal_id": "p1"}), stderr=""
+        )
+
+    OrchestratorClient(runner=runner).propose_decomposition("rev-1", "/tmp/proposal.json")
+    assert seen["argv"] == [
+        "orchestrator",
+        "propose-decomposition",
+        "rev-1",
+        "--data",
+        "@/tmp/proposal.json",
+        "--json",
+    ]
+
+
+def test_non_json_stdout_raises():
+    client = OrchestratorClient(runner=_fake(0, "not json at all"))
+    with pytest.raises(OrchestratorCliError):
+        client.show_package_intake("rev-1")
+
+
+def test_non_dict_json_raises():
+    client = OrchestratorClient(runner=_fake(0, json.dumps([1, 2, 3])))
+    with pytest.raises(OrchestratorCliError):
+        client.show_package_intake("rev-1")
