@@ -8,6 +8,7 @@ minus constraints.work_unit_id, which the orchestrator stamps.
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
 from collections.abc import Callable
@@ -147,7 +148,37 @@ def _uv_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
     return "uv lock --check"
 
 
+# ----- npm / package.json -----
+
+_NPM_SECTIONS = ("dependencies", "devDependencies")
+
+
+def _npm_discover(repo: Path, package: str) -> list[PinSite]:
+    path = repo / "package.json"
+    if not path.is_file():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    sites: list[PinSite] = []
+    for section in _NPM_SECTIONS:
+        deps = data.get(section)
+        if isinstance(deps, dict) and package in deps:
+            version = str(deps[package]).lstrip("^~")
+            sites.append(PinSite("package.json", section, version))
+    return sites
+
+
+def _npm_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+    dev = bool(sites) and all(s.label == "devDependencies" for s in sites)
+    flag = " --save-dev" if dev else ""
+    return [f"npm install {package}@{new} --save-exact{flag}"]
+
+
+def _npm_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
+    return f'grep -q \'"{package}": "{new}"\' package.json'
+
+
 PROFILES: dict[str, ToolingProfile] = {
+    "npm": ToolingProfile("npm", _npm_discover, _npm_mutation, _npm_verifier),
     "pip": ToolingProfile("pip", _pip_discover, _pip_mutation, _pip_verifier),
     "uv": ToolingProfile("uv", _uv_discover, _uv_mutation, _uv_verifier),
 }

@@ -1,3 +1,5 @@
+import json as _json
+
 from intent_packages.profiles import dependency_update as dep
 
 
@@ -98,3 +100,23 @@ def test_build_envelope_shape_matches_contract():
         "sed -i 's/^fastapi==0.139.0$/fastapi==0.139.2/' requirements.txt",
     ]
     assert env["capabilities"]["command.run"] == "allowed"
+
+
+def test_npm_discovers_dependency(tmp_path):
+    _write(
+        tmp_path,
+        "package.json",
+        _json.dumps(
+            {"dependencies": {"zod": "3.23.8"}, "devDependencies": {"typescript": "5.4.5"}}
+        ),
+    )
+    sites = dep.PROFILES["npm"].discover_pin_sites(tmp_path, "zod")
+    assert [(s.label, s.current_version) for s in sites] == [("dependencies", "3.23.8")]
+
+
+def test_npm_mutation_and_verifier(tmp_path):
+    sites = [dep.PinSite("package.json", "dependencies", "3.23.8")]
+    cmds = dep.PROFILES["npm"].mutation_commands("zod", "3.23.8", "3.24.0", sites)
+    assert cmds == ["npm install zod@3.24.0 --save-exact"]
+    v = dep.PROFILES["npm"].verifier_command("zod", "3.23.8", "3.24.0", sites)
+    assert v == 'grep -q \'"zod": "3.24.0"\' package.json'
