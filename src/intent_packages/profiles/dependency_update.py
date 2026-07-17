@@ -9,6 +9,7 @@ minus constraints.work_unit_id, which the orchestrator stamps.
 from __future__ import annotations
 
 import re
+import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -86,8 +87,66 @@ def _pip_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str
     return f"grep -qx '{package}=={new}' {primary}"
 
 
+# ----- uv / pyproject.toml -----
+
+_UV_PIN_RE = re.compile(r"^\s*(?:==|>=)\s*(.+?)\s*$")
+
+
+def _uv_pin_version(spec: str, package: str) -> str | None:
+    """Extract version from a PEP 508 requirement string.
+
+    spec is a PEP 508 requirement string, e.g. "fastapi==0.139.0" or "fastapi>=1,<2"
+    """
+    name = re.split(r"[<>=!~ \[]", spec.strip(), maxsplit=1)[0]
+    if name != package:
+        return None
+    remainder = spec.strip()[len(name) :]
+    match = re.search(r"(?:==|>=)\s*([0-9][^,;\s]*)", remainder)
+    return match.group(1) if match else None
+
+
+def _uv_discover(repo: Path, package: str) -> list[PinSite]:  # noqa: C901
+    path = repo / "pyproject.toml"
+    if not path.is_file():
+        return []
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    sections: list[tuple[str, list]] = []
+    project = data.get("project", {})
+    if isinstance(project.get("dependencies"), list):
+        sections.append(("project.dependencies", project["dependencies"]))
+    for group, specs in (data.get("dependency-groups") or {}).items():
+        if isinstance(specs, list):
+            sections.append((f"dependency-groups.{group}", specs))
+    for extra, specs in (project.get("optional-dependencies") or {}).items():
+        if isinstance(specs, list):
+            sections.append((f"optional-dependencies.{extra}", specs))
+    sites: list[PinSite] = []
+    for label, specs in sections:
+        for spec in specs:
+            if not isinstance(spec, str):
+                continue
+            version = _uv_pin_version(spec, package)
+            if version is not None:
+                sites.append(PinSite("pyproject.toml", label, version))
+                break
+    return sites
+
+
+def _uv_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+    dev_only = bool(sites) and all(
+        s.label.startswith(("dependency-groups", "optional-dependencies")) for s in sites
+    )
+    flag = "--dev " if dev_only else ""
+    return [f"uv add {flag}'{package}>={new}'"]
+
+
+def _uv_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
+    return "uv lock --check"
+
+
 PROFILES: dict[str, ToolingProfile] = {
     "pip": ToolingProfile("pip", _pip_discover, _pip_mutation, _pip_verifier),
+    "uv": ToolingProfile("uv", _uv_discover, _uv_mutation, _uv_verifier),
 }
 
 
