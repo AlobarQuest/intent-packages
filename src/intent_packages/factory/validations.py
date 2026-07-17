@@ -22,16 +22,16 @@ class ValidationError(Exception):
     """Raised when a fail-closed validation rejects the envelope."""
 
 
-def _diff_names(clone: Path) -> set[str]:
+def _diff_names(repo: Path) -> set[str]:
     result = subprocess.run(
-        ["git", "diff", "--name-only"], cwd=clone, capture_output=True, text=True, check=True
+        ["git", "diff", "--name-only"], cwd=repo, capture_output=True, text=True, check=True
     )
     return {line for line in result.stdout.splitlines() if line}
 
 
 def dry_run_mutation(repo_path: Path, allowed_commands: list[str]) -> set[str]:
-    clone = Path(tempfile.mkdtemp(prefix="factory-dryrun-"))
-    target = clone / "repo"
+    workdir = Path(tempfile.mkdtemp(prefix="factory-dryrun-"))
+    target = workdir / "repo"
     try:
         subprocess.run(
             ["git", "clone", "--local", "--quiet", str(repo_path), str(target)], check=True
@@ -51,7 +51,7 @@ def dry_run_mutation(repo_path: Path, allowed_commands: list[str]) -> set[str]:
             )
         return first
     finally:
-        shutil.rmtree(clone, ignore_errors=True)
+        shutil.rmtree(workdir, ignore_errors=True)
 
 
 def assert_pin_sites_moved(changed_files: set[str], sites: list[PinSite]) -> None:

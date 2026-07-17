@@ -72,4 +72,4 @@ def test_runner_honest_rejects_make_check():
 
 
 def test_runner_honest_allows_uv_lock_check():
-    assert_runner_honest(["uv add 'x>=1'", "uv lock --check"]) is None
+    assert assert_runner_honest(["uv add 'x>=1'", "uv lock --check"]) is None
