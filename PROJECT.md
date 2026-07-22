@@ -22,6 +22,9 @@ required_checks:
 
 ## Backlog
 
+- [ ] (P2) `factory` CLI is not runnable as shipped: `factory_cli.py` has no `if __name__ == "__main__"` block and the `factory` console script (`[project.scripts]`) is not installed in `.venv`, so `python -m intent_packages.factory_cli decompose …` imports but runs nothing (exit 0, no output). Had to invoke via `python -c "…main(sys.argv[1:])"`. Add the `__main__` guard and/or ensure `uv pip install -e .` installs the console script; add a smoke test that runs `factory decompose --help`. — added 2026-07-22
+- [ ] (P3) `factory decompose` requires `PYTHONPATH=~/Projects/project-standards/src:~/Projects/security-standards/src` for the `orchestrator conformance-claim` shell-out (else `scanner_unavailable: portfolio.compliance is not importable`), plus the orchestrator console script on PATH and `ORCHESTRATOR_API_*`. The tool sets none of these; document the required env in the tool's `--help`/README or a wrapper, so it is not rediscovered each run. — added 2026-07-22
+
 - [x] (P2) Onboard to code-standards immediately after WS-2.4 exposed the day-one portfolio gap. The repo now has the standard manifest, vendored Quality CI, deterministic Makefile, empty regression baseline, and a genuinely green full-repo `make check`. — resolved 2026-07-04
 
 - [x] (P2) Check H converts canonicalization failures into validation errors instead of raising `CanonicalError`. — added/resolved 2026-07-04
