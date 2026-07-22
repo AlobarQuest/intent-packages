@@ -79,6 +79,69 @@ def test_uv_verifier_is_lock_check(tmp_path):
     assert dep.PROFILES["uv"].verifier_command("fastapi", "0", "1", sites) == "uv lock --check"
 
 
+def test_uv_mutation_optional_only_uses_optional_flag():
+    # A single optional-dependencies site must target that extra, not --dev.
+    sites = [dep.PinSite("pyproject.toml", "optional-dependencies.dev", "0.15.21")]
+    cmds = dep.PROFILES["uv"].mutation_commands("ruff", "0.15.21", "0.15.22", sites)
+    assert cmds == ["uv add --optional dev 'ruff>=0.15.22'"]
+
+
+def test_uv_mutation_dual_site_defers_lock():
+    # ruff pinned in both dependency-groups.dev and optional-dependencies.dev
+    # (the security-standards shape): each add must be --frozen so no
+    # intermediate lock sees the divergent pins, then one uv lock resolves.
+    sites = [
+        dep.PinSite("pyproject.toml", "dependency-groups.dev", "0.15.21"),
+        dep.PinSite("pyproject.toml", "optional-dependencies.dev", "0.15.21"),
+    ]
+    cmds = dep.PROFILES["uv"].mutation_commands("ruff", "0.15.21", "0.15.22", sites)
+    assert cmds == [
+        "uv add --frozen --dev 'ruff>=0.15.22'",
+        "uv add --frozen --optional dev 'ruff>=0.15.22'",
+        "uv lock",
+    ]
+
+
+def test_uv_mutation_named_group_uses_group_flag():
+    sites = [
+        dep.PinSite("pyproject.toml", "dependency-groups.lint", "1.0.0"),
+        dep.PinSite("pyproject.toml", "project.dependencies", "1.0.0"),
+    ]
+    cmds = dep.PROFILES["uv"].mutation_commands("tool", "1.0.0", "1.1.0", sites)
+    assert cmds == [
+        "uv add --frozen --group lint 'tool>=1.1.0'",
+        "uv add --frozen 'tool>=1.1.0'",
+        "uv lock",
+    ]
+
+
+def test_build_envelope_uv_dual_site_orders_mutators_before_verifier():
+    sites = [
+        dep.PinSite("pyproject.toml", "dependency-groups.dev", "0.15.21"),
+        dep.PinSite("pyproject.toml", "optional-dependencies.dev", "0.15.21"),
+    ]
+    env = dep.build_envelope(
+        "AlobarQuest/security-standards",
+        "uv",
+        "ruff",
+        "0.15.21",
+        "0.15.22",
+        {"accepted_standards": [], "standards_touched": ["code"], "status": "green"},
+        sites,
+    )
+    assert env["constraints"]["allowed_commands"] == [
+        "uv add --frozen --dev 'ruff>=0.15.22'",
+        "uv add --frozen --optional dev 'ruff>=0.15.22'",
+        "uv lock",
+        "uv lock --check",
+    ]
+    assert env["constraints"]["mutation_commands"] == [
+        "uv add --frozen --dev 'ruff>=0.15.22'",
+        "uv add --frozen --optional dev 'ruff>=0.15.22'",
+        "uv lock",
+    ]
+
+
 def test_build_envelope_shape_matches_contract():
     sites = [dep.PinSite("requirements.txt", "requirements.txt", "0.139.0")]
     env = dep.build_envelope(
