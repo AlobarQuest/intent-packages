@@ -136,12 +136,39 @@ def _uv_discover(repo: Path, package: str) -> list[PinSite]:
     return sites
 
 
+def _uv_section_flag(label: str) -> str:
+    """Map a discovered pin-site section to the `uv add` flag that targets it."""
+    if label == "project.dependencies":
+        return ""
+    if label.startswith("dependency-groups."):
+        group = label.split(".", 1)[1]
+        return "--dev" if group == "dev" else f"--group {group}"
+    if label.startswith("optional-dependencies."):
+        return f"--optional {label.split('.', 1)[1]}"
+    raise ProfileError(f"unknown pin-site section: {label}")
+
+
+def _uv_add(package: str, new: str, label: str, *, frozen: bool) -> str:
+    parts = ["uv", "add"]
+    if frozen:
+        parts.append("--frozen")
+    if flag := _uv_section_flag(label):
+        parts.append(flag)
+    parts.append(f"'{package}>={new}'")
+    return " ".join(parts)
+
+
 def _uv_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
-    dev_only = bool(sites) and all(
-        s.label.startswith(("dependency-groups", "optional-dependencies")) for s in sites
-    )
-    flag = "--dev " if dev_only else ""
-    return [f"uv add {flag}'{package}>={new}'"]
+    if not sites:
+        return []
+    if len(sites) == 1:
+        # Single site: `uv add` locks inline — the shape proven in production.
+        return [_uv_add(package, new, sites[0].label, frozen=False)]
+    # uv resolves groups and extras jointly, so a pin split across sections is
+    # unsatisfiable the moment one site diverges. Edit every site with --frozen
+    # (skip locking), then resolve the whole tree once. `uv lock` mutates
+    # uv.lock, so it precedes the `uv lock --check` verifier.
+    return [_uv_add(package, new, s.label, frozen=True) for s in sites] + ["uv lock"]
 
 
 def _uv_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
