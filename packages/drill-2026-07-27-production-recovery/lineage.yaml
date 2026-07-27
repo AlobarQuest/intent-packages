@@ -1,5 +1,5 @@
 package_id: drill-2026-07-27-production-recovery
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 31a63ae57d427e92785019b325d6b783d8589279435d78e01308dc138d58c96f
@@ -13,5 +13,11 @@ transitions:
   at: '2026-07-27T22:35:49.270992+00:00'
   actor: claude-code-interactive
   event_id: evt-eb01e39c831440cfb104f1d63020437b
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 31a63ae57d427e92785019b325d6b783d8589279435d78e01308dc138d58c96f
+  approver: devon
+  approved_at: '2026-07-27T22:36:32.193990+00:00'
+  commit: 616c7a66fae827e53e62af82794546f24b30e981
+  event_id: evt-9d4c382f17e5483e8ac46d16e35624ce
 grants: []
