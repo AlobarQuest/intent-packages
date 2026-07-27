@@ -1,0 +1,175 @@
+schema_version: 1
+package_id: drill-2026-07-27-production-recovery
+title: "Production recovery drills — exercise the five WS-P2.1 recovery drills against live production (ADR-0005 disposition A)"
+revision: 1
+status: approved
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-27T18:00:00Z"
+supersedes: null
+profile: infrastructure-change
+profile_fields:
+  blast_radius: single-app
+  change_window: "One dedicated, explicitly authorised session on 2026-07-27, with nothing else in flight. Two container restarts fall inside it: one to apply the drill 4 and drill 5 thresholds, one to revert them."
+  backup_evidence: "restic snapshot bd11ed0f of tag vps-production taken 2026-07-27 13:57:58; restore-drill.sh --db orchestrator PASS at 14:17:12 (orchestrator restored, 30 tables, ~1018 rows; sqlite integrity ok; snapshot confirmed present off-site)"
+  rollback_plan: "There is nothing to revert: the drills add only append-only ledger rows against units created by this package, and every drill unit is driven to a terminal state within the run. No repository, image, or deployment changes. The two environment-threshold changes are reverted in the same session and verified inside the container before each restart."
+outcome:
+  what: "The five scripted recovery drills — orchestrator crash after dispatch, lease lapse before submit, external pull-request merge and post-arming head divergence, deploy split-brain, and a human approval gate nobody answers — are executed against the live orchestrator at sds.alobar.net rather than a throwaway local Postgres, and their assertions hold against production's own database, image, proxy, and authentication chain."
+  why: "Program exit criterion 5 was marked MET on 2026-07-12 citing drills that had only ever run locally, and criterion 7 cited five recovery routes that production did not serve. Remediation item 0.3 requires the drills to run against production; ADR-0005 accepted disposition A as the only disposition that discharges it. Local green says nothing about the machine that serves traffic."
+  beneficiary: "Devon as the operator who must recover the factory when it fails, and the software delivery system, whose recovery controls become a demonstrated capability rather than a claim."
+  success_signal: "Each of the five drills runs against sds.alobar.net and either passes every adapted assertion or is explicitly waived with a recorded rationale; every unit this package creates reaches a terminal state through a public surface; the exit-criteria attestation and the consistency check are still green afterward; and the run's evidence names the production image digest and migration head it ran against."
+scope:
+  included:
+    - "Create five drill work units, one per recovery drill, through the normal intake and decomposition gates so drill traffic is labelled and traceable."
+    - "Execute the five drills against the live orchestrator through the same public HTTP surfaces an operator or runner uses."
+    - "Adapt each drill step that has no production equivalent, as recorded in docs/operations/production-drill-adaptations.md in the orchestrator repository."
+    - "Drive every unit this package creates to a terminal state through a public surface within the same run."
+    - "Record a dated evidence file naming the production image digest, the migration head, the per-drill result, and which gates were driven by automation rather than by Devon."
+  excluded:
+    - "Any change to orchestrator application code, its image, or its deployment."
+    - "Any outbound dispatch: dispatch is disabled and drill 1 asserts that rather than assuming it."
+    - "Any write to a work unit, package, or condition this package did not create."
+    - "Any private SQL against the production database."
+    - "Cleaning up the four pre-existing stale bump-dependencies units, which are out of scope debris."
+  non_goals:
+    - "Proving that a human exercised judgement at each approval gate; Devon authorised automation to drive the gates, and neither exit criterion claims otherwise."
+    - "Establishing a permanent drill package for future quarters; this package covers the 2026-07-27 run."
+  assumptions:
+    - "Production runs the image and migration head proven at the start of the run, and the exit-criteria attestation passes before any mutation."
+    - "Dispatch remains disabled for the duration, so no drill can reach GitHub."
+    - "A fresh production backup has been taken and verified restorable immediately before the run."
+  open_questions: []
+sources:
+  - location: "docs/decisions/0005-production-drill-disposition.md in AlobarQuest/orchestrator — Accepted 2026-07-27 by Devon, disposition A"
+    authority_level: authoritative
+    required_version: "2026-07-27"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "docs/superpowers/plans/2026-07-12-remediation-order.md, Phase 0 item 0.3, and its 2026-07-27 reconciliation block"
+    authority_level: authoritative
+    required_version: "2026-07-27"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "docs/operations/production-drill-adaptations.md — the per-drill production variants and the reader mapping"
+    authority_level: authoritative
+    required_version: "2026-07-27"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "docs/operations/recovery-drills.md and scripts/drill-1..5 — the five drills as written for the local harness"
+    authority_level: reference
+    required_version: "2026-07-27"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One dedicated session, including one shared fifteen-minute wait for the production lease to lapse."
+  technology: "Public HTTP surfaces of the live orchestrator only; the intent-packages and orchestrator CLIs; no direct database access."
+  policy_legal: null
+  privacy_security: "Bearer tokens are fetched by BWS UUID at run time and never echoed, logged, or written to any file."
+  compatibility: "No schema, image, or application behaviour changes; the two environment thresholds are reverted within the run."
+  quality_accessibility: null
+  operational: "Dispatch must remain disabled. Each environment write is verified inside the container before any restart, because the credentials and roles validation fails closed."
+  other:
+    - "Every unit created by this package must reach a terminal state through a public surface; no unit may be parked in ready."
+acceptance:
+  - id: AC-001
+    condition: "Drill 1 runs against production: a unit is claimed, started, and dispatched; the orchestrator container is killed; and after restart the canonical state, the recorded dispatch, and the open claim are unchanged, a live lease refuses reclaim, and after the lease lapses an operator reclaims the unit to the next attempt without exhausting its budget."
+    evidence_type: automated_test
+    evidence: "health: scripts/drill-1-dispatch-crash.sh assertions, executed against sds.alobar.net with the adapted crash and lease steps, transcript retained in the run evidence file"
+    approver: devon
+  - id: AC-002
+    condition: "Drill 2 runs against production: after the lease lapses the expired worker is locked out, an operator attaches the already-produced evidence so that exactly one unsuperseded head remains for the criterion, a duplicate delivery replays rather than forking the chain, and a fresh attempt submits without redoing the work."
+    evidence_type: automated_test
+    evidence: "health: scripts/drill-2-evidence-recovery.sh assertions, executed against sds.alobar.net with API reads substituted for the local SQL readers, transcript retained"
+    approver: devon
+  - id: AC-003
+    condition: "Drill 3 runs against production: normal iteration before submit raises nothing, submit arms the verification head, a head change after arming raises pr_state_divergence, an external merge raises external_merge_alarm, and detection neither transitions the unit, writes an adjudication, makes an outbound call, nor resolves anything on its own."
+    evidence_type: automated_test
+    evidence: "health: scripts/drill-3-external-pr-conflict.sh assertions, executed against sds.alobar.net with condition assertions scoped to the drill unit via the traceability endpoint, transcript retained"
+    approver: devon
+  - id: AC-004
+    condition: "Drill 4 runs against production: a unit is carried to completed through the public lifecycle, a release artifact and deployment observation mint a post-deploy verification unit, the detect pass records exactly one deploy_split_brain condition against it without creating work or transitioning anything, and a second pass suppresses the duplicate rather than re-alarming."
+    evidence_type: automated_test
+    evidence: "health: scripts/drill-4-deploy-split-brain.sh assertions, executed against sds.alobar.net with the stall threshold applied by a verified environment change and the deployment recorded against a drill environment, transcript retained"
+    approver: devon
+  - id: AC-005
+    condition: "Drill 5 runs against production: a unit reaching a human approval gate that nobody answers is reported in the dead-letter view with no query parameter, carries the approval_unanswered reason, is not requeue-eligible, and reading the report transitions nothing and leaves the unit's version unchanged."
+    evidence_type: automated_test
+    evidence: "health: scripts/drill-5-stalled-approval.sh assertions, executed against sds.alobar.net with the stalled-approval threshold applied by a verified environment change, transcript retained"
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - event_emit
+  requires_approval: []
+  prohibited:
+    - repository_write
+    - secret_read
+    - secret_write
+    - infra_mutation
+    - credential_create
+    - credential_revoke
+    - outward_publish
+    - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "A dated evidence file in ~/docs/software-delivery-system/ recording the per-drill transcript, the drill unit ids, the production image digest, the migration head, and which gates were automated."
+    - "Five terminal drill work units in the production ledger, retained as the evidence of the run."
+  destination: "AlobarQuest/orchestrator"
+  recipient: devon
+  definition_of_done: "All five drills are executed or explicitly waived with rationale, every drill unit is terminal, the exit-criteria attestation and consistency check are green afterward, and the scorecard cells for exit criteria 5 and 7 are updated with the evidence citation."
+  operator_responsibilities:
+    - "Devon approves this package and supervises the run."
+    - "Devon performs the human closeout on the run's evidence file."
+dependencies:
+  predecessor_packages:
+    - package: ws-p2.1-recovery-controls-drills
+      revision: 1
+  external_decisions:
+    - "ADR-0005 accepted by Devon on 2026-07-27, disposition A."
+    - "Devon authorised automation to drive the browser approval gates on 2026-07-27, on the basis that the human-approval rules are production-usage guardrails rather than development guardrails."
+  required_people_systems:
+    - "Devon for package approval, supervision, and the closeout"
+    - "The live orchestrator at sds.alobar.net"
+    - "Alobar ID forward authentication for the human-actor surfaces"
+    - "Bitwarden Secrets Manager for the system, verifier, and worker bearer tokens"
+  required_capabilities:
+    - repository_read
+    - event_emit
+  blocking_conditions:
+    - "The running image digest or the migration head cannot be proven before the run."
+    - "The exit-criteria attestation fails against the live OpenAPI document."
+    - "A drill step would touch a resource this package did not create, require private SQL, or need a capability outside the standing credentials."
+    - "A drill would leave a unit in a non-terminal state it cannot exit through a public surface."
+risk:
+  failure_modes:
+    - "A drill unit is left non-terminal and becomes permanent ledger debris."
+    - "The post-deploy unit minted by drill 4 is left submitted and raises a recurring deploy_split_brain alarm on every future detect pass."
+    - "An environment write half-lands and the container fails closed on restart, taking the service down."
+    - "A drill assertion silently degrades because its local SQL reader has no faithful API equivalent."
+  max_impact: "A brief availability gap on sds.alobar.net during a restart, plus permanent but labelled drill rows in the append-only ledger."
+  stop_conditions:
+    - "Any blocking condition above is met."
+    - "The consistency check reports divergence."
+    - "The container does not return healthy after a restart."
+  rollback: "None required: the run adds only append-only rows against units this package created, and both environment thresholds are reverted within the session."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Devon performs the human closeout on the evidence file before the scorecard is updated."
+    - "The exit-criteria attestation is re-run after the scorecard edit."
+  non_mechanical:
+    - "Whether an adapted drill still proves what the local drill proved is a judgement call, recorded per drill in the adaptation document."
+    - "Whether a degraded assertion is acceptable, rather than a waiver, is a judgement call recorded in the evidence file."
+follow_up:
+  required: true
+  revisit_when: "The next quarterly drill cadence, or after any change to claims, leases, evidence, or reconciliation."
+  signals:
+    - "A recovery control changes behaviour or a new recovery route is added."
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
