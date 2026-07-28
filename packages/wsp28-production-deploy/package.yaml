@@ -136,6 +136,7 @@ dependencies:
   external_decisions:
     - "Devon confirmed on 2026-07-28 that WS-P2.8's deploy is the vehicle for GAP-5 and that the /review intake form rides this image rather than an interim deploy."
     - "Devon chose on 2026-07-28 that a single package serves both the release recording and the follow-up demonstration."
+    - "Devon authorised automation to drive the browser approval gates on 2026-07-28, as he did for the 2026-07-27 drill, on the basis that the human-approval rules are production-usage guardrails rather than development guardrails. Every gate below is therefore recorded as actor devon while having been driven by automation, and the ledger cannot distinguish these from gates he personally judged."
   required_people_systems:
     - "Devon for package approval, decomposition approval, authority approval, adjudication, and completion"
     - "The live orchestrator at sds.alobar.net"
