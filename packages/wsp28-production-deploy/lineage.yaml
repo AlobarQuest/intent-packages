@@ -1,0 +1,17 @@
+package_id: wsp28-production-deploy
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 8f604a2935b399adf2e2daec1a864c47b6e61eeadd12ab4b15ff4577660263c5
+  created_at: '2026-07-28T21:00:00Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-28T21:16:46.247861+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-28T21:16:46.247861+00:00'
+  actor: claude-code-interactive
+  event_id: evt-956fba23d36f49b695f913fccd93bbaa
+approvals: []
+grants: []

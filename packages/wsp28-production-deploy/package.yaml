@@ -1,0 +1,183 @@
+schema_version: 1
+package_id: wsp28-production-deploy
+title: "WS-P2.8 production deploy — follow-up scheduling, the /review intake form, and the first recorded release since Phase 5"
+revision: 1
+status: ready_for_review
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-28T21:00:00Z"
+supersedes: null
+profile: infrastructure-change
+profile_fields:
+  blast_radius: single-app
+  change_window: "One dedicated, explicitly authorised production-mutation session on 2026-07-28. Two container restarts fall inside it: one to set the follow-up window to zero for the demonstration, one to restore the thirty-day default."
+  backup_evidence: "A pre-migration pg_dump of the production orchestrator database was taken to /tmp/orch-pre-0020.dump inside container mv6bei4lwkj552kp20zo7603 at 2026-07-28 21:05 UTC, before migration 0020 was applied."
+  rollback_plan: "Re-point the Coolify application at the previous tag 8da4af3-wsp27inc2-amd64 and redeploy; migration 0020 adds one nullable column and has a working downgrade, so the previous image runs against the migrated schema except for its readiness probe, which reports migration_drift until the tags agree. The demonstration adds only append-only ledger rows against units this package creates."
+outcome:
+  what: "The production orchestrator at sds.alobar.net runs image 24d5e2d-wsp28-amd64 at migration head 0020_wsp28_follow_up, serving package-declared follow-up scheduling and the browser intake form, and the release that delivered it is recorded in the orchestrator's own ledger as a traceable artifact and deployment."
+  why: "Three payloads reached main without reaching production: WS-P2.8's follow-up scheduling, GAP-6's /review intake form, and the ability to record a real release. Production had recorded exactly one of its own releases, at the Phase-5 closeout on 2026-07-08, while roughly eight subsequent deploys went unrecorded; the capability worked the whole time and the practice was never made a runbook step. Merged is not deployed, and a capability that has never been exercised in production is a claim rather than a demonstration."
+  beneficiary: "Devon as the operator of the software delivery system, and the Wave-2 exit statement, whose traceability and follow-up-scheduling clauses become demonstrated rather than shipped."
+  success_signal: "The running container's image digest equals the digest the Release image workflow pushed; the traceability query anchored on the production environment returns this release as a second real chain; and exactly one follow-up review unit is minted for this package revision, adjudicated, and completed through the /review surface, after which a second pass mints nothing."
+scope:
+  included:
+    - "Build the production image through the Release image workflow from merged main, and verify the running container's digest against the pushed digest."
+    - "Apply migration 0020_wsp28_follow_up to the production database before the image swap."
+    - "Record the release-artifact binding for the deployed image against this approved package revision."
+    - "Record the deployment observation for the production environment, and settle the post-deploy verification unit it generates."
+    - "Run the traceability query end-to-end on this release and retain its output as evidence."
+    - "Intake this package through the /review intake form, which is that form's first real use."
+    - "Demonstrate follow-up minting end-to-end against production: mint, adjudicate, complete, and prove the second pass is idempotent."
+    - "Exercise the daily minting step that infraops-mcp-server's drift audit now carries, by executing it rather than by trusting its repository gate."
+  excluded:
+    - "Any change to orchestrator application code or to the image this package deploys."
+    - "Any outbound dispatch: dispatch stays disabled and this package neither enables nor tests it."
+    - "Any write to a work unit, package revision, or condition this package did not create, other than settling the post-deploy unit this package's own deployment observation generates."
+    - "Rotating the production orchestrator database password, which is urged separately and is not a gate on this work."
+    - "The first real dispatch, which is a separate decision Devon takes on its own."
+  non_goals:
+    - "Backfilling follow-up declarations onto revisions intaken before migration 0020, which is impossible by design."
+    - "Proving that follow-up minting honours the author's stated revisit timing; every package currently gets the same configured window."
+    - "Closing the Evidence Pack clause of the Wave-2 exit statement, which closes through the first real dispatch."
+  assumptions:
+    - "The image is built by the paved-road workflow rather than by hand, and the in-build registry-bundle digest gate passes."
+    - "The standing orchestrator-system credential carries the system role, so recording a deployment observation needs no new credential, no environment write, and no restart."
+    - "Dispatch remains disabled for the duration."
+  open_questions: []
+sources:
+  - location: "docs/superpowers/specs/2026-07-28-wsp28-follow-up-scheduling-design.md section 16.2 in AlobarQuest/orchestrator — the session-2 sequence"
+    authority_level: authoritative
+    required_version: "2026-07-28"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-28-wave12-gap-closure-workplan.md, GAP-5 and its two riders"
+    authority_level: authoritative
+    required_version: "2026-07-28"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "docs/decisions/0007-declared-follow-up-scheduling.md and docs/decisions/0006-human-gates-browser-only.md"
+    authority_level: authoritative
+    required_version: "2026-07-28"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "docs/operations/follow-up-scheduling.md — the operator reference for the minting pass"
+    authority_level: reference
+    required_version: "2026-07-28"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One dedicated session."
+  technology: "The paved-road Release image workflow, the infraops MCP for the Coolify tag swap, and the public HTTP surfaces of the live orchestrator."
+  policy_legal: null
+  privacy_security: "Bearer tokens are fetched by BWS UUID at run time and are never echoed, logged, or written to any file. The database URL is read inside the container and never printed."
+  compatibility: "Migration 0020 adds one nullable column and is backward compatible with the previous image, whose readiness probe nonetheless reports migration_drift while the database is ahead of it."
+  quality_accessibility: null
+  operational: "Migrate before the image swap. Verify the running container's digest against the pushed digest before recording anything. Confirm the follow-up window from inside the container after each of the two restarts."
+  other:
+    - "Every unit created by this package must reach a terminal state through a public surface within the session."
+    - "The post-deploy verification unit this package's deployment observation generates must be settled, or it raises a deploy split-brain alarm on every future detect pass."
+acceptance:
+  - id: AC-001
+    condition: "The production container runs image 24d5e2d-wsp28-amd64 with a repository digest equal to the digest the Release image workflow pushed, on amd64, at migration head 0020_wsp28_follow_up, answering both health probes."
+    evidence_type: human_review
+    evidence: "human: the pushed digest from the Release image workflow run, the running container's RepoDigest, the architecture, the alembic head read from inside the container, and the two health probe status codes, all recorded in the session's closeout evidence file."
+    approver: devon
+  - id: AC-002
+    condition: "The release-artifact binding and the deployment observation for this release are recorded against this approved package revision through the public API, with the observed artifact digest matching the binding and the environment recorded as production rather than as a drill."
+    evidence_type: human_review
+    evidence: "human: the binding and observation identifiers returned by the API, and the environment and digest fields they carry, recorded in the closeout evidence file."
+    approver: devon
+  - id: AC-003
+    condition: "The traceability query anchored on the production environment returns this release as a second real chain, alongside the 2026-07-08 Phase-5 closeout, with its intent, unit, artifact, and deployment nodes populated."
+    evidence_type: human_review
+    evidence: "human: the retained traceability output showing two chains, the second naming this package revision and this image digest."
+    approver: devon
+  - id: AC-004
+    condition: "Exactly one follow-up review unit is minted for this package revision once its work has settled and the configured window has elapsed, it is adjudicated and completed through the /review surface, and a second minting pass creates nothing and reports the revision as already minted."
+    evidence_type: human_review
+    evidence: "human: the counted output of both minting passes, the minted unit identifier and its state, and the adjudication and completion recorded against it."
+    approver: devon
+  - id: AC-005
+    condition: "This package is intaken through the /review intake form rather than through a browser devtools request, and the daily minting step carried by the infraops drift audit is proven by executing it against production rather than by its repository gate."
+    evidence_type: human_review
+    evidence: "human: the intake identifier created by the form, and the transcript of the drift-audit minting step run against production."
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - event_emit
+  requires_approval: []
+  prohibited:
+    - repository_write
+    - secret_read
+    - secret_write
+    - infra_mutation
+    - credential_create
+    - credential_revoke
+    - outward_publish
+    - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+    - "A dated Wave-2 closeout note in ~/docs/software-delivery-system/ declaring three of the four Wave-2 exit clauses and naming the limitation that a lingering failed unit blocks its revision's follow-up minting."
+    - "The retained traceability output for this release."
+    - "Terminal work units in the production ledger for this package revision, retained as the evidence of the run."
+  destination: "AlobarQuest/orchestrator"
+  recipient: devon
+  definition_of_done: "Every acceptance criterion above is adjudicated in /review, the exit-criteria attestation is green against the new production state, and the Phase-2 plan and gap-closure workplan are updated to match."
+  operator_responsibilities:
+    - "Devon approves this package revision, its decomposition, and its authority envelope."
+    - "Devon adjudicates the acceptance criteria and completes the units through the /review surface."
+dependencies:
+  predecessor_packages:
+    - package: drill-2026-07-27-production-recovery
+      revision: 1
+  external_decisions:
+    - "Devon confirmed on 2026-07-28 that WS-P2.8's deploy is the vehicle for GAP-5 and that the /review intake form rides this image rather than an interim deploy."
+    - "Devon chose on 2026-07-28 that a single package serves both the release recording and the follow-up demonstration."
+  required_people_systems:
+    - "Devon for package approval, decomposition approval, authority approval, adjudication, and completion"
+    - "The live orchestrator at sds.alobar.net"
+    - "Alobar ID forward authentication for the human-actor surfaces"
+    - "Bitwarden Secrets Manager for the system, verifier, and worker bearer tokens"
+    - "The GitHub Actions Release image workflow and the Coolify application eqj5l7k705fhi12x9i74fqf0"
+  required_capabilities:
+    - repository_read
+    - event_emit
+  blocking_conditions:
+    - "The running image digest does not equal the digest the workflow pushed."
+    - "The production database is not at migration head 0020_wsp28_follow_up."
+    - "The release-artifact binding is rejected because the package revision hash does not match the approved revision."
+    - "A unit created by this package cannot be driven to a terminal state through a public surface."
+risk:
+  failure_modes:
+    - "The post-deploy verification unit generated by the deployment observation is left submitted and raises a recurring deploy split-brain alarm."
+    - "A unit of this revision is left failed, which blocks the revision's follow-up minting silently, since only the minting response's counted skip reports it."
+    - "The follow-up window override survives the session and every future package mints its review immediately."
+    - "The previous image serves traffic with a readiness probe reporting migration drift for longer than the swap needs."
+  max_impact: "A brief availability gap on sds.alobar.net during the image swap, plus permanent but labelled rows in the append-only ledger."
+  stop_conditions:
+    - "Any blocking condition above is met."
+    - "The consistency check reports divergence after the run."
+    - "The container does not return healthy after a restart."
+  rollback: "Re-point Coolify at the previous tag and redeploy. The ledger rows this package adds are append-only and are not rolled back."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Devon adjudicates every acceptance criterion through the /review surface."
+    - "The exit-criteria attestation is re-run against production after the swap."
+  non_mechanical:
+    - "Whether the recorded release is a faithful description of what was deployed is a judgement Devon makes when adjudicating, not something the orchestrator can check."
+    - "Whether one demonstration is sufficient evidence that follow-up scheduling works in production is a judgement recorded in the closeout note."
+follow_up:
+  required: true
+  revisit_when: "After the next production deploy, or if the minting pass or the intake form changes behaviour."
+  signals:
+    - "A production deploy happens without its release being recorded."
+    - "The follow-up window default changes, or a package's declared revisit timing starts being honoured."
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
