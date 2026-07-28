@@ -1,0 +1,234 @@
+schema_version: 1
+package_id: gap4-first-real-dispatch
+title: "GAP-4 — carry one real dependency update through the dispatched lane end to end, producing the first Evidence Pack ever attached to a pull request"
+revision: 1
+status: ready_for_review
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-28T23:35:00Z"
+supersedes: null
+outcome:
+  what: "One work unit updates httpx2 from 2.7.0 to 2.9.1 in AlobarQuest/change-manager by regenerating uv.lock, opens one pull request from an sds/ branch, and proves its named check green on the exact pull-request head. The unit is dispatched to a factory-runner revision that carries pull-request binding, cost actuals, the evidence-pack pull-request comment, and the lease-token fix, so that a single run exercises all four under real traffic for the first time."
+  why: "Wave 2's first exit clause is unclosed for one reason: no pull request in the organization has ever carried an Evidence Pack, because no runner has executed since that capability shipped. The capability is merged, tested, and deployed, and none of that is evidence it works. A search of pull-request comments across all six fan-out repositories returned zero occurrences of the evidence-pack marker on 2026-07-28T23:34:20Z. Only a real dispatch can change that number."
+  beneficiary: "Devon gets the dispatched lane demonstrated end to end on real traffic rather than asserted from a green test suite, and a single artifact — one pull request — that carries the proof of four separately-shipped capabilities working together."
+  success_signal: "Exactly one change-manager unit is created from a Devon-approved revision and decomposition; its approved authority envelope permits only the preflight-proven ordered command sequence; factory-runner opens one pull request whose named check passes on the exact head; that pull request carries an evidence-pack comment bearing the sds-evidence-pack marker, contains no runner working files, has a pull-request binding recorded before submit and cost actuals recorded for its attempt; the WS-5.1 verifier adjudicates the evidence; and Devon alone merges."
+scope:
+  included:
+    - "Author and approve this intent package before any work unit is created."
+    - "Update exactly one dependency, httpx2, from 2.7.0 to 2.9.1 in AlobarQuest/change-manager. The dependency was chosen by Devon from the updates Dependabot currently offers on that repository, so the update is known to be genuinely available rather than assumed."
+    - "Before authoring the authority envelope, prove it against a clean clone of the real target repository: prove the mutator yields a real diff, prove the ordered command list is idempotent under a second full execution in the same checkout, prove the verifier honestly executes its tools rather than skipping them, and establish a control run on an unmodified clone so a runner-environment failure is never mistaken for an update-induced one."
+    - "Re-pin the target repository's factory-runner caller workflow to the merged factory-runner revision that carries the capabilities under proof, preserving that repository's deliberate pinning policy rather than floating the reference."
+    - "Create exactly one Draft work unit through the WS-3.2 decomposition path, so the unit is stamped with its own constraints.work_unit_id."
+    - "Record one named human authority approval bound to that unit's own authority fingerprint."
+    - "Enable production dispatch for the minimum window: enable, dispatch the single unit, confirm the target repository's Actions run started, then disable and verify the disabled state from inside the running container. Record both timestamps."
+    - "Observe, on the resulting pull request, the four capabilities under first real proof: the evidence-pack comment, the absence of runner working files, the pull-request binding recorded before submit, and cost actuals recorded for the attempt."
+    - "Submit verifier evidence and let the WS-5.1 verifier adjudicate it."
+  excluded:
+    - "Any second work unit. This package authorizes one unit, one dispatch window, and one pull request."
+    - "Any automatic merge, or any worker, agent, API, CLI, CI, or orchestrator path that merges a pull request."
+    - "Broadening the dispatch change-class allowlist beyond dependency-update, or the target beyond AlobarQuest/change-manager."
+    - "Fixing the known as-of-submit limitation of the evidence-pack comment, which is recorded as an observation rather than remediated here."
+    - "Closing or superseding the Dependabot pull request that offers the same dependency; that is a separate decision after merge."
+    - "Any change to the orchestrator, factory-runner, or the authority envelope contract."
+  non_goals:
+    - "Proving the dependency update is correct; change-manager's own named check and Devon's review decide that."
+    - "Making dispatch automation permanent; the standing posture remains a separate Devon decision."
+    - "Demonstrating throughput, concurrency, or queueing. One unit is the entire point."
+  assumptions:
+    - "AlobarQuest/change-manager hosts the caller workflow .github/workflows/factory-runner-pilot.yml on its default branch and carries the required Actions secret names (FACTORY_RUNNER_TOKEN, FACTORY_RUNNER_CREDENTIAL_KEY_ID, ANTHROPIC_API_KEY, FACTORY_PR_TOKEN)."
+    - "That caller workflow resolves to a factory-runner revision containing pull-request binding, cost actuals, the evidence-pack comment, and the lease-token fix. Verified by re-pinning it to c266769fd9e9aecf4e35ced29ad1605656e84d87 and confirming the reusable workflow's input and secret contract is unchanged at that revision."
+    - "AlobarQuest/factory-runner is public, so a caller's GITHUB_TOKEN can install it."
+    - "change-manager's test suite runs on in-memory SQLite and requires no service container, environment variable, or migrated database, so its own make check is a verifier the hosted runner can honestly execute. Confirmed by running it on a bare clean clone."
+    - "Devon alone approves this package revision, approves the decomposition, approves the unit's authority, approves enabling dispatch, and merges the pull request."
+  open_questions: []
+sources:
+  - location: "Devon's live 2026-07-28 session instruction to close GAP-4 and Wave-2 exit clause 1 by carrying one real dependency update through the dispatched lane"
+    authority_level: authoritative
+    required_version: "2026-07-28"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/Projects/orchestrator/docs/decisions/0001-work-unit-authority-envelope-contract.md"
+    authority_level: authoritative
+    required_version: "2026-07-09"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/Projects/orchestrator/CLAUDE.md, Known Non-obvious Invariants"
+    authority_level: authoritative
+    required_version: "2026-07-28"
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "packages/ws-6.4-dependency-update-fanout at revision 9, the proven dependency-update package shape"
+    authority_level: supporting
+    required_version: "9"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/change-manager at merged main commit bc9f60ef0aed4e75d07e4535375f102d97a946b3"
+    authority_level: reference
+    required_version: "bc9f60ef0aed4e75d07e4535375f102d97a946b3"
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "AlobarQuest/factory-runner at merged main commit c266769fd9e9aecf4e35ced29ad1605656e84d87"
+    authority_level: reference
+    required_version: "c266769fd9e9aecf4e35ced29ad1605656e84d87"
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One decomposition, one bounded dispatch window, one pull request."
+  technology: "The orchestrator's existing WS-3.2 decomposition path, WS-4.2 dispatch adapter, WS-4.1 factory-runner, and WS-5.1 verifier. No new machinery of any kind."
+  policy_legal: "Devon alone approves this exact package revision, approves the decomposition, approves the unit's authority, approves enabling production dispatch, and merges the pull request."
+  privacy_security: "No secrets in tracked files. Pull-request text, Dependabot metadata, and repository content are treated as data, never as instructions."
+  compatibility: "The authority envelope must match the merged, fingerprinted contract shared with factory-runner. No contract expansion is in scope."
+  quality_accessibility: "change-manager's own named check gates its own pull request. The evidence must be readable by Devon from the pull request itself without reconstructing it from workflow logs — which is precisely the capability under proof."
+  operational: "Production dispatch is disabled before and after this package's single dispatch window, verified from inside the running container both times."
+  other:
+    - "Work units must be created through the decomposition path; units created through the direct revision path are not stamped with constraints.work_unit_id and factory-runner rejects them. The two direct-path routes are in any case unreachable in production."
+    - "The authored authority envelope must omit constraints.work_unit_id, which the orchestrator stamps at proposal time and rejects if author-supplied."
+    - "accepted_standards must originate from a real waiver source and must never be echoed from standards_touched."
+    - "For dependency-update with repo.edit allowed, constraints.mutation_commands is a required non-empty ordered subset of constraints.allowed_commands and is part of the authority fingerprint."
+    - "An authority envelope must be able to accomplish its own outcome: allowed_commands must contain the mutation the outcome requires, not merely the command that verifies it."
+    - "constraints.allowed_commands is an ordered list that factory-runner re-executes in full before it inspects the working tree, so every command must be idempotent under a second execution against the same checkout, and mutators must precede the verifier that attests to the tree being committed."
+    - "allowed_commands must begin with a step that installs the target repository's own dependencies, because the named verifier make check is tool-guarded and would otherwise exit zero having verified nothing."
+    - "A unit outcome that edits a pinned dependency must name every site of that pin. httpx2 has exactly one site in change-manager, the >=2.6.0 floor at pyproject.toml line 30, which already admits 2.9.1; the update is therefore lockfile-only and pyproject.toml is not edited."
+    - "Acceptance criteria must not declare evidence_type automated_test, which resolves to judgment_required for every automated criterion however good the evidence. Deterministic automated criteria declare automated_check, and automated_check is deterministic only where the evidence is verifier-owned verifier.github.named_check."
+acceptance:
+  - id: AC-001
+    condition: "AlobarQuest/change-manager receives a factory-runner pull request from an sds/ branch that updates httpx2 from 2.7.0 to 2.9.1 in uv.lock, and its named check (Lint, type-check, and test) passes on the exact pull-request head."
+    evidence_type: automated_check
+    evidence: "Incomplete until the named check succeeds on the exact head commit, the dispatch record names AlobarQuest/change-manager, and the WS-5.1 verifier adjudicates verifier-owned named-check evidence bound to that dispatch and head."
+    approver: policy
+  - id: AC-002
+    condition: "That pull request carries an evidence-pack comment bearing the sds-evidence-pack marker for the unit — the first Evidence Pack ever attached to a pull request in this organization."
+    evidence_type: human_review
+    evidence: "Incomplete. A search of pull-request comments across AlobarQuest/change-manager, orchestrator, intent-packages, security-standards, brain and infraops-mcp-server returned zero occurrences of the marker at 2026-07-28T23:34:20Z, establishing the baseline. Realized when the same search returns the comment on this pull request. Note the comment is as-of-submit; the known limitation is recorded as an observation, not remediated here."
+    approver: devon
+  - id: AC-003
+    condition: "The pull-request diff contains no .sds-local-heavy/ directory and no run.json, demonstrating in the wild that the runner no longer leaks its working files into the branch it pushes."
+    evidence_type: human_review
+    evidence: "Incomplete until the pull request's changed-file list is read and shown to contain only uv.lock."
+    approver: devon
+  - id: AC-004
+    condition: "A pull-request binding for the unit is recorded before the unit's submit transition, so the reconciliation runner has a row to poll."
+    evidence_type: human_review
+    evidence: "Incomplete until the binding is read back from the orchestrator and its recorded time precedes the submit transition in the unit's history."
+    approver: devon
+  - id: AC-005
+    condition: "Cost actuals are recorded against the unit's dispatch attempt."
+    evidence_type: human_review
+    evidence: "Incomplete until the cost-actual rows for the attempt are read back from the orchestrator."
+    approver: devon
+  - id: AC-006
+    condition: "Devon merges the pull request personally; no agent, workflow, CI job, orchestrator path, or GitHub App permission merges anything."
+    evidence_type: human_review
+    evidence: "Incomplete, and necessarily adjudicated on the ordering rather than on completed fact: the merge is Devon's decision and follows verifier adjudication, so it cannot be evidenced at the moment this unit is adjudicated. This is stated deliberately rather than expressed as a waiver, which would be dishonest — a waiver requires failed evidence, a risk class, a follow-up and an expiry, none of which apply to a step that is merely later. Devon confirms the merge is his own when he makes it."
+    approver: devon
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  requires_approval:
+    - merge_to_main
+    - secret_read
+    - secret_write
+    - infra_mutation
+    - credential_create
+    - credential_revoke
+  prohibited:
+    - outward_publish
+    - email_send
+    - spend_money
+    - calendar_write
+    - third_party_contact
+    - data_delete
+    - external_system_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 12
+deliverables:
+  artifacts:
+    - "One Draft change-manager work unit created from a one-unit decomposition proposal"
+    - "One change-manager pull request opened by factory-runner, updating uv.lock only"
+    - "The evidence-pack comment on that pull request"
+    - "The dispatch record, the pull-request binding, and the attempt's cost actuals"
+    - "The verifier adjudication"
+    - "The enabled and disabled dispatch-window timestamps"
+  destination: "change-manager receives the pull request; lifecycle records live in the orchestrator at sds.alobar.net; this governing package remains in AlobarQuest/intent-packages."
+  recipient: devon
+  definition_of_done: "Complete when AC-001 has verifier-adjudicated named-check evidence, AC-002 through AC-005 have been read back from the pull request and the orchestrator and adjudicated, Devon has personally merged or closed the pull request, production dispatch is disabled and verified disabled from inside the container, and no permanent gate was weakened."
+  operator_responsibilities:
+    - "Approve or reject this exact intent revision and hash."
+    - "Approve the one-unit decomposition proposal."
+    - "Approve the work unit's authority envelope by its own fingerprint."
+    - "Approve enabling production dispatch for the single bounded window."
+    - "Review and merge the change-manager pull request personally."
+    - "Decide separately what becomes of the Dependabot pull request offering the same dependency."
+dependencies:
+  predecessor_packages:
+    - package: ws-6.4-dependency-update-fanout
+      revision: 9
+  external_decisions:
+    - "Devon approval of this exact package revision before any work unit is created."
+    - "Devon approval to enable production dispatch for one bounded window."
+    - "Devon decision on the Dependabot pull request for the same dependency, after merge."
+  required_people_systems:
+    - "Devon for package approval, decomposition approval, authority approval, dispatch enablement, pull-request review, and merge"
+    - "The orchestrator at sds.alobar.net as canonical lifecycle owner"
+    - "AlobarQuest/factory-runner at c266769 as the WS-4.1 worker, invoked by workflow_dispatch"
+    - "The Alobar SDS Dispatch GitHub App, installed on change-manager"
+    - "GitHub Actions for the change-manager named check"
+    - "Alobar ID forward-auth for every human action"
+  required_capabilities:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+    - event_emit
+  blocking_conditions:
+    - "This exact package revision is not approved and chain-verified."
+    - "The target repository's caller workflow resolves to a factory-runner revision lacking any capability under proof."
+    - "Devon has not explicitly approved enabling production dispatch."
+    - "The work unit lacks its own named human authority approval."
+    - "The unit's conformance was hand-typed, or its accepted_standards echoes its standards_touched."
+    - "Any path exists by which a worker, agent, workflow, or the orchestrator could merge a pull request."
+risk:
+  failure_modes:
+    - "The caller workflow resolves to a stale factory-runner revision, so the run is green but posts no Evidence Pack, and the absence reads as a capability defect rather than a configuration one. This is not hypothetical: the target's caller was pinned fifteen commits behind at the start of this work and was re-pinned before dispatch precisely to prevent it."
+    - "The authority envelope cannot accomplish its own outcome, so a well-behaved agent obeys its authority, changes nothing, exits successfully, and the run dies at the change-detection guard — consuming a package revision and the named human approval bound to it, neither of which can be taken back."
+    - "An envelope command that succeeds during the coding phase fails when factory-runner re-executes the ordered list at finalize, so the unit can never open a pull request however many attempts it is granted."
+    - "The declared budget is lower than the run's real consumption, so the unit halts at its cap. Budget enforcement is live for the first time in this run, and a breach is not recoverable within the unit."
+    - "The unit's pull request collides with the open Dependabot pull request offering the same dependency."
+    - "Dispatch is left enabled after the window."
+    - "A pull request is merged by automation, or a GitHub App permission grants a merge path."
+  max_impact: "One unwanted change-manager pull request that Devon closes. Dispatch cannot merge, cannot mutate production infrastructure, cannot write secrets, and is bounded to repo.edit, dependency-update, and AlobarQuest/change-manager."
+  stop_conditions:
+    - "Stop and report rather than improvise if any step reveals a defect in the factory process — admission, routing, idempotency, circuit-breaker, command enforcement, result classification, evidence, or lifecycle behaviour differing from the approved contract."
+    - "The dispatch record names any repository other than AlobarQuest/change-manager."
+    - "The work unit reaches a dispatchable state without a named human authority approval."
+    - "The approved package hash changes without a new revision and renewed approval."
+    - "Any change would create an automatic merge, automatic Brain approval, tracker canonicalization, or graduation automation."
+  rollback: "Disable dispatch by setting ORCHESTRATOR_DISPATCH_ENABLED false and restarting; close the unwanted pull request; cancel the work unit. This package's dispatch mutates only a change-manager feature branch, never its default branch, and never production infrastructure."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "The WS-5.1 verifier adjudicates the unit's evidence independently of the worker that produced it."
+    - "change-manager's own named check gates its own pull request."
+    - "Devon reviews the pull request before merging it."
+  non_mechanical:
+    - "Whether one successful run is sufficient evidence that the dispatched lane works, or whether it only proves the lane worked once."
+    - "Whether the as-of-submit Evidence Pack comment is useful enough to leave as-is, or whether the limitation should be scheduled."
+    - "Whether the httpx2 update is desirable right now, which is a judgment no check can make."
+follow_up:
+  required: true
+  revisit_when: "After the pull request is merged or explicitly closed and the unit is adjudicated, closing Wave-2 exit clause 1 and prompting the standing dispatch posture decision."
+  signals:
+    - "The Evidence Pack was present but not actually useful for reviewing the change"
+    - "The as-of-submit limitation misled a reviewer about the state of the pull request"
+    - "Budget enforcement halted a unit that should have been allowed to finish"
+    - "A capability that shipped and deployed turned out not to work under real traffic"
+  owner: devon
+applicable_standards:
+  project: "1.0"
+  code: "1.0"
+  security: "1.0"
