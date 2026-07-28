@@ -1,5 +1,5 @@
 package_id: wsp28-production-deploy
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 1bd9aae5ad83c53da8e2a308be84d18d1eea4f1c8bb89563a14e81b828763553
@@ -13,5 +13,11 @@ transitions:
   at: '2026-07-28T21:16:46.247861+00:00'
   actor: claude-code-interactive
   event_id: evt-956fba23d36f49b695f913fccd93bbaa
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 1bd9aae5ad83c53da8e2a308be84d18d1eea4f1c8bb89563a14e81b828763553
+  approver: devon
+  approved_at: '2026-07-28T21:18:19.345888+00:00'
+  commit: 481cac40fb360ae37d2e3907291bf7720798c09e
+  event_id: evt-26865d9281224a2d9cfce94f4d83657e
 grants: []

@@ -2,7 +2,7 @@ schema_version: 1
 package_id: wsp28-production-deploy
 title: "WS-P2.8 production deploy — follow-up scheduling, the /review intake form, and the first recorded release since Phase 5"
 revision: 1
-status: ready_for_review
+status: approved
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-28T21:00:00Z"
