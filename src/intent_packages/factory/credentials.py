@@ -64,7 +64,18 @@ def resolve_token(role: Role, *, runner: Runner | None = None) -> str:
             f"no credential for {role.value}: set {role.env_var}, or set BWS_ACCESS_TOKEN "
             f"so it can be fetched from BWS secret {uuid}"
         )
-    result = (runner or _default_runner)(["bws", "secret", "get", uuid, "--output", "env"])
+    try:
+        result = (runner or _default_runner)(["bws", "secret", "get", uuid, "--output", "env"])
+    except FileNotFoundError as error:
+        raise CredentialError(
+            f"bws CLI not found while resolving {role.value}: install and authenticate bws, "
+            f"or set {role.env_var} instead"
+        ) from error
+    except subprocess.TimeoutExpired as error:
+        raise CredentialError(
+            f"bws secret get timed out after {BWS_TIMEOUT_SECONDS}s while resolving "
+            f"{role.value}: authenticate bws, or set {role.env_var} instead"
+        ) from error
     if result.returncode != 0:
         raise CredentialError(
             f"bws secret get failed for {role.value} (secret {uuid}), exit {result.returncode}"
@@ -75,14 +86,24 @@ def resolve_token(role: Role, *, runner: Runner | None = None) -> str:
 def _parse_bws_env_output(stdout: str, role: Role, uuid: str) -> str:
     """Extract the value from `bws secret get --output env` (KEY="value" lines).
 
-    Falls back to the whole trimmed stdout when the output is a bare value.
-    Never echoes stdout on failure -- it is the secret.
+    Falls back to the whole trimmed stdout only when no line looked like
+    KEY=value at all (a bare value). A KEY="" line is a value that failed to
+    resolve, not a bare value -- it must raise, never fall through to the
+    bare-stdout branch (which would otherwise return the literal `KEY=""`
+    text as if it were a token). Never echoes stdout on failure -- it is the
+    secret.
     """
+    saw_separator = False
     for line in stdout.splitlines():
         _, separator, value = line.partition("=")
-        if separator and value.strip():
-            return value.strip().strip('"')
-    bare = stdout.strip()
-    if bare:
-        return bare
+        if not separator:
+            continue
+        saw_separator = True
+        value = value.strip().strip('"')
+        if value:
+            return value
+    if not saw_separator:
+        bare = stdout.strip()
+        if bare:
+            return bare
     raise CredentialError(f"bws secret get returned no value for {role.value} (secret {uuid})")

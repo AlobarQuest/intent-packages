@@ -60,3 +60,39 @@ def test_parses_bws_env_output(monkeypatch):
         return subprocess.CompletedProcess(argv, 0, stdout='TOKEN="abc123"\n', stderr="")
 
     assert resolve_token(Role.VERIFIER, runner=runner) == "abc123"
+
+
+def test_quoted_empty_value_raises_rather_than_returning_empty(monkeypatch):
+    monkeypatch.delenv("ORCHESTRATOR_SYSTEM_TOKEN", raising=False)
+    monkeypatch.setenv("BWS_ACCESS_TOKEN", "present")
+
+    def runner(argv):
+        return subprocess.CompletedProcess(argv, 0, stdout='TOKEN=""\n', stderr="")
+
+    with pytest.raises(CredentialError) as error:
+        resolve_token(Role.SYSTEM, runner=runner)
+    assert '""' not in str(error.value)
+
+
+def test_missing_bws_binary_raises_credential_error(monkeypatch):
+    monkeypatch.delenv("ORCHESTRATOR_SYSTEM_TOKEN", raising=False)
+    monkeypatch.setenv("BWS_ACCESS_TOKEN", "present")
+
+    def runner(argv):
+        raise FileNotFoundError("no such file or directory: 'bws'")
+
+    with pytest.raises(CredentialError) as error:
+        resolve_token(Role.SYSTEM, runner=runner)
+    assert "no such file or directory" not in str(error.value)
+
+
+def test_bws_timeout_raises_credential_error(monkeypatch):
+    monkeypatch.delenv("ORCHESTRATOR_SYSTEM_TOKEN", raising=False)
+    monkeypatch.setenv("BWS_ACCESS_TOKEN", "present")
+
+    def runner(argv):
+        raise subprocess.TimeoutExpired(cmd=argv, timeout=30, output="partial-stdout-leak")
+
+    with pytest.raises(CredentialError) as error:
+        resolve_token(Role.SYSTEM, runner=runner)
+    assert "partial-stdout-leak" not in str(error.value)
