@@ -40,6 +40,34 @@ packages/<package_id>/
 
 See `docs/superpowers/specs/2026-07-03-ws21-intent-package-schema.md`.
 
+## Delivery profiles
+
+Registered profiles (declared via `profile:` in `package.yaml`; validated at authoring time by
+`intent_packages validate`):
+
+- `software-delivery` — repo-backed delivery (WS-2.2)
+- `infrastructure-change` — infra changes with blast-radius vocabulary (WS-2.2)
+- `dependency-update` — factory-executable pin moves; production-proven (GAP-4)
+- `maintenance-remediation` — bounded fix from an approved handoff item (Phase-3 authoring target)
+- `non-software-operational` — no-repo operational work (listing launches; WS-P2.13 vehicle)
+
+Named stubs (not registered; owners and promotion triggers in
+`docs/superpowers/specs/2026-07-29-wsp210-profiles-routing-policy-design.md`):
+docs-only, python-service, ts-service, emergency-remediation.
+
+## Model routing
+
+`routing-policy.toml` (repo root) is the sole source of model selection (program exit criterion #11),
+seeded from the decided 2026-07-08 table. Query it:
+
+```bash
+factory route --surface runner-implementation
+factory route --change-class dependency-update
+```
+
+`factory decompose` fails closed if a change-class has no routing row. Graduation edits follow the
+contract in the file's header comment.
+
 ## factory decompose
 
 Author + validate a dependency-update decomposition proposal for an intaken revision:

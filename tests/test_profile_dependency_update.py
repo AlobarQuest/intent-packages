@@ -13,6 +13,7 @@ def test_registered_with_change_class_and_tooling():
     profile = profiles.PROFILES["dependency-update"]
     assert profile.change_class == "dependency-update"
     assert profile.tooling is dependency_update.TOOLING_PROFILES
+    assert profile.tooling is not None
     assert set(profile.tooling) == {"npm", "pip", "uv"}
     assert profile.forbidden_evidence_types == frozenset({"automated_test"})
     assert profile.default_authority is not None
@@ -100,4 +101,4 @@ def test_envelope_key_set_is_the_pinned_contract():
 
 def test_old_registry_name_is_gone():
     with pytest.raises(AttributeError):
-        dependency_update.PROFILES  # noqa: B018
+        dependency_update.PROFILES  # noqa: B018  # type: ignore[attr-defined]
