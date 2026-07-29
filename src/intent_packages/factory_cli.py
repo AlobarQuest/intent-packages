@@ -1,8 +1,8 @@
 """`factory` CLI front door (WS-P2.9). Subcommands: decompose, route, create,
-validate, submit, status, evidence, ready, dispatch.
+validate, submit, status, evidence, ready, dispatch, verify.
 
 Mirrors intent_packages.cli: main(argv) -> int, argparse subparsers, lazy
-per-subcommand imports. `verify` (task 9) joins as a sibling subparser.
+per-subcommand imports.
 """
 
 import argparse
@@ -74,6 +74,39 @@ def _build_parser() -> argparse.ArgumentParser:
     dp = sub.add_parser("dispatch", help="SYSTEM: dispatch a READY unit to the runner")
     dp.add_argument("--revision", default="", help="revision id (default: $FACTORY_REVISION)")
     dp.add_argument("--unit-key", dest="unit_key", required=True)
+
+    vf = sub.add_parser("verify", help="VERIFIER: post named-check evidence, then evaluate")
+    vf.add_argument("--revision", default="", help="revision id (default: $FACTORY_REVISION)")
+    vf.add_argument("--unit-key", dest="unit_key", required=True)
+    vf.add_argument("--ac", dest="ac_id", required=True, help="human AC id, e.g. AC-001")
+    vf.add_argument("--check-name", dest="check_name", required=True)
+    vf.add_argument(
+        "--conclusion",
+        required=True,
+        # Confirmed against the live openapi.json, not the brief's guess (which
+        # listed an 8th value, "stale", that does not exist on
+        # VerifierNamedCheckEvidenceCommandModel.conclusion):
+        # `curl -s https://sds.alobar.net/openapi.json | python3 -c "...['conclusion']['enum']"`
+        choices=(
+            "success",
+            "failure",
+            "cancelled",
+            "timed_out",
+            "action_required",
+            "neutral",
+            "skipped",
+        ),
+    )
+    vf.add_argument("--run-id", dest="run_id", required=True)
+    vf.add_argument("--run-url", dest="run_url", required=True)
+    vf.add_argument("--repository", default="", help="override the derived target repository")
+    vf.add_argument(
+        "--assert",
+        dest="assertions",
+        action="append",
+        default=[],
+        metavar="NAME=EXPECTED:OBSERVED",
+    )
     return parser
 
 
@@ -159,6 +192,22 @@ def _run_dispatch(args: argparse.Namespace) -> int:
     return execution.dispatch(args.revision, args.unit_key)
 
 
+def _run_verify(args: argparse.Namespace) -> int:
+    from intent_packages.factory import verify
+
+    return verify.verify(
+        args.revision,
+        args.unit_key,
+        ac_id=args.ac_id,
+        check_name=args.check_name,
+        conclusion=args.conclusion,
+        run_id=args.run_id,
+        run_url=args.run_url,
+        assertions=args.assertions,
+        repository=args.repository,
+    )
+
+
 # A dict dispatch table, not an `if args.cmd == ...` chain: the chain hit
 # ruff's C901 complexity ceiling (10) the moment `ready`/`dispatch` joined
 # `decompose`/`route`/`create`/`validate`/`submit`/`status`/`evidence`, and
@@ -174,6 +223,7 @@ _HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "evidence": _run_evidence,
     "ready": _run_ready,
     "dispatch": _run_dispatch,
+    "verify": _run_verify,
 }
 
 

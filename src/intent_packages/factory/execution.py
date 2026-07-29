@@ -111,28 +111,43 @@ def _in_flight_snapshot(api: ExecutionApi, unit_id: str) -> dict | None:
     return None
 
 
-def _scan_dispatch_events(api: ExecutionApi, unit_id: str) -> tuple[int, frozenset[str]]:
-    """One pass over `history`: the highest consumed dispatch ordinal, and
-    EVERY `DispatchRecord` id already recorded for this unit -- not just the
-    one at the highest ordinal.
+def _dispatch_event_payloads(api: ExecutionApi, unit_id: str) -> list[tuple[str, dict]]:
+    """One `history` read, pre-filtered to `dispatch.*` events, as `(status,
+    payload)` pairs in event order -- `status` is the action suffix
+    (`dispatched`, `skipped`, `blocked`, `failed`).
 
-    Two field names matter and neither is what a first draft might guess:
-    the event's KIND lives under `action`
+    This is the ONE place that knows how a dispatch event is shaped on the
+    wire: the event's KIND lives under `action`
     (`orchestrator.api.schemas.EventResponse.action`), not `type`; the
     dispatch record's id lives in the event's `payload` under
     `dispatch_record_id` (`orchestrator.services.dispatch._record_dispatch`),
-    not `dispatch_id`. `history()` itself returns a bare JSON array (fixed
-    in fix round 1/5 -- it used to be typed `-> dict` over a route that was
-    never one), so this iterates the list directly.
+    not `dispatch_id`. `history()` itself returns a bare JSON array (fixed in
+    fix round 1/5 -- it used to be typed `-> dict` over a route that was never
+    one), so this iterates the list directly.
 
-    The filter is `action.startswith("dispatch.")`, not equality against
-    `"dispatch.dispatched"`: `DISPATCH_RECORD_STATUSES` is `(dispatched,
-    skipped, blocked, failed)` and all four go through `_record_dispatch`
-    with an event action of `f"dispatch.{status}"`, consuming the SAME
-    `runner_attempt` under the unique constraint. Filtering to only
-    `dispatched` under-reads the highest consumed ordinal (fix round 1/5,
-    Critical 2) -- e.g. a dispatch skipped by a closed window still
-    occupies its ordinal.
+    Both `_scan_dispatch_events` (dispatch()'s ordinal + no-op-guard id set,
+    which must count all FOUR outcomes -- `DISPATCH_RECORD_STATUSES` is
+    `(dispatched, skipped, blocked, failed)`, all sharing one `runner_attempt`
+    under the same unique constraint) and `latest_dispatched_payload`
+    (verify()'s canonical-dispatch lookup, task 9, which only a `dispatched`
+    outcome can ever satisfy) consume this single scan -- neither re-walks
+    `history` with its own action-matching predicate.
+    """
+    events: list[tuple[str, dict]] = []
+    for event in api.history(unit_id):
+        action = event.get("action", "")
+        if not action.startswith(_DISPATCH_ACTION_PREFIX):
+            continue
+        events.append((action[len(_DISPATCH_ACTION_PREFIX) :], event.get("payload") or {}))
+    return events
+
+
+def _scan_dispatch_events(api: ExecutionApi, unit_id: str) -> tuple[int, frozenset[str]]:
+    """The highest consumed dispatch ordinal, and EVERY `DispatchRecord` id
+    already recorded for this unit -- not just the one at the highest
+    ordinal. Filtering to only `dispatched` would under-read the highest
+    consumed ordinal (fix round 1/5, Critical 2) -- e.g. a dispatch skipped by
+    a closed window still occupies its ordinal.
 
     Called exactly ONCE per `dispatch()` invocation -- one `api.history()`
     request, not two (fix round 2/5). `dispatch()` feeds the returned
@@ -142,11 +157,7 @@ def _scan_dispatch_events(api: ExecutionApi, unit_id: str) -> tuple[int, frozens
     """
     latest = 0
     record_ids: set[str] = set()
-    for event in api.history(unit_id):
-        action = event.get("action", "")
-        if not action.startswith(_DISPATCH_ACTION_PREFIX):
-            continue
-        payload = event.get("payload") or {}
+    for _status, payload in _dispatch_event_payloads(api, unit_id):
         record_id = payload.get("dispatch_record_id")
         if record_id:
             record_ids.add(record_id)
@@ -154,6 +165,30 @@ def _scan_dispatch_events(api: ExecutionApi, unit_id: str) -> tuple[int, frozens
         if attempt > latest:
             latest = attempt
     return latest, frozenset(record_ids)
+
+
+def latest_dispatched_payload(api: ExecutionApi, unit_id: str) -> dict | None:
+    """The payload of the highest-`runner_attempt` `dispatch.dispatched`
+    event -- the canonical dispatch a named-check attests to (`verify`, task
+    9's `dispatch_id`/`repository` source).
+
+    Narrower than `_scan_dispatch_events` on purpose: a named-check can only
+    ever validate against a dispatch whose `DispatchRecord.status ==
+    "dispatched"` (`services/verifier_named_check.py::validate_named_check_bindings`
+    checks `dispatch.status != "dispatched"`), so a skipped/blocked/failed
+    ordinal -- even if it is the highest one -- is never a candidate here,
+    unlike the ordinal scan dispatch() itself needs.
+    """
+    latest_attempt = -1
+    latest_payload: dict | None = None
+    for status, payload in _dispatch_event_payloads(api, unit_id):
+        if status != "dispatched":
+            continue
+        attempt = int(payload.get("runner_attempt", 0))
+        if attempt > latest_attempt:
+            latest_attempt = attempt
+            latest_payload = payload
+    return latest_payload
 
 
 def next_runner_attempt(attempt_count: int, latest_runner_attempt: int) -> int:
