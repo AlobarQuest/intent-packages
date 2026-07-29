@@ -1,0 +1,21 @@
+{
+  "conformance-claim-helper": "6a753677334de371e55d7bfcb2e6d3adfca959de34bf0c277e85cbc4e6976608",
+  "drill-2026-07-27-production-recovery": "31a63ae57d427e92785019b325d6b783d8589279435d78e01308dc138d58c96f",
+  "gap4-first-real-dispatch": "55a8afe66506f47b2cbb11e91e5f40a4dd76f964a10d99f3426d8c338eafa32f",
+  "orchestrator-production-deploy": "2f6bc7da07aa00106cb6008fc8a85878e001652f6ec645bf25a37760d84c2e7d",
+  "pre-phase4-foundation-cleanliness": "b66d56799e8e0709d73e57b36d56f344f54b9a8bb6cb5c0b0f4e2823042a1824",
+  "ws-2.2-domain-profiles": "7e3e296e625b41c43dbc2c8e4a2adb00a241e2330a835c6317a248adc7ef417b",
+  "ws-2.3-intent-authoring-skill": "08177b443e6271c8111e04e18b2cc184d0d24169a02a80439be1753b41451ca0",
+  "ws-2.3-intent-authoring-skill-v2": "d9717f02c970d76267b83d3b5315417e65425d539e66dc1faab3c405e5b069f2",
+  "ws-2.4-brain-approver-gate": "78de35848e4101e85db6e7616966b8711a34585aaf8289f5b4b40dcfb002f504",
+  "ws-2.4-ci-evidence-control": "639e04e51c57e9fa2bd20b7c77d521f539e96ac7e9d47636dd877bd44f7c1f80",
+  "ws-2.4-historical-listing-launch": "3628762968958ad172287c5ace1dafbc22d8af0a42fb05dc02faf8f4ed9242c0",
+  "ws-3.1-orchestrator-core": "4414eae543d9dac8b1983f796593569d9abf97dfee1b8a06ef29b308e7b8337b",
+  "ws-3.2-package-intake-decomposition": "84c929bc0860b6a585a62ec02fa35d9cdf89fce84773660aea1e383d955689df",
+  "ws-3.3-protocol-smoke-runtime-semantics": "7829f22bfa30630a906d75131c84bc018c5dac3ceac7b933b7c9b46d23e5047a",
+  "ws-3.4-evidence-events": "8530173a7cd1ec70a40e4a177c7dae3db68170f11d3a9ea88563edf5188a9239",
+  "ws-6.4-dependency-update-fanout": "014dfc8782e6898c32a0efbdaf6e4be2fcaa9f044af712f5905fa228b1bd7bad",
+  "ws-p2.1-recovery-controls-drills": "135af65785307707484776d74f0691f88a939fff62ae27a274f870d12071f2bd",
+  "ws-p2.15-fail-closed-lifecycle-guards": "349e7784133b2ee06054fd6906ada51674baeb3972bfec0ec2bb053a19fabcdc",
+  "wsp28-production-deploy": "1bd9aae5ad83c53da8e2a308be84d18d1eea4f1c8bb89563a14e81b828763553"
+}
