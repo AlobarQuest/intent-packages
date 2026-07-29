@@ -45,3 +45,20 @@ def test_decompose_delegates_to_run(monkeypatch):
     assert seen["revision"] == "rev-1" and seen["ac"] == "AC-002"
     assert seen["from_version"] == "0.139.0" and seen["to_version"] == "0.139.2"
     assert seen["submit"] is True
+
+
+def test_create_through_the_entrypoint(tmp_path):
+    from intent_packages.factory_cli import main
+
+    rc = main(
+        ["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)]
+    )
+    assert rc == 0
+    assert (tmp_path / "probe" / "package.yaml").exists()
+
+
+def test_validate_through_the_entrypoint(tmp_path):
+    from intent_packages.factory_cli import main
+
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    assert main(["validate", str(tmp_path / "probe")]) == 0

@@ -41,6 +41,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--change-class", dest="change_class", default="", help="change-class name"
     )
     r.add_argument("--policy", default="", help="policy file path (default: repo root)")
+
+    c = sub.add_parser("create", help="scaffold an intent package from a registered profile")
+    c.add_argument("--profile", required=True, help="registered delivery profile name")
+    c.add_argument("--name", required=True, dest="package_id", help="package_id slug")
+    c.add_argument("--out", default="packages", help="parent directory (default: packages)")
+    c.add_argument("--owner", default="devon")
+    c.add_argument("--title", default="", help="package title (default: derived from --name)")
+
+    v = sub.add_parser("validate", help="validate an intent package")
+    v.add_argument("path", help="path to a package directory or package.yaml")
     return parser
 
 
@@ -80,4 +90,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{row.id}: {slug} ({model_id})")
         print(f"  decided {row.decided} — {row.rationale}")
         return 0
+    if args.cmd == "create":
+        from intent_packages.factory import scaffolds
+
+        return scaffolds.create(
+            args.profile, args.package_id, args.out, owner=args.owner, title=args.title
+        )
+    if args.cmd == "validate":
+        from intent_packages.factory import scaffolds
+
+        return scaffolds.validate(args.path)
     return 0
