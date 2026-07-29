@@ -109,9 +109,9 @@ def _portable_pip_mutation(package, old, new, sites):
 
 @pytest.fixture
 def portable_pip(monkeypatch):
-    original = dep_update.PROFILES["pip"]
+    original = dep_update.TOOLING_PROFILES["pip"]
     portable = dataclasses.replace(original, mutation_commands=_portable_pip_mutation)
-    monkeypatch.setitem(dep_update.PROFILES, "pip", portable)
+    monkeypatch.setitem(dep_update.TOOLING_PROFILES, "pip", portable)
 
 
 def test_run_end_to_end_no_submit(tmp_path, capsys, portable_pip):

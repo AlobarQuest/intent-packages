@@ -8,7 +8,12 @@ check P after the universal checks pass.
 
 from __future__ import annotations
 
-from intent_packages.profiles import base, infrastructure_change, software_delivery
+from intent_packages.profiles import (
+    base,
+    dependency_update,
+    infrastructure_change,
+    software_delivery,
+)
 from intent_packages.profiles.base import AuthorityDefaults, DeliveryProfile
 
 __all__ = [
@@ -24,6 +29,7 @@ PROFILES: dict[str, DeliveryProfile] = {
     for p in (
         software_delivery.DELIVERY_PROFILE,
         infrastructure_change.DELIVERY_PROFILE,
+        dependency_update.DELIVERY_PROFILE,
     )
 }
 KNOWN_EVIDENCE_PREFIXES = frozenset(

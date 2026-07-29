@@ -15,6 +15,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from intent_packages.profiles._evidence_tags import check_evidence_tags
+from intent_packages.profiles.base import AuthorityDefaults, DeliveryProfile
+from intent_packages.schema import MapSpec, _s, _walk
+
 CAPABILITIES: dict[str, str] = {
     "command.run": "allowed",
     "github.pr.create": "allowed",
@@ -204,7 +208,7 @@ def _npm_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str
     return f'grep -q \'"{package}": "{new}"\' package.json'
 
 
-PROFILES: dict[str, ToolingProfile] = {
+TOOLING_PROFILES: dict[str, ToolingProfile] = {
     "npm": ToolingProfile("npm", _npm_discover, _npm_mutation, _npm_verifier),
     "pip": ToolingProfile("pip", _pip_discover, _pip_mutation, _pip_verifier),
     "uv": ToolingProfile("uv", _uv_discover, _uv_mutation, _uv_verifier),
@@ -220,9 +224,9 @@ def build_envelope(
     conformance: dict,
     sites: list[PinSite],
 ) -> dict:
-    if tooling not in PROFILES:
+    if tooling not in TOOLING_PROFILES:
         raise ProfileError(f"unknown tooling: {tooling}")
-    profile = PROFILES[tooling]
+    profile = TOOLING_PROFILES[tooling]
     mutations = profile.mutation_commands(package, old, new, sites)
     if not mutations:
         raise ProfileError(f"{tooling}: no mutation commands (no pin sites for {package}?)")
@@ -238,3 +242,77 @@ def build_envelope(
             "target_repository": target_repo,
         },
     }
+
+
+# ----- declarable delivery profile (WS-P2.10) -----
+
+PROFILE_FIELDS_SCHEMA = MapSpec(
+    {
+        "target_repo": _s(str),
+        "package": _s(str),
+        "from_version": _s(str),
+        "to_version": _s(str),
+    }
+)
+
+# Never automated_test: it resolves to judgment_required in the verifier.
+# ci:/gate: evidence for this profile is verifier-owned named-check evidence,
+# which is exactly what automated_check evaluates deterministically against.
+TAG_TO_EVIDENCE_TYPE = {
+    "ci:": "automated_check",
+    "gate:": "automated_check",
+    "human:": "human_review",
+}
+
+_NON_EMPTY_STRING_FIELDS = ("target_repo", "package", "from_version", "to_version")
+
+
+def _check_profile_fields(package: dict) -> list[str]:
+    errors: list[str] = []
+    if "profile_fields" not in package:
+        errors.append("profile_fields: missing required key")
+        return errors
+    fields = package.get("profile_fields")
+    if not isinstance(fields, dict):
+        return errors
+    _walk(fields, PROFILE_FIELDS_SCHEMA, "profile_fields", errors)
+    if errors:
+        return errors
+    for key in _NON_EMPTY_STRING_FIELDS:
+        value = fields.get(key)
+        if isinstance(value, str) and not value.strip():
+            errors.append(f"profile_fields.{key}: must be a non-empty string")
+    return errors
+
+
+def validate(package: dict) -> list[str]:
+    errors = _check_profile_fields(package)
+    errors.extend(check_evidence_tags(package, TAG_TO_EVIDENCE_TYPE))
+    return errors
+
+
+DELIVERY_PROFILE = DeliveryProfile(
+    name="dependency-update",
+    change_class="dependency-update",
+    profile_fields_schema=PROFILE_FIELDS_SCHEMA,
+    tag_to_evidence_type=TAG_TO_EVIDENCE_TYPE,
+    forbidden_evidence_types=frozenset({"automated_test"}),
+    required_checks=("target repo's own named check on the PR head",),
+    default_authority=AuthorityDefaults(
+        budgets=BUDGETS,
+        capabilities=CAPABILITIES,
+        command_ordering="mutators first, verifier last; make check never in an envelope",
+    ),
+    evidence_expectations=(
+        "Runner-opened PR; verifier-owned named-check evidence "
+        "(verifier.github.named_check) on the PR head; adjudication via "
+        "evidence_type automated_check. budgets.max_attempts bounds claims; "
+        "budgets.max_llm_calls bounds re-claim eligibility, not spend-in-run."
+    ),
+    observation_window=(
+        "None beyond the named check: a pin move ships no runtime change of its "
+        "own, so observation rides the target repo's ordinary release lane."
+    ),
+    validate=validate,
+    tooling=TOOLING_PROFILES,
+)

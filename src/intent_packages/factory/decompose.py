@@ -110,11 +110,11 @@ def run(
     try:
         if not local_repo.is_dir():
             raise DecomposeError(f"target checkout not found: {local_repo}")
-        from intent_packages.profiles.dependency_update import PROFILES
+        from intent_packages.profiles.dependency_update import TOOLING_PROFILES
 
-        if tooling not in PROFILES:
+        if tooling not in TOOLING_PROFILES:
             raise DecomposeError(f"unknown tooling: {tooling}")
-        sites = PROFILES[tooling].discover_pin_sites(local_repo, package)
+        sites = TOOLING_PROFILES[tooling].discover_pin_sites(local_repo, package)
         if not sites:
             raise DecomposeError(f"no pin site for {package} in {local_repo} ({tooling})")
 
