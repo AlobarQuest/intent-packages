@@ -1,9 +1,8 @@
 """`factory` CLI front door (WS-P2.9). Subcommands: decompose, route, create,
-validate, submit, status, evidence.
+validate, submit, status, evidence, ready, dispatch.
 
 Mirrors intent_packages.cli: main(argv) -> int, argparse subparsers, lazy
-per-subcommand imports. Future journey verbs (ready/dispatch/verify) join as
-sibling subparsers.
+per-subcommand imports. `verify` (task 9) joins as a sibling subparser.
 """
 
 import argparse
@@ -66,7 +65,34 @@ def _build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--revision", default="")
     ev.add_argument("--unit-key", dest="unit_key", default="")
     ev.add_argument("--markdown", action="store_true", help="the redacted PR-comment form")
+
+    rd = sub.add_parser("ready", help="SYSTEM: move a unit DRAFT -> READY")
+    rd.add_argument("--revision", default="", help="revision id (default: $FACTORY_REVISION)")
+    rd.add_argument("--unit-key", dest="unit_key", required=True)
+
+    dp = sub.add_parser("dispatch", help="SYSTEM: dispatch a READY unit to the runner")
+    dp.add_argument("--revision", default="", help="revision id (default: $FACTORY_REVISION)")
+    dp.add_argument("--unit-key", dest="unit_key", required=True)
     return parser
+
+
+def _run_route(args: argparse.Namespace) -> int:
+    from intent_packages import routing
+
+    try:
+        policy = routing.load_policy(Path(args.policy) if args.policy else None)
+        row = (
+            routing.resolve_surface(policy, args.surface)
+            if args.surface
+            else routing.resolve_change_class(policy, args.change_class)
+        )
+    except routing.RoutingPolicyError as error:
+        print(f"route failed: {error}", file=sys.stderr)
+        return 1
+    for slug, model_id in zip(row.models, row.model_ids, strict=True):
+        print(f"{row.id}: {slug} ({model_id})")
+    print(f"  decided {row.decided} — {row.rationale}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -89,22 +115,7 @@ def main(argv: list[str] | None = None) -> int:
             submit=args.submit,
         )
     if args.cmd == "route":
-        from intent_packages import routing
-
-        try:
-            policy = routing.load_policy(Path(args.policy) if args.policy else None)
-            row = (
-                routing.resolve_surface(policy, args.surface)
-                if args.surface
-                else routing.resolve_change_class(policy, args.change_class)
-            )
-        except routing.RoutingPolicyError as error:
-            print(f"route failed: {error}", file=sys.stderr)
-            return 1
-        for slug, model_id in zip(row.models, row.model_ids, strict=True):
-            print(f"{row.id}: {slug} ({model_id})")
-        print(f"  decided {row.decided} — {row.rationale}")
-        return 0
+        return _run_route(args)
     if args.cmd == "create":
         from intent_packages.factory import scaffolds
 
@@ -127,4 +138,12 @@ def main(argv: list[str] | None = None) -> int:
         from intent_packages.factory import journey
 
         return journey.evidence(args.revision, unit_key=args.unit_key, markdown=args.markdown)
+    if args.cmd == "ready":
+        from intent_packages.factory import execution
+
+        return execution.ready(args.revision, args.unit_key)
+    if args.cmd == "dispatch":
+        from intent_packages.factory import execution
+
+        return execution.dispatch(args.revision, args.unit_key)
     return 0

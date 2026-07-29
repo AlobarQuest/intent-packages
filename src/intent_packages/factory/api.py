@@ -162,6 +162,14 @@ class OrchestratorApi:
     def history(self, unit_id: str) -> dict:
         return self._get_dict(f"/api/v1/work-units/{unit_id}/history")
 
+    def in_flight_units(self) -> dict:
+        """READY (and every other in-flight-but-not-DRAFT) unit's `version` and
+        `attempt_count` -- the only read surface that carries either. A DRAFT
+        unit is absent from this response; `resolve_version`'s probe is the
+        client contract for those instead.
+        """
+        return self._get_dict("/api/v1/in-flight-units")
+
     def evidence_pack(self, unit_id: str) -> dict:
         return self._get_dict(f"/api/v1/work-units/{unit_id}/evidence-pack")
 

@@ -175,23 +175,32 @@ def submit(
     return 0
 
 
-class _RevisionRequired(Exception):
-    """Raised when neither `--revision` nor `$FACTORY_REVISION` is set."""
+class RevisionRequired(Exception):
+    """Raised when neither `--revision` nor `$FACTORY_REVISION` is set.
+
+    Public (no leading underscore): `execution.py`'s `ready`/`dispatch` catch
+    this across the module boundary, same reasoning as `resolve_revision`
+    below -- a cross-module helper's raised exception type has to be part of
+    the public surface, or callers outside this module have nothing precise
+    to catch.
+    """
 
 
-def _resolve_revision(revision_id: str) -> str:
+def resolve_revision(revision_id: str) -> str:
     """Fall back to `$FACTORY_REVISION`; raise when neither is set.
 
     Shared by every verb that operates on a revision -- `status` and
-    `evidence` today, `ready`/`dispatch`/`verify` later -- so the exit-2
-    behaviour for a missing revision lives in exactly one place.
+    `evidence` here, `ready`/`dispatch` in `execution.py`, `verify` later --
+    so the exit-2 behaviour for a missing revision lives in exactly one
+    place. Public (no leading underscore): it is a cross-module helper now,
+    not a private one.
     """
     if revision_id:
         return revision_id
     from_env = os.environ.get("FACTORY_REVISION", "")
     if from_env:
         return from_env
-    raise _RevisionRequired("no revision id: pass --revision or set $FACTORY_REVISION")
+    raise RevisionRequired("no revision id: pass --revision or set $FACTORY_REVISION")
 
 
 _DECIDED_PROPOSAL_STATES = frozenset({"approved", "rejected", "superseded"})
@@ -318,8 +327,8 @@ def status(
     """
     api = api or OrchestratorApi()
     try:
-        revision_id = _resolve_revision(revision_id)
-    except _RevisionRequired as error:
+        revision_id = resolve_revision(revision_id)
+    except RevisionRequired as error:
         print(f"status failed: {error}", file=sys.stderr)
         return 2
 
@@ -375,8 +384,8 @@ def evidence(
     """
     api = api or OrchestratorApi()
     try:
-        revision_id = _resolve_revision(revision_id)
-    except _RevisionRequired as error:
+        revision_id = resolve_revision(revision_id)
+    except RevisionRequired as error:
         print(f"evidence failed: {error}", file=sys.stderr)
         return 2
 

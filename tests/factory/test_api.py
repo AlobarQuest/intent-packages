@@ -199,6 +199,48 @@ def test_credential_error_surfaces_as_a_clean_api_error():
     assert calls == []  # never reached the transport
 
 
+def test_in_flight_units_hits_the_right_path_and_returns_the_parsed_body():
+    seen = {}
+
+    def handler(request):
+        seen["path"] = request.url.path
+        seen["method"] = request.method
+        return httpx.Response(
+            200,
+            json={
+                "units": [
+                    {
+                        "work_unit_id": "u1",
+                        "unit_key": "bump-fastapi",
+                        "state": "ready",
+                        "version": 2,
+                        "attempt_count": 1,
+                        "work_package_revision_id": "r1",
+                        "pr_number": None,
+                        "head_sha": None,
+                        "verification_read_head_sha": None,
+                    }
+                ],
+                "release_bindings": [],
+            },
+        )
+
+    result = _api(handler).in_flight_units()
+    assert seen == {"path": "/api/v1/in-flight-units", "method": "GET"}
+    assert result["units"][0]["work_unit_id"] == "u1"
+    assert result["units"][0]["version"] == 2
+    assert result["units"][0]["attempt_count"] == 1
+
+
+def test_in_flight_units_rejects_a_non_object_body():
+    def handler(request):
+        return httpx.Response(200, json=[1, 2, 3])
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).in_flight_units()
+    assert error.value.code == "invalid_response"
+
+
 def test_non_object_body_on_a_dict_endpoint_raises_cleanly():
     """A JSON array from a `-> dict` endpoint must raise `ApiError`, not reach
 
