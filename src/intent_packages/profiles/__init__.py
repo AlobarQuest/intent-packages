@@ -12,6 +12,7 @@ from intent_packages.profiles import (
     base,
     dependency_update,
     infrastructure_change,
+    maintenance_remediation,
     software_delivery,
 )
 from intent_packages.profiles.base import AuthorityDefaults, DeliveryProfile
@@ -30,6 +31,7 @@ PROFILES: dict[str, DeliveryProfile] = {
         software_delivery.DELIVERY_PROFILE,
         infrastructure_change.DELIVERY_PROFILE,
         dependency_update.DELIVERY_PROFILE,
+        maintenance_remediation.DELIVERY_PROFILE,
     )
 }
 KNOWN_EVIDENCE_PREFIXES = frozenset(
