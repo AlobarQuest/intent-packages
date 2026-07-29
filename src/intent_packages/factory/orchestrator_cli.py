@@ -50,3 +50,17 @@ class OrchestratorClient:
 
     def conformance_claim(self, repo_path: str) -> dict:
         return self._call(["conformance-claim", repo_path])
+
+    def emit_intake_payload(
+        self, package_path: str, source_repository: str, idempotency_key: str
+    ) -> dict:
+        return self._call(
+            [
+                "emit-intake-payload",
+                package_path,
+                "--source-repository",
+                source_repository,
+                "--idempotency-key",
+                idempotency_key,
+            ]
+        )

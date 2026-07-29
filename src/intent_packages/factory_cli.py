@@ -51,6 +51,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     v = sub.add_parser("validate", help="validate an intent package")
     v.add_argument("path", help="path to a package directory or package.yaml")
+
+    s = sub.add_parser("submit", help="stage an intake payload and hand off to /review")
+    s.add_argument("--package", required=True, help="package directory or package.yaml")
+    s.add_argument("--source-repository", required=True, dest="source_repository")
+    s.add_argument("--open", action="store_true", dest="open_browser", help="open /review")
     return parser
 
 
@@ -100,4 +105,8 @@ def main(argv: list[str] | None = None) -> int:
         from intent_packages.factory import scaffolds
 
         return scaffolds.validate(args.path)
+    if args.cmd == "submit":
+        from intent_packages.factory import journey
+
+        return journey.submit(args.package, args.source_repository, open_browser=args.open_browser)
     return 0
