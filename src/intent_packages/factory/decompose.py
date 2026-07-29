@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Protocol
 
 from intent_packages import routing
 from intent_packages.factory.api import ApiError, OrchestratorApi
@@ -22,17 +21,6 @@ from intent_packages.factory.validations import (
     dry_run_mutation,
 )
 from intent_packages.profiles.dependency_update import PinSite, ProfileError, build_envelope
-
-
-class ApiLike(Protocol):
-    """Structural shape `decompose.run` needs from the HTTP client.
-
-    `OrchestratorApi` satisfies this; tests may inject a lighter fake instead.
-    """
-
-    def get_intake(self, revision_id: str) -> dict: ...
-
-    def propose_decomposition(self, revision_id: str, proposal: dict) -> dict: ...
 
 
 class DecomposeError(Exception):
@@ -115,7 +103,7 @@ def run(
     out: str,
     submit: bool,
     client: OrchestratorClient | None = None,
-    api: ApiLike | None = None,
+    api: OrchestratorApi | None = None,
     policy_path: Path | None = None,
 ) -> int:
     client = client or OrchestratorClient()

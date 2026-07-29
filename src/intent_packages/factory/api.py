@@ -20,7 +20,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from intent_packages.factory.credentials import Role, resolve_token
+from intent_packages.factory.credentials import CredentialError, Role, resolve_token
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 TIMEOUT_SECONDS = 30.0
@@ -73,9 +73,18 @@ class OrchestratorApi:
         callers (`_request`, `_request_text`) share one error path; a token is
         never interpolated into any exception message. Never retried -- a 401
         is a routing/credential fact, not a transient failure.
+
+        A `CredentialError` from the token resolver is mapped to `ApiError`
+        here too, once, so every caller gets a clean `code`/`message` instead
+        of an unhandled traceback -- `resolve_token`'s messages already name
+        the env var / BWS uuid and never contain the token itself.
         """
+        try:
+            token = self._resolve(role)
+        except CredentialError as error:
+            raise ApiError("credential_unavailable", str(error)) from error
         headers = {
-            "Authorization": f"Bearer {self._resolve(role)}",
+            "Authorization": f"Bearer {token}",
             "X-Credential-Key-Id": role.value,
         }
         try:
@@ -99,21 +108,41 @@ class OrchestratorApi:
     def _request(self, method: str, path: str, role: Role, payload: dict | None = None) -> Any:
         return _body_of(self._send(method, path, role, payload))
 
+    def _request_dict(
+        self, method: str, path: str, role: Role, payload: dict | None = None
+    ) -> dict:
+        """Like `_request`, but for endpoints whose contract is a JSON object.
+
+        A body that decoded as a JSON array would otherwise reach a `-> dict`
+        method's caller untyped (e.g. `_criteria_uuid_map`'s `.get(...)`) and
+        fail with a raw `AttributeError` instead of a clean `ApiError`.
+        """
+        value = self._request(method, path, role, payload)
+        if not isinstance(value, dict):
+            raise ApiError("invalid_response", "the API returned a non-object body")
+        return value
+
     def _request_text(self, path: str, role: Role = Role.SYSTEM) -> str:
         return self._send("GET", path, role, None).text
 
     def _get(self, path: str, role: Role = Role.SYSTEM) -> Any:
         return self._request("GET", path, role)
 
+    def _get_dict(self, path: str, role: Role = Role.SYSTEM) -> dict:
+        return self._request_dict("GET", path, role)
+
     def _post(self, path: str, payload: dict, role: Role = Role.SYSTEM) -> Any:
         return self._request("POST", path, role, payload)
 
+    def _post_dict(self, path: str, payload: dict, role: Role = Role.SYSTEM) -> dict:
+        return self._request_dict("POST", path, role, payload)
+
     # -- reads -------------------------------------------------------------
     def get_intake(self, revision_id: str) -> dict:
-        return self._get(f"/api/v1/package-intakes/{revision_id}")
+        return self._get_dict(f"/api/v1/package-intakes/{revision_id}")
 
     def list_proposals(self, revision_id: str) -> dict:
-        return self._get(f"/api/v1/package-intakes/{revision_id}/decomposition-proposals")
+        return self._get_dict(f"/api/v1/package-intakes/{revision_id}/decomposition-proposals")
 
     def traceability(self, *, revision_id: str | None = None, work_unit_id: str | None = None):
         if not revision_id and not work_unit_id:
@@ -128,41 +157,41 @@ class OrchestratorApi:
         return self._get(f"/api/v1/traceability?{urlencode(params)}")
 
     def readiness(self, unit_id: str) -> dict:
-        return self._get(f"/api/v1/work-units/{unit_id}/readiness")
+        return self._get_dict(f"/api/v1/work-units/{unit_id}/readiness")
 
     def history(self, unit_id: str) -> dict:
-        return self._get(f"/api/v1/work-units/{unit_id}/history")
+        return self._get_dict(f"/api/v1/work-units/{unit_id}/history")
 
     def evidence_pack(self, unit_id: str) -> dict:
-        return self._get(f"/api/v1/work-units/{unit_id}/evidence-pack")
+        return self._get_dict(f"/api/v1/work-units/{unit_id}/evidence-pack")
 
     def revision_evidence_pack(self, revision_id: str) -> dict:
-        return self._get(f"/api/v1/revisions/{revision_id}/evidence-pack")
+        return self._get_dict(f"/api/v1/revisions/{revision_id}/evidence-pack")
 
     def evidence_pack_markdown(self, unit_id: str) -> str:
         return self._request_text(f"/api/v1/work-units/{unit_id}/evidence-pack/markdown")
 
     # -- writes ------------------------------------------------------------
     def propose_decomposition(self, revision_id: str, proposal: dict) -> dict:
-        return self._post(
+        return self._post_dict(
             f"/api/v1/package-intakes/{revision_id}/decomposition-proposals", proposal
         )
 
     def command(self, unit_id: str, command: str, payload: dict) -> dict:
-        return self._post(f"/api/v1/work-units/{unit_id}/commands/{command}", payload)
+        return self._post_dict(f"/api/v1/work-units/{unit_id}/commands/{command}", payload)
 
     def dispatch(self, unit_id: str, payload: dict) -> dict:
-        return self._post(f"/api/v1/work-units/{unit_id}/dispatch", payload)
+        return self._post_dict(f"/api/v1/work-units/{unit_id}/dispatch", payload)
 
     def named_check(self, unit_id: str, payload: dict) -> dict:
-        return self._post(
+        return self._post_dict(
             f"/api/v1/work-units/{unit_id}/verifier-evidence/named-check",
             payload,
             Role.VERIFIER,
         )
 
     def verify(self, unit_id: str, payload: dict) -> dict:
-        return self._post(f"/api/v1/work-units/{unit_id}/verify", payload, Role.VERIFIER)
+        return self._post_dict(f"/api/v1/work-units/{unit_id}/verify", payload, Role.VERIFIER)
 
     # -- version resolution ------------------------------------------------
     def resolve_version(self, unit_id: str, *, probe: dict, command: str = "ready") -> int:

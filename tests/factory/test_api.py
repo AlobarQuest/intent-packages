@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from intent_packages.factory.api import ApiError, OrchestratorApi
+from intent_packages.factory.credentials import CredentialError
 
 
 def _api(handler, **kw):
@@ -164,3 +165,49 @@ def test_traceability_requires_an_anchor_and_makes_no_request():
         _api(handler).traceability()
     assert error.value.code == "traceability_anchor_required"
     assert calls == []
+
+
+def test_credential_error_surfaces_as_a_clean_api_error():
+    """A `CredentialError` from the token resolver must not escape as a raw
+
+    traceback -- it is mapped to `ApiError(code="credential_unavailable")`
+    inside `_send`, once, so every caller (not just `decompose.run`) gets a
+    clean error instead of an unhandled exception.
+    """
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        return httpx.Response(200, json={})
+
+    def failing_resolver(role):
+        raise CredentialError(
+            f"no credential for {role.value}: set {role.env_var}, or set BWS_ACCESS_TOKEN "
+            "so it can be fetched from BWS secret 660d5846-abcb-4751-be86-b483012899eb"
+        )
+
+    api = OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(handler),
+        token_resolver=failing_resolver,
+    )
+    with pytest.raises(ApiError) as error:
+        api.readiness("u1")
+    assert error.value.code == "credential_unavailable"
+    assert "ORCHESTRATOR_SYSTEM_TOKEN" in error.value.message
+    assert "660d5846-abcb-4751-be86-b483012899eb" in error.value.message
+    assert calls == []  # never reached the transport
+
+
+def test_non_object_body_on_a_dict_endpoint_raises_cleanly():
+    """A JSON array from a `-> dict` endpoint must raise `ApiError`, not reach
+
+    the caller untyped and blow up on the first `.get(...)`/`[...]` access.
+    """
+
+    def handler(request):
+        return httpx.Response(200, json=[1, 2, 3])
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).get_intake("r1")
+    assert error.value.code == "invalid_response"

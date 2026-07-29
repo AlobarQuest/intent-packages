@@ -2,9 +2,11 @@ import dataclasses
 import json
 import subprocess
 
+import httpx
 import pytest
 
 from intent_packages.factory import decompose
+from intent_packages.factory.api import OrchestratorApi
 from intent_packages.factory.orchestrator_cli import OrchestratorClient
 from intent_packages.profiles import dependency_update as dep_update
 from intent_packages.profiles.dependency_update import PinSite
@@ -19,32 +21,31 @@ _INTAKE = {
 _CONFORMANCE = {"accepted_standards": [], "standards_touched": ["project"], "status": "green"}
 
 
-class _FakeApi:
-    """Injected fake for the HTTP transport.
-
-    `decompose.run` no longer talks to `OrchestratorClient` for intake/propose;
-    it calls this instead.
-    """
-
-    def __init__(self, intake=None, submit_result=None):
-        self.intake = _INTAKE if intake is None else intake
-        self.submit_result = {"proposal_id": "p1"} if submit_result is None else submit_result
-        self.calls = []
-
-    def get_intake(self, revision_id):
-        self.calls.append(("get_intake", revision_id))
-        return self.intake
-
-    def propose_decomposition(self, revision_id, proposal):
-        self.calls.append(("propose_decomposition", revision_id, proposal))
-        return self.submit_result
-
-
 def _conformance_client():
     def runner(argv):
         return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(_CONFORMANCE), stderr="")
 
     return OrchestratorClient(runner=runner)
+
+
+def _api_returning_intake(intake=None):
+    """A REAL `OrchestratorApi` over a mock transport -- not a duck-typed fake.
+
+    Used for the submit=False tests, which only ever call `get_intake`; any
+    other request is a test bug, not a thing to shrug off with a lenient
+    handler.
+    """
+    body = _INTAKE if intake is None else intake
+
+    def handler(request):
+        assert request.method == "GET", f"unexpected method: {request.method}"
+        return httpx.Response(200, json=body)
+
+    return OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(handler),
+        token_resolver=lambda role: "t",
+    )
 
 
 def test_build_proposal_maps_uuid_and_covers_all_acs():
@@ -160,7 +161,7 @@ def test_run_end_to_end_no_submit(tmp_path, capsys, portable_pip):
         out=str(out_file),
         submit=False,
         client=_conformance_client(),
-        api=_FakeApi(),
+        api=_api_returning_intake(),
     )
     assert rc == 0
     assert out_file.exists()
@@ -169,9 +170,30 @@ def test_run_end_to_end_no_submit(tmp_path, capsys, portable_pip):
 
 
 def test_run_end_to_end_submit_posts_the_proposal_dict_directly(tmp_path, capsys, portable_pip):
-    """The HTTP path posts the proposal dict; no tempfile is involved."""
+    """The HTTP path posts the exact proposal dict to the exact route; no
+
+    tempfile is involved. Pins method + path for BOTH calls (a typo'd path in
+    api.py would otherwise pass every test, since a duck-typed fake only
+    asserts what it is told to expect) and ties the posted body to the
+    `--out` bytes byte-for-byte, rather than checking a single key.
+    """
     repo = _git_repo(tmp_path)
-    fake_api = _FakeApi(submit_result={"proposal_id": "p-42"})
+    out_file = tmp_path / "proposal.json"
+    calls = []
+    posted = {}
+
+    def handler(request):
+        calls.append((request.method, request.url.path))
+        if request.method == "GET":
+            return httpx.Response(200, json=_INTAKE)
+        posted["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"proposal_id": "p-42"})
+
+    api = OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(handler),
+        token_resolver=lambda role: "t",
+    )
 
     rc = decompose.run(
         revision="rev-1",
@@ -184,17 +206,19 @@ def test_run_end_to_end_submit_posts_the_proposal_dict_directly(tmp_path, capsys
         to_version="0.139.2",
         unit_key="",
         rationale="",
-        out="",
+        out=str(out_file),
         submit=True,
         client=_conformance_client(),
-        api=fake_api,
+        api=api,
     )
     assert rc == 0
-    assert [call[0] for call in fake_api.calls] == ["get_intake", "propose_decomposition"]
-    _, revision_id, posted_proposal = fake_api.calls[1]
-    assert revision_id == "rev-1"
-    assert isinstance(posted_proposal, dict)
-    assert posted_proposal["ac_mappings"][0]["ac_id"] == "uuid-2"
+    assert calls == [
+        ("GET", "/api/v1/package-intakes/rev-1"),
+        ("POST", "/api/v1/package-intakes/rev-1/decomposition-proposals"),
+    ]
+    written = json.loads(out_file.read_text())
+    assert posted["body"] == written
+    assert posted["body"]["rationale"].endswith(" routing: sonnet-5 per routing-policy v1.")
     err = capsys.readouterr().err
     assert "submitted:" in err
     assert "p-42" in err
@@ -218,7 +242,7 @@ def test_routing_note_lands_in_rationale(tmp_path, capsys, portable_pip):
         out=str(out_file),
         submit=False,
         client=_conformance_client(),
-        api=_FakeApi(),
+        api=_api_returning_intake(),
     )
     assert rc == 0
     proposal = json.loads(out_file.read_text())
@@ -251,7 +275,7 @@ def test_missing_routing_row_fails_closed(tmp_path, capsys, portable_pip):
         out="",
         submit=False,
         client=_conformance_client(),
-        api=_FakeApi(),
+        api=_api_returning_intake(),
         policy_path=policy,
     )
     assert rc == 1
@@ -285,6 +309,6 @@ def test_run_fails_closed_on_no_diff(tmp_path, portable_pip):
         out="",
         submit=False,
         client=_conformance_client(),
-        api=_FakeApi(),
+        api=_api_returning_intake(),
     )
     assert rc == 1
