@@ -113,3 +113,54 @@ def test_token_never_appears_in_an_error_string():
     with pytest.raises(ApiError) as error:
         _api(handler).readiness("u1")
     assert "token-for-" not in str(error.value)
+
+
+def test_string_current_version_is_discarded_not_coerced():
+    def handler(request):
+        return httpx.Response(
+            409,
+            json={
+                "error": {
+                    "code": "version_conflict",
+                    "message": "stale version",
+                    "recovery": None,
+                    "current_version": "4",
+                }
+            },
+        )
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).readiness("u1")
+    assert error.value.current_version is None
+
+
+def test_integer_current_version_still_passes_through():
+    def handler(request):
+        return httpx.Response(
+            409,
+            json={
+                "error": {
+                    "code": "version_conflict",
+                    "message": "stale version",
+                    "recovery": None,
+                    "current_version": 4,
+                }
+            },
+        )
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).readiness("u1")
+    assert error.value.current_version == 4
+
+
+def test_traceability_requires_an_anchor_and_makes_no_request():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        return httpx.Response(200, json={})
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).traceability()
+    assert error.value.code == "traceability_anchor_required"
+    assert calls == []

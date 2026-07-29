@@ -116,6 +116,12 @@ class OrchestratorApi:
         return self._get(f"/api/v1/package-intakes/{revision_id}/decomposition-proposals")
 
     def traceability(self, *, revision_id: str | None = None, work_unit_id: str | None = None):
+        if not revision_id and not work_unit_id:
+            raise ApiError(
+                "traceability_anchor_required",
+                "traceability() needs revision_id or work_unit_id -- refusing to issue a "
+                "filterless request",
+            )
         params = {
             k: v for k, v in (("revision_id", revision_id), ("work_unit_id", work_unit_id)) if v
         }
@@ -189,11 +195,13 @@ def _error_from(response: httpx.Response) -> ApiError:
     recovery = detail.get("recovery")
     if response.status_code == 401:
         recovery = _UNAUTHORIZED_RECOVERY
+    raw_version = detail.get("current_version")
+    current_version = raw_version if isinstance(raw_version, int) else None
     return ApiError(
         str(detail.get("code", "http_error")),
         str(detail.get("message", f"HTTP {response.status_code}")),
         recovery,
-        current_version=detail.get("current_version"),
+        current_version=current_version,
         status_code=response.status_code,
     )
 
