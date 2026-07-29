@@ -9,16 +9,18 @@ exists or ever will (ADR-0006).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+import time
 import uuid
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from intent_packages.factory import links
-from intent_packages.factory.api import base_url_from_env
+from intent_packages.factory.api import ApiError, OrchestratorApi, base_url_from_env
 from intent_packages.factory.orchestrator_cli import OrchestratorClient, OrchestratorCliError
 from intent_packages.loader import LoadError, load_lineage, load_package
 
@@ -39,6 +41,27 @@ class IntakeClient(Protocol):
     def emit_intake_payload(
         self, package_path: str, source_repository: str, idempotency_key: str, /
     ) -> dict: ...
+
+
+class RevisionApi(Protocol):
+    """The read surface `status`/`evidence`/`units_for` need.
+
+    A structural protocol, same reasoning as `IntakeClient`: a test double
+    only has to implement these eight methods, not *be* an `OrchestratorApi`.
+    The concrete `OrchestratorApi` satisfies this structurally, so production
+    callers pass it unchanged.
+    """
+
+    def get_intake(self, revision_id: str) -> dict: ...
+    def list_proposals(self, revision_id: str) -> dict: ...
+    def traceability(
+        self, *, revision_id: str | None = None, work_unit_id: str | None = None
+    ) -> Any: ...
+    def readiness(self, unit_id: str) -> dict: ...
+    def history(self, unit_id: str) -> dict: ...
+    def evidence_pack(self, unit_id: str) -> dict: ...
+    def revision_evidence_pack(self, revision_id: str) -> dict: ...
+    def evidence_pack_markdown(self, unit_id: str) -> str: ...
 
 
 def _default_clipboard(text: str) -> None:
@@ -147,4 +170,240 @@ def submit(
         "reload the page first if you need a genuinely new registration."
     )
     print("Once the form redirects, resume with: factory status --revision <id from the URL>")
+    return 0
+
+
+class _RevisionRequired(Exception):
+    """Raised when neither `--revision` nor `$FACTORY_REVISION` is set."""
+
+
+def _resolve_revision(revision_id: str) -> str:
+    """Fall back to `$FACTORY_REVISION`; raise when neither is set.
+
+    Shared by every verb that operates on a revision -- `status` and
+    `evidence` today, `ready`/`dispatch`/`verify` later -- so the exit-2
+    behaviour for a missing revision lives in exactly one place.
+    """
+    if revision_id:
+        return revision_id
+    from_env = os.environ.get("FACTORY_REVISION", "")
+    if from_env:
+        return from_env
+    raise _RevisionRequired("no revision id: pass --revision or set $FACTORY_REVISION")
+
+
+_DECIDED_PROPOSAL_STATES = frozenset({"approved", "rejected", "superseded"})
+
+
+def units_for(api: RevisionApi, revision_id: str) -> list[dict]:
+    """Derive the per-unit view of a revision from `traceability`.
+
+    This is the single derivation point -- tasks 8 and 9 (`ready`,
+    `dispatch`/`verify`) must call this rather than re-deriving from
+    `traceability` themselves. Each returned dict is the chain's `unit` hop
+    (`id`, `unit_key`, `state`, `authority_fingerprint`, `authority_approved_by`,
+    `authority_decision`) with a `pr` key added when the chain carries one.
+    """
+    data = api.traceability(revision_id=revision_id)
+    units = []
+    for chain in data.get("chains", []):
+        unit = chain["unit"]
+        entry = {
+            "id": unit["id"],
+            "unit_key": unit["unit_key"],
+            "state": unit["state"],
+            "authority_fingerprint": unit.get("authority_fingerprint"),
+            "authority_approved_by": unit.get("authority_approved_by"),
+            "authority_decision": unit.get("authority_decision"),
+        }
+        pr = chain.get("pr")
+        if pr is not None:
+            entry["pr"] = pr
+        units.append(entry)
+    return units
+
+
+def _next_action(base_url: str, unit: dict, readiness: dict) -> str:
+    if unit["state"] == "draft" and unit.get("authority_decision") == "approved":
+        return (
+            f"authority approved but the unit is still DRAFT -- authority approval does not move "
+            f"state. Run: factory ready --revision <rev> --unit-key {unit['unit_key']}"
+        )
+    if unit["state"] == "draft":
+        return (
+            f"needs a HUMAN authority approval bound to fingerprint "
+            f"{unit['authority_fingerprint']}. Use the 'Approve this authority envelope' form "
+            f"(NOT the generic approve button, which records subject_type=action and does not "
+            f"satisfy readiness): {links.unit(base_url, unit['id'])}"
+        )
+    if unit["state"] == "ready":
+        return f"ready to dispatch: factory dispatch --revision <rev> --unit-key {unit['unit_key']}"
+    return f"state {unit['state']}: {links.unit(base_url, unit['id'])}"
+
+
+def _print_intake(intake: dict) -> None:
+    print(f"intake {intake.get('id')}: {intake.get('state')}")
+
+
+def _print_proposals(base_url: str, proposals: dict) -> None:
+    items = proposals.get("items") or []
+    if not items:
+        print("proposals: none yet")
+        return
+    print("proposals:")
+    for item in items:
+        line = f"  {item.get('id')}: {item.get('state')}"
+        if item.get("state") not in _DECIDED_PROPOSAL_STATES:
+            line += f" -- {links.decomposition_proposal(base_url, item['id'])}"
+        print(line)
+
+
+def _print_units(base_url: str, api: RevisionApi, units: list[dict]) -> None:
+    if not units:
+        print("units: none yet")
+        return
+    print("units:")
+    for unit in units:
+        approved = unit.get("authority_decision") == "approved"
+        approval = (
+            f"authority approved by {unit.get('authority_approved_by')} "
+            f"({unit.get('authority_fingerprint')})"
+            if approved
+            else "no authority approval recorded"
+        )
+        print(f"  {unit['unit_key']} [{unit['state']}] -- {approval}")
+        readiness = api.readiness(unit["id"])
+        print(f"    next: {_next_action(base_url, unit, readiness)}")
+        events = api.history(unit["id"]).get("events") or []
+        if events:
+            print(f"    history: {len(events)} event(s) recorded")
+
+
+def _unit_states(units: list[dict]) -> dict[str, str]:
+    return {unit["id"]: unit["state"] for unit in units}
+
+
+def _wait_for_change(
+    api: RevisionApi,
+    revision_id: str,
+    initial: dict[str, str],
+    poll_seconds: float,
+    timeout_seconds: float,
+) -> bool:
+    """Poll `traceability` (only) until a unit's state changes or the timeout elapses."""
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        time.sleep(poll_seconds)
+        if _unit_states(units_for(api, revision_id)) != initial:
+            return True
+    return False
+
+
+def status(
+    revision_id: str,
+    *,
+    wait: bool = False,
+    poll_seconds: float = 15,
+    timeout_seconds: float = 1800,
+    api: RevisionApi | None = None,
+) -> int:
+    """Print one screen for a revision: intake, proposals, units, next action.
+
+    The next-action line is what makes this a front door: it distinguishes an
+    authority approval recorded on a still-DRAFT unit (needs `factory ready` --
+    authority approval alone never moves lifecycle state) from a unit approved
+    with the generic `/review` button (`subject_type=action`, which does not
+    satisfy readiness at all).
+    """
+    api = api or OrchestratorApi()
+    try:
+        revision_id = _resolve_revision(revision_id)
+    except _RevisionRequired as error:
+        print(f"status failed: {error}", file=sys.stderr)
+        return 2
+
+    base_url = base_url_from_env()
+    try:
+        intake = api.get_intake(revision_id)
+        proposals = api.list_proposals(revision_id)
+        units = units_for(api, revision_id)
+        _print_intake(intake)
+        _print_proposals(base_url, proposals)
+        _print_units(base_url, api, units)
+        if wait:
+            try:
+                changed = _wait_for_change(
+                    api, revision_id, _unit_states(units), poll_seconds, timeout_seconds
+                )
+            except KeyboardInterrupt:
+                print("status --wait interrupted", file=sys.stderr)
+                return 130
+            if changed:
+                print()
+                print("-- a unit's state changed --")
+                return status(revision_id, api=api)
+            print(f"status --wait: no state change after {timeout_seconds}s")
+    except (ApiError, OrchestratorCliError) as error:
+        print(f"status failed: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _unit_id_for_key(units: list[dict], unit_key: str) -> str | None:
+    for unit in units:
+        if unit["unit_key"] == unit_key:
+            return unit["id"]
+    return None
+
+
+def evidence(
+    revision_id: str,
+    *,
+    unit_key: str | None = None,
+    markdown: bool = False,
+    api: RevisionApi | None = None,
+) -> int:
+    """Fetch and print the evidence pack for a revision, or one of its units.
+
+    Without `--unit-key`, fetches the revision-level pack; with one, the unit
+    pack. `--markdown` selects the redacted, PR-comment-safe route and needs
+    `--unit-key` -- there is no revision-level markdown route to fall back to.
+    Both forms print exactly what the API returned: the JSON stays
+    full-fidelity (auth-gated); redaction, when it happens, is the renderer's
+    decision, never this CLI's.
+    """
+    api = api or OrchestratorApi()
+    try:
+        revision_id = _resolve_revision(revision_id)
+    except _RevisionRequired as error:
+        print(f"evidence failed: {error}", file=sys.stderr)
+        return 2
+
+    if markdown and not unit_key:
+        print(
+            "evidence failed: --markdown requires --unit-key (no revision-level markdown route)",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        if unit_key:
+            units = units_for(api, revision_id)
+            unit_id = _unit_id_for_key(units, unit_key)
+            if unit_id is None:
+                keys = ", ".join(sorted(u["unit_key"] for u in units)) or "(none)"
+                print(
+                    f"evidence failed: unknown --unit-key {unit_key!r}; known keys: {keys}",
+                    file=sys.stderr,
+                )
+                return 1
+            if markdown:
+                print(api.evidence_pack_markdown(unit_id))
+            else:
+                print(json.dumps(api.evidence_pack(unit_id), indent=2, sort_keys=True))
+        else:
+            print(json.dumps(api.revision_evidence_pack(revision_id), indent=2, sort_keys=True))
+    except (ApiError, OrchestratorCliError) as error:
+        print(f"evidence failed: {error}", file=sys.stderr)
+        return 1
     return 0

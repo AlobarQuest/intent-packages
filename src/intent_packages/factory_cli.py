@@ -1,8 +1,9 @@
-"""`factory` CLI front door (WS-P2.9). Subcommands: decompose, route.
+"""`factory` CLI front door (WS-P2.9). Subcommands: decompose, route, create,
+validate, submit, status, evidence.
 
 Mirrors intent_packages.cli: main(argv) -> int, argparse subparsers, lazy
-per-subcommand imports. Future journey verbs (create/validate/submit/status/
-evidence/retry/cancel) join as sibling subparsers.
+per-subcommand imports. Future journey verbs (ready/dispatch/verify) join as
+sibling subparsers.
 """
 
 import argparse
@@ -56,6 +57,15 @@ def _build_parser() -> argparse.ArgumentParser:
     s.add_argument("--package", required=True, help="package directory or package.yaml")
     s.add_argument("--source-repository", required=True, dest="source_repository")
     s.add_argument("--open", action="store_true", dest="open_browser", help="open /review")
+
+    st = sub.add_parser("status", help="one screen for a revision, with the next action")
+    st.add_argument("--revision", default="", help="revision id (default: $FACTORY_REVISION)")
+    st.add_argument("--wait", action="store_true", help="poll until a unit's state changes")
+
+    ev = sub.add_parser("evidence", help="fetch the evidence pack")
+    ev.add_argument("--revision", default="")
+    ev.add_argument("--unit-key", dest="unit_key", default="")
+    ev.add_argument("--markdown", action="store_true", help="the redacted PR-comment form")
     return parser
 
 
@@ -109,4 +119,12 @@ def main(argv: list[str] | None = None) -> int:
         from intent_packages.factory import journey
 
         return journey.submit(args.package, args.source_repository, open_browser=args.open_browser)
+    if args.cmd == "status":
+        from intent_packages.factory import journey
+
+        return journey.status(args.revision, wait=args.wait)
+    if args.cmd == "evidence":
+        from intent_packages.factory import journey
+
+        return journey.evidence(args.revision, unit_key=args.unit_key, markdown=args.markdown)
     return 0
