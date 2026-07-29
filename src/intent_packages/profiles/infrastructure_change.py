@@ -4,6 +4,7 @@ evidence-tag/evidence_type consistency checks layered on the universal envelope.
 from __future__ import annotations
 
 from intent_packages.profiles._evidence_tags import check_evidence_tags
+from intent_packages.profiles.base import DeliveryProfile
 from intent_packages.schema import MapSpec, _s, _walk
 
 BLAST_RADIUS_VALUES = {"single-app", "shared-service", "portfolio-wide"}
@@ -51,3 +52,13 @@ def validate(package: dict) -> list[str]:
     errors = _check_profile_fields(package)
     errors.extend(check_evidence_tags(package, TAG_TO_EVIDENCE_TYPE))
     return errors
+
+
+DELIVERY_PROFILE = DeliveryProfile(
+    name="infrastructure-change",
+    profile_fields_schema=PROFILE_FIELDS_SCHEMA,
+    tag_to_evidence_type=TAG_TO_EVIDENCE_TYPE,
+    evidence_expectations="Tag-mapped producers per TAG_TO_EVIDENCE_TYPE; declared per package.",
+    observation_window="Declared per package (follow_up); no profile default.",
+    validate=validate,
+)

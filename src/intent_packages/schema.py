@@ -29,7 +29,7 @@ class ListSpec:
 
 @dataclass(frozen=True)
 class MapSpec:
-    fields: dict[str, ScalarSpec | ListSpec | MapSpec | OpenMapSpec]
+    fields: dict[str, ScalarSpec | ListSpec | MapSpec | OpenMapSpec | OptionalKey]
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,18 @@ class OpenMapSpec:
     """A mapping with arbitrary str keys and str values, plus required keys."""
 
     required: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class OptionalKey:
+    """A MapSpec field whose KEY may be absent (WS-P2.10).
+
+    When the key is present, the value is checked against the wrapped spec.
+    Schemas stay closed: unknown keys are still errors. This is optional-KEY
+    support; nullable=True on a ScalarSpec remains optional-VALUE support.
+    """
+
+    spec: ScalarSpec | ListSpec | MapSpec | OpenMapSpec
 
 
 def _s(py_type: type, *, nullable: bool = False, enum: set[str] | None = None) -> ScalarSpec:
@@ -226,6 +238,10 @@ def _walk_map(value: object, spec: MapSpec, path: str, errors: list[str]) -> Non
         if key not in spec.fields:
             errors.append(f"{_join(path, key)}: unknown key")
     for key, subspec in spec.fields.items():
+        if isinstance(subspec, OptionalKey):
+            if key in value:
+                _walk(value[key], subspec.spec, _join(path, key), errors)
+            continue
         if key not in value:
             errors.append(f"{_join(path, key)}: missing required key")
             continue

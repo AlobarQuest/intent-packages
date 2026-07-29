@@ -1,0 +1,117 @@
+# routing-policy.toml — the SOLE SOURCE of model selection for the software
+# delivery system (program exit criterion #11).
+#
+# Seeded verbatim from the decided 2026-07-08 table:
+# ~/docs/software-delivery-system/2026-07-04-codex-post-mvp-recommendations.md §11.
+# Governing principle: spend top-tier where errors are expensive and volume is
+# low (intent, verification); economize where deterministic gates catch
+# failures cheaply (implementation — a wrong PR fails verification, it never
+# ships). The verifier tier must never drop below the implementer tier it is
+# checking.
+#
+# GRADUATION EDITING CONTRACT (decided 2026-07-08; WS-P2.14 supplies the data):
+# - Demotions are suggested by data: a change-class with N consecutive clean
+#   runs (start N=15) on its current tier triggers a SUGGEST to demote one
+#   tier. Devon decides.
+# - Promotions are manual and immediate: a class producing repeated
+#   revision_required outcomes is promoted one tier BEFORE it is granted more
+#   retries — never burn attempts on an underpowered model.
+# - Every tier change is a versioned edit to THIS FILE: update the row's
+#   `models`, `decided`, and `rationale`, and bump `version`. Never an inline
+#   override anywhere else.
+
+version = 1
+
+[models]
+fable-5 = "claude-fable-5"
+sonnet-5 = "claude-sonnet-5"
+opus-4-8 = "claude-opus-4-8"
+haiku-4-5 = "claude-haiku-4-5"
+
+[no_llm]
+# Restated from the seed so this file inherits it: these subsystems are
+# deterministic BY DESIGN and never call a model.
+items = [
+  "state machine and transitions",
+  "leases/claims",
+  "dispatch + circuit breaker + kill switch",
+  "conformance admission gate",
+  "deterministic AC verification",
+  "budget enforcement",
+  "traceability queries",
+  "graduation counters",
+  "the 4am executor",
+  "claim-time context enrichment",
+]
+
+[[surface]]
+id = "intent-authoring"
+models = ["fable-5"]
+where = "WS-2.3 front door"
+rationale = "Highest-leverage words in the system; low volume, judgment-dense. Never economize."
+decided = "2026-07-08"
+
+[[surface]]
+id = "decomposition-proposals"
+models = ["fable-5"]
+where = "WS-3.2"
+rationale = "One bad decomposition wastes a package's whole execution run; human approval misses subtle scoping errors. Seed table allows Opus 4.8 as alternate."
+decided = "2026-07-08"
+
+[[surface]]
+id = "runner-implementation"
+models = ["sonnet-5"]
+where = "WS-4.1/4.2"
+rationale = "Sonnet 5 default; Opus 4.8 for complex change-classes. Verifier + CI are the backstop, so a failure costs one cheap retry. Per-class routing; budgets bite hardest here."
+decided = "2026-07-08"
+
+[[surface]]
+id = "local-heavy"
+models = ["fable-5"]
+where = "WS-4.3"
+rationale = "Work routes here because it is the hard kind (multi-repo, deep context)."
+decided = "2026-07-08"
+
+[[surface]]
+id = "judgment-ac-verification"
+models = ["fable-5", "opus-4-8"]
+where = "WS-5.1"
+rationale = "At least 2 independent isolated-context reviews + cross-critique (one of each model); Anthropic-only diversity comes from tier + prompt. This backstop is what lets runner-implementation run cheap."
+decided = "2026-07-08"
+
+[[surface]]
+id = "guarded-infra-agent"
+models = ["sonnet-5"]
+where = "Existing; WS-4.4 linkage"
+rationale = "Proven at Sonnet; guardrails are structural (pre-validate, post-verify-or-revert)."
+decided = "2026-07-08"
+
+[[surface]]
+id = "lesson-proposals"
+models = ["sonnet-5"]
+where = "WS-6.2"
+rationale = "Outputs are propose-only (human approval is the QC), but lesson quality compounds — Sonnet is the floor."
+decided = "2026-07-08"
+
+[[surface]]
+id = "high-volume-text"
+models = ["haiku-4-5"]
+where = "Phase 6 + secondary"
+rationale = "Classification/summarization of advisory or projection text; provenance discipline does the safety work, not the model."
+decided = "2026-07-08"
+
+# Change-class lookup: the table `factory decompose` consults. NO implicit
+# default — a change-class absent here is a hard error, so shipping a new
+# factory-executable profile requires adding its row in the same change.
+
+[change_class.dependency-update]
+surface = "runner-implementation"
+models = ["sonnet-5"]
+rationale = "runner-implementation row default (Sonnet 5). Production-proven by GAP-4 (2026-07-29)."
+decided = "2026-07-08"
+
+[change_class.maintenance-remediation]
+surface = "runner-implementation"
+models = ["sonnet-5"]
+rationale = "Derived from runner-implementation's Sonnet 5 default; not literally in the 2026-07-08 seed table. Phase-3 WS-P3.2 authoring target."
+decided = "2026-07-29"

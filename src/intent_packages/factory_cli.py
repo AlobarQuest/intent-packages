@@ -1,4 +1,4 @@
-"""`factory` CLI front door (WS-P2.9). First subcommand: decompose.
+"""`factory` CLI front door (WS-P2.9). Subcommands: decompose, route.
 
 Mirrors intent_packages.cli: main(argv) -> int, argparse subparsers, lazy
 per-subcommand imports. Future journey verbs (create/validate/submit/status/
@@ -6,6 +6,8 @@ evidence/retry/cancel) join as sibling subparsers.
 """
 
 import argparse
+import sys
+from pathlib import Path
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -30,6 +32,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--submit", action="store_true", help="submit via orchestrator (default: dry only)"
     )
+    r = sub.add_parser(
+        "route", help="resolve a model from routing-policy.toml (the sole source of selection)"
+    )
+    selector = r.add_mutually_exclusive_group(required=True)
+    selector.add_argument("--surface", default="", help="surface id, e.g. runner-implementation")
+    selector.add_argument(
+        "--change-class", dest="change_class", default="", help="change-class name"
+    )
+    r.add_argument("--policy", default="", help="policy file path (default: repo root)")
     return parser
 
 
@@ -52,4 +63,21 @@ def main(argv: list[str] | None = None) -> int:
             out=args.out,
             submit=args.submit,
         )
+    if args.cmd == "route":
+        from intent_packages import routing
+
+        try:
+            policy = routing.load_policy(Path(args.policy) if args.policy else None)
+            row = (
+                routing.resolve_surface(policy, args.surface)
+                if args.surface
+                else routing.resolve_change_class(policy, args.change_class)
+            )
+        except routing.RoutingPolicyError as error:
+            print(f"route failed: {error}", file=sys.stderr)
+            return 1
+        for slug, model_id in zip(row.models, row.model_ids, strict=True):
+            print(f"{row.id}: {slug} ({model_id})")
+        print(f"  decided {row.decided} — {row.rationale}")
+        return 0
     return 0

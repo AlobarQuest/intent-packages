@@ -13,6 +13,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from intent_packages import routing
 from intent_packages.factory.orchestrator_cli import OrchestratorClient, OrchestratorCliError
 from intent_packages.factory.validations import (
     ValidationError,
@@ -103,6 +104,7 @@ def run(
     out: str,
     submit: bool,
     client: OrchestratorClient | None = None,
+    policy_path: Path | None = None,
 ) -> int:
     client = client or OrchestratorClient()
     resolved_key = unit_key or f"{_repo_name(target_repo)}-{ac.lower()}"
@@ -110,11 +112,13 @@ def run(
     try:
         if not local_repo.is_dir():
             raise DecomposeError(f"target checkout not found: {local_repo}")
-        from intent_packages.profiles.dependency_update import PROFILES
+        from intent_packages import profiles
 
-        if tooling not in PROFILES:
+        tooling_profiles = profiles.PROFILES["dependency-update"].tooling
+        assert tooling_profiles is not None
+        if tooling not in tooling_profiles:
             raise DecomposeError(f"unknown tooling: {tooling}")
-        sites = PROFILES[tooling].discover_pin_sites(local_repo, package)
+        sites = tooling_profiles[tooling].discover_pin_sites(local_repo, package)
         if not sites:
             raise DecomposeError(f"no pin site for {package} in {local_repo} ({tooling})")
 
@@ -133,6 +137,12 @@ def run(
             conformance,
             sites,
             rationale,
+        )
+        change_class = proposal["proposed_units"][0]["authority"]["change_class"]
+        policy = routing.load_policy(policy_path)
+        row = routing.resolve_change_class(policy, change_class)
+        proposal["rationale"] += (
+            f" routing: {'/'.join(row.models)} per routing-policy v{policy.version}."
         )
         allowed = proposal["proposed_units"][0]["authority"]["constraints"]["allowed_commands"]
 
@@ -156,6 +166,12 @@ def run(
                 os.unlink(proposal_path)
             print(f"submitted: {json.dumps(result, sort_keys=True)}", file=sys.stderr)
         return 0
-    except (DecomposeError, ValidationError, OrchestratorCliError, ProfileError) as error:
+    except (
+        DecomposeError,
+        ValidationError,
+        OrchestratorCliError,
+        ProfileError,
+        routing.RoutingPolicyError,
+    ) as error:
         print(f"decompose failed: {error}", file=sys.stderr)
         return 1

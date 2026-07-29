@@ -32,7 +32,8 @@ def test_known_profile_delegates_to_its_validator(monkeypatch):
         calls.append(package)
         return ["fake error from the profile validator"]
 
-    monkeypatch.setitem(profiles.PROFILES, "fake-profile", fake_validate)
+    fake = profiles.DeliveryProfile(name="fake-profile", validate=fake_validate)
+    monkeypatch.setitem(profiles.PROFILES, "fake-profile", fake)
     pkg = {"profile": "fake-profile", "title": "x"}
 
     errs = profiles.validate_profile(pkg)
