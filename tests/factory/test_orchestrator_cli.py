@@ -53,3 +53,16 @@ def test_non_dict_json_raises():
     client = OrchestratorClient(runner=_fake(0, json.dumps([1, 2, 3])))
     with pytest.raises(OrchestratorCliError):
         client.conformance_claim("/tmp/repo")
+
+
+def test_missing_binary_raises_orchestrator_cli_error_not_a_raw_oserror():
+    """`orchestrator` not on PATH (the default state of this repo's own dev
+    environment) must speak the same error vocabulary as every other failure
+    mode here, not escape as a raw FileNotFoundError."""
+
+    def runner(argv):
+        raise FileNotFoundError(2, "No such file or directory", "orchestrator")
+
+    client = OrchestratorClient(runner=runner)
+    with pytest.raises(OrchestratorCliError, match="could not run"):
+        client.conformance_claim("/tmp/repo")

@@ -32,7 +32,15 @@ class OrchestratorClient:
         self._run = runner or _default_runner
 
     def _call(self, argv: list[str]) -> dict:
-        result = self._run(["orchestrator", *argv, "--json"])
+        try:
+            result = self._run(["orchestrator", *argv, "--json"])
+        except OSError as error:
+            # e.g. FileNotFoundError when `orchestrator` isn't on PATH -- folded
+            # into the same error vocabulary as a non-zero exit / bad output,
+            # so every caller has exactly one exception type to catch.
+            raise OrchestratorCliError(
+                f"could not run `orchestrator {' '.join(argv)}`: {error}"
+            ) from error
         if result.returncode != 0:
             raise OrchestratorCliError(
                 f"orchestrator {' '.join(argv)} exited {result.returncode}: "

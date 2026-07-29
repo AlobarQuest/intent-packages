@@ -19,7 +19,7 @@ from typing import Protocol
 
 from intent_packages.factory import links
 from intent_packages.factory.api import base_url_from_env
-from intent_packages.factory.orchestrator_cli import OrchestratorClient
+from intent_packages.factory.orchestrator_cli import OrchestratorClient, OrchestratorCliError
 from intent_packages.loader import LoadError, load_lineage, load_package
 
 Clipboard = Callable[[str], None]
@@ -42,7 +42,7 @@ class IntakeClient(Protocol):
 
 
 def _default_clipboard(text: str) -> None:
-    subprocess.run(["pbcopy"], input=text, text=True)
+    subprocess.run(["pbcopy"], input=text, text=True, check=True)
 
 
 def _resolve_package_dir(package_path: str) -> Path:
@@ -62,15 +62,24 @@ def _print_refusal(pkg_dir: Path, status: object, current_state: object) -> None
     print(f"  intent_packages approve {pkg_dir} --approver devon", file=sys.stderr)
 
 
-def _copy_to_clipboard(text: str, clipboard: Clipboard) -> None:
+def _copy_to_clipboard(text: str, clipboard: Clipboard) -> bool:
+    """Return whether the payload actually made it to the clipboard.
+
+    A clipboard failure is a warning, never fatal -- but the caller must not
+    then claim success: a `pbcopy` that exists but exits nonzero (headless or
+    remote session) must be caught (hence `check=True` in the default), and
+    when it fails the payload must still be visible in the output.
+    """
     try:
         clipboard(text)
-    except Exception as error:  # a clipboard failure is a warning, never fatal
+    except Exception as error:
         print(
             f"warning: could not copy the intake payload to the clipboard ({error}); "
             f"here it is instead:\n{text}",
             file=sys.stderr,
         )
+        return False
+    return True
 
 
 def submit(
@@ -78,7 +87,6 @@ def submit(
     source_repository: str,
     *,
     open_browser: bool = False,
-    api: object | None = None,
     client: IntakeClient | None = None,
     clipboard: Clipboard | None = None,
 ) -> int:
@@ -86,12 +94,10 @@ def submit(
 
     This is a human gate (ADR-0006): package intake requires a HUMAN actor and
     no HUMAN credential exists or ever will, so `submit` never calls the API --
-    `api` is accepted only so the sibling verbs in this module (status,
-    evidence, ready, dispatch) can share one call signature; it is typed as
-    `object` and never referenced here because it must never be touched, not
-    even by an attribute lookup.
+    it has no `api` parameter at all, and never imports `OrchestratorApi`.
+    Tasks 7-9 add their own `api` parameters to the sibling verbs in this
+    module; that is not a reason to carry an unused one here.
     """
-    del api
     client = client or OrchestratorClient()
 
     pkg_dir = _resolve_package_dir(package_path)
@@ -109,16 +115,28 @@ def submit(
         return 1
 
     idempotency_key = f"factory-submit-{uuid.uuid4()}"
-    payload = client.emit_intake_payload(str(pkg_dir), source_repository, idempotency_key)
+    try:
+        payload = client.emit_intake_payload(str(pkg_dir), source_repository, idempotency_key)
+    except OrchestratorCliError as error:
+        # Covers both the `orchestrator` binary being unreachable and the
+        # local emit-intake-payload subprocess itself refusing the package
+        # (e.g. no lineage approval matching the canonical hash, no git HEAD)
+        # -- that check lives one layer down in `orchestrator`'s own
+        # emit-intake-payload command, not duplicated here.
+        print(f"submit failed: {error}", file=sys.stderr)
+        return 1
 
     text = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    _copy_to_clipboard(text, clipboard or _default_clipboard)
+    copied = _copy_to_clipboard(text, clipboard or _default_clipboard)
 
     link = links.intake_new(base_url_from_env())
     if open_browser:
         webbrowser.open(link)
 
-    print(f"Intake payload staged and copied to your clipboard: {link}")
+    if copied:
+        print(f"Intake payload staged and copied to your clipboard: {link}")
+    else:
+        print(f"Intake payload staged (see the clipboard warning above): {link}")
     print(
         "This is a human gate (ADR-0006) -- factory submit stops here, waiting on your "
         "approval in the browser; it never posts the intake itself."
