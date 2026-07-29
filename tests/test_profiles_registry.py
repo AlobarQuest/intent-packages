@@ -1,0 +1,57 @@
+"""WS-P2.10: the unified DeliveryProfile registry. Existing profiles are
+wrapped, not changed — their validation output must be byte-identical (the
+Task-1 regression harness enforces that against all 19 real packages; this
+file covers the registry mechanics and the shared forbidden-type check)."""
+
+from intent_packages import profiles
+from intent_packages.profiles import base
+
+
+def test_registry_values_are_delivery_profiles():
+    assert set(profiles.PROFILES) >= {"software-delivery", "infrastructure-change"}
+    for name, profile in profiles.PROFILES.items():
+        assert isinstance(profile, base.DeliveryProfile)
+        assert profile.name == name
+
+
+def test_wrapped_existing_profiles_forbid_nothing():
+    assert profiles.PROFILES["software-delivery"].forbidden_evidence_types == frozenset()
+    assert profiles.PROFILES["infrastructure-change"].forbidden_evidence_types == frozenset()
+
+
+def test_wrapped_profile_delegates_to_original_validator():
+    # A software-delivery package missing profile_fields must produce the same
+    # error the pre-unification validator produced.
+    errs = profiles.validate_profile({"profile": "software-delivery"})
+    assert "profile_fields: missing required key" in errs
+
+
+def test_forbidden_check_rejects_named_types():
+    pkg = {
+        "acceptance": [
+            {"id": "AC-001", "evidence_type": "automated_test", "evidence": "ci: x"},
+            {"id": "AC-002", "evidence_type": "automated_check", "evidence": "ci: y"},
+        ]
+    }
+    errs = base.check_forbidden_evidence_types(pkg, frozenset({"automated_test"}))
+    assert len(errs) == 1
+    assert errs[0].startswith("acceptance[0].evidence_type:")
+    assert "judgment_required" in errs[0]
+
+
+def test_forbidden_check_empty_set_is_noop():
+    pkg = {"acceptance": [{"evidence_type": "automated_test"}]}
+    assert base.check_forbidden_evidence_types(pkg, frozenset()) == []
+
+
+def test_validate_profile_applies_profile_forbid_set(monkeypatch):
+    strict = base.DeliveryProfile(
+        name="strict-profile", forbidden_evidence_types=frozenset({"automated_test"})
+    )
+    monkeypatch.setitem(profiles.PROFILES, "strict-profile", strict)
+    pkg = {
+        "profile": "strict-profile",
+        "acceptance": [{"id": "AC-001", "evidence_type": "automated_test", "evidence": "e"}],
+    }
+    errs = profiles.validate_profile(pkg)
+    assert any("forbidden by this profile" in e for e in errs)
