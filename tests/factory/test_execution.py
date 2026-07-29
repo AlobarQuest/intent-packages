@@ -7,7 +7,7 @@ def _fake_api(**overrides):
             return {"id": revision_id, "state": "intaken", "acceptance_criteria": []}
 
         def list_proposals(self, revision_id):
-            return {"items": []}
+            return []
 
         def traceability(self, *, revision_id=None, work_unit_id=None):
             return {
@@ -28,7 +28,7 @@ def _fake_api(**overrides):
             }
 
         def history(self, unit_id):
-            return {"events": []}
+            return []
 
         def evidence_pack(self, unit_id):
             return {"unit_id": unit_id}
@@ -67,20 +67,23 @@ def _fake_api(**overrides):
     return api
 
 
+def _dispatch_event(action, runner_attempt, dispatch_record_id):
+    """One `dispatch.*` history event, in the real orchestrator wire shape:
+    `action` (not `type`), `payload.runner_attempt`, `payload.dispatch_record_id`
+    (not `dispatch_id`). `history()` itself returns a bare list (fix round
+    1/5) -- callers wrap this in a `[...]` themselves."""
+    return {
+        "action": action,
+        "payload": {"runner_attempt": runner_attempt, "dispatch_record_id": dispatch_record_id},
+    }
+
+
 def _history_with_dispatch(runner_attempt, dispatch_record_id):
     def history(unit_id):
-        return {
-            "events": [
-                {
-                    "action": "dispatch.dispatched",
-                    "payload": {
-                        "runner_attempt": runner_attempt,
-                        "dispatch_record_id": dispatch_record_id,
-                    },
-                },
-                {"action": "unit.claimed", "payload": {}},
-            ]
-        }
+        return [
+            _dispatch_event("dispatch.dispatched", runner_attempt, dispatch_record_id),
+            {"action": "unit.claimed", "payload": {}},
+        ]
 
     return history
 
@@ -105,21 +108,46 @@ def test_next_runner_attempt_reads_the_action_field_not_type():
     actually on the wire, not a plausible-looking guess."""
 
     def history(unit_id):
-        return {"events": [{"type": "dispatch.dispatched", "payload": {"runner_attempt": 9}}]}
+        return [{"type": "dispatch.dispatched", "payload": {"runner_attempt": 9}}]
 
     assert execution.next_runner_attempt(_fake_api(history=history), "u1", attempt_count=0) == 1
 
 
 def test_next_runner_attempt_ignores_non_dispatch_events():
     def history(unit_id):
-        return {
-            "events": [
-                {"action": "unit.claimed", "payload": {}},
-                {"action": "work_unit.transitioned", "payload": {"version": 3}},
-            ]
-        }
+        return [
+            {"action": "unit.claimed", "payload": {}},
+            {"action": "work_unit.transitioned", "payload": {"version": 3}},
+        ]
 
     assert execution.next_runner_attempt(_fake_api(history=history), "u1", attempt_count=2) == 3
+
+
+def test_next_runner_attempt_counts_a_skipped_decision_as_a_consumed_ordinal():
+    """Fix round 1/5, Critical 2 regression. `DISPATCH_RECORD_STATUSES` is
+    `(dispatched, skipped, blocked, failed)`; all four go through
+    `_record_dispatch` with the SAME `runner_attempt` under
+    `UniqueConstraint("work_unit_id", "runner_attempt")`, and the event
+    action is `f"dispatch.{status}"`. A scan that only recognized
+    `dispatch.dispatched` would recompute ordinal 1 forever after a skip --
+    exactly the concrete failure the review named: a first dispatch with
+    the window closed records ordinal 1 as `dispatch.skipped`; re-running
+    after opening the window must not offer ordinal 1 again."""
+
+    def history(unit_id):
+        return [_dispatch_event("dispatch.skipped", 1, "d-1")]
+
+    assert execution.next_runner_attempt(_fake_api(history=history), "u1", attempt_count=0) == 2
+
+
+def test_next_runner_attempt_counts_blocked_and_failed_too():
+    def history(unit_id):
+        return [
+            _dispatch_event("dispatch.blocked", 1, "d-1"),
+            _dispatch_event("dispatch.failed", 2, "d-2"),
+        ]
+
+    assert execution.next_runner_attempt(_fake_api(history=history), "u1", attempt_count=0) == 3
 
 
 # -- dispatch: the no-op detection -------------------------------------------
@@ -153,7 +181,7 @@ def test_dispatch_accepts_a_new_record_id(capsys):
 
 def test_dispatch_no_op_check_actually_inspects_the_response_id():
     """Guards against a no-op detector that always returns 1 (or always 0)
-    regardless of the response: the SAME prior_dispatch_id, run through BOTH a
+    regardless of the response: the SAME prior history, run through BOTH a
     colliding and a non-colliding response, must produce different return
     codes. A stub that ignores `response["id"]` cannot pass both halves."""
     history = _history_with_dispatch(2, "d-old")
@@ -171,6 +199,59 @@ def test_dispatch_no_op_check_actually_inspects_the_response_id():
         "r1", "bump-fastapi", api=_fake_api(history=history, dispatch=dispatch_fresh)
     )
     assert (reused_rc, fresh_rc) == (1, 0)
+
+
+def test_dispatch_detects_reuse_of_a_non_latest_prior_id(capsys):
+    """Fix round 1/5, Critical 1 regression. The old detector compared the
+    response id against only the id at the HIGHEST ordinal. But the
+    orchestrator hands back the record at the REQUESTED ordinal, and under
+    `UniqueConstraint("work_unit_id", "runner_attempt")` a correctly-computed
+    fresh ordinal is always a fresh row -- so the only way a reused id can
+    come back is a client that (re-)requests an ordinal that was already
+    used, and the record it gets back is THAT ordinal's record, not
+    necessarily the most recent one. Membership in the FULL set is the only
+    check that can ever fire; equality against "the latest one" is
+    unsatisfiable by construction."""
+
+    def history(unit_id):
+        return [
+            _dispatch_event("dispatch.dispatched", 1, "d-1"),
+            _dispatch_event("dispatch.dispatched", 2, "d-2"),
+        ]
+
+    def dispatch(unit_id, payload):
+        # Simulates a client bug that asked for ordinal 1 again -- the
+        # orchestrator hands back d-1, the record for THAT ordinal, which is
+        # not "the latest" (d-2) but is still a reuse.
+        return {"id": "d-1", "status": "dispatched", "reason_code": None}
+
+    rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(history=history, dispatch=dispatch))
+    assert rc == 1
+    assert "no-op" in capsys.readouterr().err
+
+
+def test_dispatch_calls_next_runner_attempt_not_a_parallel_implementation(monkeypatch):
+    """Fix round 1/5, Important 2 regression. `dispatch()` must call the
+    independently-tested `next_runner_attempt` for the ordinal -- not
+    reimplement the same `max(...) + 1` arithmetic inline, which would leave
+    `next_runner_attempt`'s own tests exercising a function production never
+    calls. Proven by monkeypatching `next_runner_attempt` itself and
+    asserting the POST payload carries exactly the value it returned."""
+    seen = {}
+
+    def fake_next_runner_attempt(api, unit_id, attempt_count):
+        seen["called_with"] = (unit_id, attempt_count)
+        return 99
+
+    def dispatch(unit_id, payload):
+        seen["payload"] = payload
+        return {"id": "d-new", "status": "dispatched", "reason_code": None}
+
+    monkeypatch.setattr(execution, "next_runner_attempt", fake_next_runner_attempt)
+    rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(dispatch=dispatch))
+    assert rc == 0
+    assert seen["called_with"] == ("u1", 0)
+    assert seen["payload"]["runner_attempt"] == 99
 
 
 def test_dispatch_posts_the_computed_runner_attempt_and_in_flight_version():
@@ -209,6 +290,23 @@ def test_dispatch_refuses_a_unit_that_is_not_in_flight(capsys):
     assert "not in flight" in err
 
 
+def test_dispatch_fails_when_status_is_not_dispatched(capsys):
+    """Fix round 1/5, Critical 3 regression. A brand-new record whose status
+    is anything other than 'dispatched' (e.g. the bounded window is closed
+    -> status='skipped', reason_code='dispatch_disabled') means no
+    workflow_dispatch fired, even though the record id is genuinely new and
+    the no-op-by-reuse check has nothing to catch here."""
+
+    def dispatch(unit_id, payload):
+        return {"id": "d-new", "status": "skipped", "reason_code": "dispatch_disabled"}
+
+    rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(dispatch=dispatch))
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "dispatch_disabled" in err
+    assert "skipped" in err
+
+
 def test_dispatch_reports_api_errors_cleanly(capsys):
     from intent_packages.factory.api import ApiError
 
@@ -235,6 +333,29 @@ def test_dispatch_requires_a_revision_when_none_given(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "--revision" in err
     assert "FACTORY_REVISION" in err
+
+
+def test_dispatch_prints_the_actions_run_url_on_success(capsys):
+    def dispatch(unit_id, payload):
+        return {
+            "id": "d-new",
+            "status": "dispatched",
+            "reason_code": None,
+            "github_run_url": "https://github.com/AlobarQuest/brain/actions/runs/123",
+        }
+
+    rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(dispatch=dispatch))
+    assert rc == 0
+    assert "https://github.com/AlobarQuest/brain/actions/runs/123" in capsys.readouterr().out
+
+
+def test_dispatch_success_without_a_run_url_prints_no_stray_line(capsys):
+    def dispatch(unit_id, payload):
+        return {"id": "d-new", "status": "dispatched", "reason_code": None}
+
+    rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(dispatch=dispatch))
+    assert rc == 0
+    assert "Actions run:" not in capsys.readouterr().out
 
 
 # -- ready --------------------------------------------------------------

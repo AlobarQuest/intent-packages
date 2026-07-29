@@ -134,7 +134,7 @@ def _fake_api(**overrides):
             return {"id": revision_id, "state": "intaken", "acceptance_criteria": []}
 
         def list_proposals(self, revision_id):
-            return {"items": [{"id": "p1", "state": "approved"}]}
+            return [{"id": "p1", "state": "approved"}]
 
         def traceability(self, *, revision_id=None, work_unit_id=None):
             return {
@@ -158,7 +158,7 @@ def _fake_api(**overrides):
             return {"status": "ready", "conditions": []}
 
         def history(self, unit_id):
-            return {"events": []}
+            return []
 
         def evidence_pack(self, unit_id):
             return {"unit_id": unit_id}
@@ -392,16 +392,25 @@ def test_units_for_derives_flat_unit_dicts_with_pr_when_present():
     assert units[1]["pr"] == {"number": 7, "state": "open"}
 
 
-def test_status_drives_a_real_api_with_the_expected_methods_and_paths():
+def test_status_drives_a_real_api_with_the_expected_methods_and_paths(capsys):
     """Wire-fidelity canary: a REAL `OrchestratorApi` over a mock transport --
     not a duck-typed fake (same reasoning as `test_decompose.py`'s
     `_api_returning_intake`). The eighteen behavioural tests above stay on the
     duck-typed `_fake_api()` fixture on purpose -- converting all of them to
     stateful `MockTransport` routing would burden output-formatting tests with
     HTTP plumbing for no additional protection. This one test buys back the
-    guarantee that `RevisionApi`'s method names and `traceability`'s query
-    params are what the real API actually expects, at the cost of one test
-    rather than eighteen."""
+    guarantee that `RevisionApi`'s method names, `traceability`'s query
+    params, AND the response SHAPES are what the real API actually returns.
+
+    Fix round 1/5, Critical 4/Important 1: this test used to mock BOTH the
+    decomposition-proposals route and the history route as JSON OBJECTS
+    (`{"items": [...]}` / `{"events": [...]}`) -- calibrated to a fiction,
+    since both routes are bare JSON arrays on the real orchestrator
+    (`response_model=list[...]`). A test built specifically to prove wire
+    fidelity was proving the opposite of what it claimed. Both routes below
+    now return bare arrays, non-empty, so `_print_proposals`/`_print_units`
+    actually render real content sourced from the real shape -- not just
+    avoid crashing on an empty list either way."""
     seen = []
 
     def handler(request):
@@ -410,7 +419,7 @@ def test_status_drives_a_real_api_with_the_expected_methods_and_paths():
         if path == "/api/v1/package-intakes/r1":
             return httpx.Response(200, json={"id": "r1", "state": "intaken"})
         if path == "/api/v1/package-intakes/r1/decomposition-proposals":
-            return httpx.Response(200, json={"items": []})
+            return httpx.Response(200, json=[{"id": "p1", "state": "pending"}])
         if path == "/api/v1/traceability":
             assert dict(request.url.params) == {"revision_id": "r1"}
             return httpx.Response(
@@ -433,7 +442,7 @@ def test_status_drives_a_real_api_with_the_expected_methods_and_paths():
                 },
             )
         if path == "/api/v1/work-units/u1/history":
-            return httpx.Response(200, json={"events": []})
+            return httpx.Response(200, json=[{"action": "unit.claimed", "payload": {}, "id": "e1"}])
         raise AssertionError(f"unexpected request: {request.method} {path}")
 
     api = OrchestratorApi(
@@ -447,3 +456,6 @@ def test_status_drives_a_real_api_with_the_expected_methods_and_paths():
     assert ("GET", "/api/v1/package-intakes/r1/decomposition-proposals") in seen
     assert ("GET", "/api/v1/traceability") in seen
     assert ("GET", "/api/v1/work-units/u1/history") in seen
+    out = capsys.readouterr().out
+    assert "p1: pending" in out
+    assert "history: 1 event(s) recorded" in out

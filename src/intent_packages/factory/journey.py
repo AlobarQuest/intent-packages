@@ -56,11 +56,11 @@ class RevisionApi(Protocol):
     """
 
     def get_intake(self, revision_id: str) -> dict: ...
-    def list_proposals(self, revision_id: str) -> dict: ...
+    def list_proposals(self, revision_id: str) -> list[dict]: ...
     def traceability(
         self, *, revision_id: str | None = None, work_unit_id: str | None = None
     ) -> Any: ...
-    def history(self, unit_id: str) -> dict: ...
+    def history(self, unit_id: str) -> list[dict]: ...
     def evidence_pack(self, unit_id: str) -> dict: ...
     def revision_evidence_pack(self, revision_id: str) -> dict: ...
     def evidence_pack_markdown(self, unit_id: str) -> str: ...
@@ -256,13 +256,14 @@ def _print_intake(intake: dict) -> None:
     print(f"intake {intake.get('id')}: {intake.get('state')}")
 
 
-def _print_proposals(base_url: str, proposals: dict) -> None:
-    items = proposals.get("items") or []
-    if not items:
+def _print_proposals(base_url: str, proposals: list[dict]) -> None:
+    """`proposals` IS the list -- the route's body is a bare JSON array, not
+    `{"items": [...]}`; there is no `items` key to unwrap."""
+    if not proposals:
         print("proposals: none yet")
         return
     print("proposals:")
-    for item in items:
+    for item in proposals:
         line = f"  {item.get('id')}: {item.get('state')}"
         if item.get("state") not in _DECIDED_PROPOSAL_STATES:
             line += f" -- {links.decomposition_proposal(base_url, item['id'])}"
@@ -284,7 +285,7 @@ def _print_units(base_url: str, api: RevisionApi, units: list[dict]) -> None:
         )
         print(f"  {unit['unit_key']} [{unit['state']}] -- {approval}")
         print(f"    next: {_next_action(base_url, unit)}")
-        events = api.history(unit["id"]).get("events") or []
+        events = api.history(unit["id"]) or []
         if events:
             print(f"    history: {len(events)} event(s) recorded")
 

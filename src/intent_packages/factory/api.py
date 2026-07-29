@@ -141,8 +141,10 @@ class OrchestratorApi:
     def get_intake(self, revision_id: str) -> dict:
         return self._get_dict(f"/api/v1/package-intakes/{revision_id}")
 
-    def list_proposals(self, revision_id: str) -> dict:
-        return self._get_dict(f"/api/v1/package-intakes/{revision_id}/decomposition-proposals")
+    def list_proposals(self, revision_id: str) -> list[dict]:
+        """The route's body is a bare JSON array, not `{"items": [...]}` -- routed
+        through the plain `_get`, not `_get_dict` (which would reject it)."""
+        return self._get(f"/api/v1/package-intakes/{revision_id}/decomposition-proposals")
 
     def traceability(self, *, revision_id: str | None = None, work_unit_id: str | None = None):
         if not revision_id and not work_unit_id:
@@ -159,8 +161,11 @@ class OrchestratorApi:
     def readiness(self, unit_id: str) -> dict:
         return self._get_dict(f"/api/v1/work-units/{unit_id}/readiness")
 
-    def history(self, unit_id: str) -> dict:
-        return self._get_dict(f"/api/v1/work-units/{unit_id}/history")
+    def history(self, unit_id: str) -> list[dict]:
+        """The route's body is a bare JSON array (`response_model=list[EventResponse]`
+        on the orchestrator side), not `{"events": [...]}` -- routed through the
+        plain `_get`, not `_get_dict` (which would reject an array body)."""
+        return self._get(f"/api/v1/work-units/{unit_id}/history")
 
     def in_flight_units(self) -> dict:
         """READY (and every other in-flight-but-not-DRAFT) unit's `version` and

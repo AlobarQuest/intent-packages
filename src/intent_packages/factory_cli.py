@@ -7,6 +7,7 @@ per-subcommand imports. `verify` (task 9) joins as a sibling subparser.
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 
@@ -76,6 +77,25 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _run_decompose(args: argparse.Namespace) -> int:
+    from intent_packages.factory import decompose
+
+    return decompose.run(
+        revision=args.revision,
+        ac=args.ac,
+        target_repo=args.target_repo,
+        repo_path=args.repo_path,
+        tooling=args.tooling,
+        package=args.package,
+        from_version=args.from_version,
+        to_version=args.to_version,
+        unit_key=args.unit_key,
+        rationale=args.rationale,
+        out=args.out,
+        submit=args.submit,
+    )
+
+
 def _run_route(args: argparse.Namespace) -> int:
     from intent_packages import routing
 
@@ -95,55 +115,69 @@ def _run_route(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_create(args: argparse.Namespace) -> int:
+    from intent_packages.factory import scaffolds
+
+    return scaffolds.create(
+        args.profile, args.package_id, args.out, owner=args.owner, title=args.title
+    )
+
+
+def _run_validate(args: argparse.Namespace) -> int:
+    from intent_packages.factory import scaffolds
+
+    return scaffolds.validate(args.path)
+
+
+def _run_submit(args: argparse.Namespace) -> int:
+    from intent_packages.factory import journey
+
+    return journey.submit(args.package, args.source_repository, open_browser=args.open_browser)
+
+
+def _run_status(args: argparse.Namespace) -> int:
+    from intent_packages.factory import journey
+
+    return journey.status(args.revision, wait=args.wait)
+
+
+def _run_evidence(args: argparse.Namespace) -> int:
+    from intent_packages.factory import journey
+
+    return journey.evidence(args.revision, unit_key=args.unit_key, markdown=args.markdown)
+
+
+def _run_ready(args: argparse.Namespace) -> int:
+    from intent_packages.factory import execution
+
+    return execution.ready(args.revision, args.unit_key)
+
+
+def _run_dispatch(args: argparse.Namespace) -> int:
+    from intent_packages.factory import execution
+
+    return execution.dispatch(args.revision, args.unit_key)
+
+
+# A dict dispatch table, not an `if args.cmd == ...` chain: the chain hit
+# ruff's C901 complexity ceiling (10) the moment `ready`/`dispatch` joined
+# `decompose`/`route`/`create`/`validate`/`submit`/`status`/`evidence`, and
+# `verify` (task 9) would have pushed it over again. Each handler owns its
+# own (small) complexity instead of adding a branch to `main`.
+_HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
+    "decompose": _run_decompose,
+    "route": _run_route,
+    "create": _run_create,
+    "validate": _run_validate,
+    "submit": _run_submit,
+    "status": _run_status,
+    "evidence": _run_evidence,
+    "ready": _run_ready,
+    "dispatch": _run_dispatch,
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    if args.cmd == "decompose":
-        from intent_packages.factory import decompose
-
-        return decompose.run(
-            revision=args.revision,
-            ac=args.ac,
-            target_repo=args.target_repo,
-            repo_path=args.repo_path,
-            tooling=args.tooling,
-            package=args.package,
-            from_version=args.from_version,
-            to_version=args.to_version,
-            unit_key=args.unit_key,
-            rationale=args.rationale,
-            out=args.out,
-            submit=args.submit,
-        )
-    if args.cmd == "route":
-        return _run_route(args)
-    if args.cmd == "create":
-        from intent_packages.factory import scaffolds
-
-        return scaffolds.create(
-            args.profile, args.package_id, args.out, owner=args.owner, title=args.title
-        )
-    if args.cmd == "validate":
-        from intent_packages.factory import scaffolds
-
-        return scaffolds.validate(args.path)
-    if args.cmd == "submit":
-        from intent_packages.factory import journey
-
-        return journey.submit(args.package, args.source_repository, open_browser=args.open_browser)
-    if args.cmd == "status":
-        from intent_packages.factory import journey
-
-        return journey.status(args.revision, wait=args.wait)
-    if args.cmd == "evidence":
-        from intent_packages.factory import journey
-
-        return journey.evidence(args.revision, unit_key=args.unit_key, markdown=args.markdown)
-    if args.cmd == "ready":
-        from intent_packages.factory import execution
-
-        return execution.ready(args.revision, args.unit_key)
-    if args.cmd == "dispatch":
-        from intent_packages.factory import execution
-
-        return execution.dispatch(args.revision, args.unit_key)
-    return 0
+    handler = _HANDLERS.get(args.cmd)
+    return handler(args) if handler else 0

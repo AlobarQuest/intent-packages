@@ -3,14 +3,32 @@
 Split out from `journey.py` (which stays the read/report surface -- `submit`,
 `status`, `evidence`) because these two verbs carry version and dispatch-
 ordinal hazards `journey.py`'s verbs do not: a wrong `expected_version` is a
-clean `version_conflict`, but a wrong `runner_attempt` is a SILENT NO-OP --
-the orchestrator returns the pre-existing `DispatchRecord` with HTTP 200 and
-`status: "dispatched"`, having triggered no `workflow_dispatch` at all. Only a
-NEW record id proves a dispatch happened; the `status` field says the same
-thing either way.
+clean `version_conflict`, but a wrong `runner_attempt` can be a SILENT NO-OP
+-- the orchestrator returns a PRE-EXISTING `DispatchRecord` with HTTP 200,
+having triggered no `workflow_dispatch` at all.
 
-Where `version` and `attempt_count` come from is verb-specific, not brief-
-uniform:
+Proving a real dispatch happened takes THREE checks, not one -- fix round
+1/5 found the first draft only had the third, and had it wrong:
+
+1. The returned record id must not already appear anywhere in this unit's
+   dispatch history (`dispatch.*` events, ALL FOUR outcomes -- dispatched,
+   skipped, blocked, failed -- share one `runner_attempt` under the same
+   `UniqueConstraint("work_unit_id", "runner_attempt")`, so any of them can
+   be the record the orchestrator hands back on a reused ordinal). This is a
+   SET-MEMBERSHIP check, not equality against "the latest one" -- the
+   orchestrator returns the record at the OFFERED ordinal, which is never
+   the highest existing one when the ordinal math is right, so comparing
+   against only the highest-ordinal id made the check unsatisfiable.
+2. The ordinal scan itself must count all four `dispatch.*` outcomes, not
+   just `dispatch.dispatched` -- a skipped or blocked decision still
+   consumes a `runner_attempt` row.
+3. Even a genuinely NEW record proves nothing if `status != "dispatched"`
+   -- the bounded window being closed (the orchestrator's normal resting
+   state) mints a brand-new record with `status="skipped"`,
+   `reason_code="dispatch_disabled"`, and no workflow fired. No id check
+   can catch this, because the record really is new.
+
+Where `version` and `attempt_count` come from is verb-specific:
 
 - `ready` acts on a DRAFT unit, which is absent from `GET /in-flight-units`
   (the only read surface carrying either field) -- `DRAFT` is not one of
@@ -38,6 +56,11 @@ from intent_packages.factory.journey import (
     resolve_revision,
     units_for,
 )
+
+# All four dispatch decisions share one `runner_attempt` under the same
+# `UniqueConstraint("work_unit_id", "runner_attempt")` -- a skipped or
+# blocked decision consumes an ordinal exactly as a dispatched one does.
+_DISPATCH_ACTION_PREFIX = "dispatch."
 
 
 class ExecutionApi(RevisionApi, Protocol):
@@ -88,30 +111,48 @@ def _in_flight_snapshot(api: ExecutionApi, unit_id: str) -> dict | None:
     return None
 
 
-def _dispatch_history_facts(api: ExecutionApi, unit_id: str) -> tuple[int, str | None]:
-    """The highest recorded dispatch ordinal, and that attempt's dispatch record id.
+def _scan_dispatch_events(api: ExecutionApi, unit_id: str) -> tuple[int, frozenset[str]]:
+    """One pass over `history`: the highest consumed dispatch ordinal, and
+    EVERY `DispatchRecord` id already recorded for this unit -- not just the
+    one at the highest ordinal.
 
-    Scans `history` for `dispatch.dispatched` events. Two field names matter
-    and neither is what a first draft might guess: the event's KIND lives
-    under `action` (`orchestrator.api.schemas.EventResponse.action`), not
-    `type`; the dispatch record's id lives in the event's `payload` under
+    Two field names matter and neither is what a first draft might guess:
+    the event's KIND lives under `action`
+    (`orchestrator.api.schemas.EventResponse.action`), not `type`; the
+    dispatch record's id lives in the event's `payload` under
     `dispatch_record_id` (`orchestrator.services.dispatch._record_dispatch`),
-    not `dispatch_id`. Getting either wrong makes this function silently
-    return `(0, None)` forever -- exactly the failure mode this module exists
-    to prevent -- so both were checked against the orchestrator's own
-    `schemas.py`/`services/dispatch.py` before being written here.
+    not `dispatch_id`. `history()` itself returns a bare JSON array (fixed
+    in fix round 1/5 -- it used to be typed `-> dict` over a route that was
+    never one), so this iterates the list directly.
+
+    The filter is `action.startswith("dispatch.")`, not equality against
+    `"dispatch.dispatched"`: `DISPATCH_RECORD_STATUSES` is `(dispatched,
+    skipped, blocked, failed)` and all four go through `_record_dispatch`
+    with an event action of `f"dispatch.{status}"`, consuming the SAME
+    `runner_attempt` under the unique constraint. Filtering to only
+    `dispatched` under-reads the highest consumed ordinal (fix round 1/5,
+    Critical 2) -- e.g. a dispatch skipped by a closed window still
+    occupies its ordinal.
+
+    This is the single scan both `next_runner_attempt` (the ordinal) and
+    `dispatch` (the full record-id set, for the no-op guard) are built
+    from -- one predicate, in one place, not two copies that could drift
+    apart again.
     """
     latest = 0
-    prior_id: str | None = None
-    for event in api.history(unit_id).get("events", []):
-        if event.get("action") != "dispatch.dispatched":
+    record_ids: set[str] = set()
+    for event in api.history(unit_id):
+        action = event.get("action", "")
+        if not action.startswith(_DISPATCH_ACTION_PREFIX):
             continue
         payload = event.get("payload") or {}
+        record_id = payload.get("dispatch_record_id")
+        if record_id:
+            record_ids.add(record_id)
         attempt = int(payload.get("runner_attempt", 0))
-        if attempt >= latest:
+        if attempt > latest:
             latest = attempt
-            prior_id = payload.get("dispatch_record_id")
-    return latest, prior_id
+    return latest, frozenset(record_ids)
 
 
 def next_runner_attempt(api: ExecutionApi, unit_id: str, attempt_count: int) -> int:
@@ -123,8 +164,16 @@ def next_runner_attempt(api: ExecutionApi, unit_id: str, attempt_count: int) -> 
     a claim is reclaimed, so `attempt_count + 1` is not a safe substitute for
     either.
     """
-    latest, _ = _dispatch_history_facts(api, unit_id)
+    latest, _ = _scan_dispatch_events(api, unit_id)
     return max(attempt_count, latest) + 1
+
+
+def _prior_dispatch_record_ids(api: ExecutionApi, unit_id: str) -> frozenset[str]:
+    """Every `DispatchRecord` id already recorded for this unit -- the no-op
+    guard's membership set (fix round 1/5, Critical 1: NOT the single id at
+    the highest ordinal, which made the guard unsatisfiable)."""
+    _, record_ids = _scan_dispatch_events(api, unit_id)
+    return record_ids
 
 
 def ready(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None) -> int:
@@ -167,13 +216,17 @@ def dispatch(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None
     """SYSTEM: dispatch a READY unit to the runner.
 
     The unit is in flight (READY), so `version`/`attempt_count` come straight
-    off `GET /in-flight-units` -- no probe. The computed `runner_attempt` is
-    then checked against the response: a reused ordinal makes the orchestrator
-    return the pre-existing `DispatchRecord` (same `id`, HTTP 200,
-    `status: "dispatched"`) instead of triggering a new `workflow_dispatch`,
-    so only a NEW record id proves this call actually dispatched anything --
-    the `status` field is identical either way and must never be trusted
-    alone.
+    off `GET /in-flight-units` -- no probe. `runner_attempt` is computed by
+    `next_runner_attempt` (the one function both this call and its own tests
+    exercise -- fix round 1/5, Important 2: it used to have zero production
+    callers, with `dispatch` reimplementing the same arithmetic separately).
+
+    A response is only accepted as a real dispatch when ALL of: (1) its
+    record id is not one already recorded for this unit at any earlier
+    ordinal (any of the four `dispatch.*` outcomes), and (2) `status ==
+    "dispatched"` -- a brand-new record with `status="skipped"` (e.g. the
+    bounded window is closed) proves nothing was dispatched either, and no
+    id check can catch that case because the record really is new.
     """
     api = api or OrchestratorApi()
     try:
@@ -194,8 +247,8 @@ def dispatch(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None
                 file=sys.stderr,
             )
             return 1
-        latest_runner_attempt, prior_dispatch_id = _dispatch_history_facts(api, unit_id)
-        runner_attempt = max(snapshot["attempt_count"], latest_runner_attempt) + 1
+        runner_attempt = next_runner_attempt(api, unit_id, snapshot["attempt_count"])
+        prior_dispatch_ids = _prior_dispatch_record_ids(api, unit_id)
         idempotency_key = f"factory-dispatch-{uuid.uuid4()}"
         response = api.dispatch(
             unit_id,
@@ -210,20 +263,28 @@ def dispatch(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None
         return 1
 
     new_id = response.get("id")
-    if new_id and new_id == prior_dispatch_id:
+    if new_id is not None and new_id in prior_dispatch_ids:
         print(
-            "dispatch was a silent no-op: the orchestrator returned the EXISTING record "
-            f"({prior_dispatch_id}) because runner_attempt {runner_attempt} was already used. "
-            "No workflow_dispatch fired. The response's status field says 'dispatched' either "
-            "way -- never treat it as proof of dispatch.",
+            f"dispatch was a silent no-op: the returned record ({new_id}) was ALREADY in this "
+            "unit's dispatch history -- no new workflow_dispatch fired for this call. The "
+            "response's status field says 'dispatched' either way and is never proof by itself.",
             file=sys.stderr,
         )
         return 1
 
-    print(
-        f"dispatched: record {new_id} (runner_attempt {runner_attempt}), "
-        f"status={response.get('status')}"
-    )
+    status = response.get("status")
+    if status != "dispatched":
+        print(
+            f"dispatch failed: record {new_id} was recorded with status={status!r}, "
+            f"reason_code={response.get('reason_code')!r} -- no workflow_dispatch fired",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"dispatched: record {new_id} (runner_attempt {runner_attempt}), status={status}")
+    run_url = response.get("github_run_url")
+    if run_url:
+        print(f"Actions run: {run_url}")
     print(
         "Reminder: closing the bounded dispatch window restarts the orchestrator -- wait for "
         "terminal (the Actions run concluded, the unit left EXECUTING, and cost-actuals exist) "

@@ -199,6 +199,34 @@ def test_credential_error_surfaces_as_a_clean_api_error():
     assert calls == []  # never reached the transport
 
 
+def test_history_returns_the_bare_array_body_not_a_wrapped_dict():
+    """Fix round 1/5, Critical 4. `GET /work-units/{id}/history` is
+    `response_model=list[EventResponse]` on the orchestrator side -- a bare
+    JSON array, never `{"events": [...]}`. Routed through the plain `_get`,
+    not `_get_dict` (which would raise `invalid_response` on an array
+    body)."""
+
+    def handler(request):
+        return httpx.Response(
+            200, json=[{"action": "dispatch.dispatched", "payload": {"runner_attempt": 1}}]
+        )
+
+    result = _api(handler).history("u1")
+    assert result == [{"action": "dispatch.dispatched", "payload": {"runner_attempt": 1}}]
+
+
+def test_list_proposals_returns_the_bare_array_body_not_a_wrapped_dict():
+    """Fix round 1/5, Important 1. Same defect, same fix:
+    `GET .../decomposition-proposals` is a bare array, never
+    `{"items": [...]}`."""
+
+    def handler(request):
+        return httpx.Response(200, json=[{"id": "p1", "state": "approved"}])
+
+    result = _api(handler).list_proposals("r1")
+    assert result == [{"id": "p1", "state": "approved"}]
+
+
 def test_in_flight_units_hits_the_right_path_and_returns_the_parsed_body():
     seen = {}
 
