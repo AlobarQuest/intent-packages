@@ -268,6 +268,285 @@ applicable_standards:
 """
 
 
+# A complete, valid dependency-update-profile package (WS-P2.10 task 6/9).
+_DEPENDENCY_UPDATE_PACKAGE_YAML = """\
+schema_version: 1
+package_id: sample-dependency-update-package
+title: "A sample dependency-update profile package"
+revision: 1
+status: draft
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-03T00:00:00Z"
+supersedes: null
+profile: dependency-update
+profile_fields:
+  target_repo: "AlobarQuest/intent-packages"
+  package: "requests"
+  from_version: "2.31.0"
+  to_version: "2.32.0"
+outcome:
+  what: "The dependency-update profile validates end to end."
+  why: "To prove the profile validator works."
+  beneficiary: "The software factory."
+  success_signal: "validate returns no errors."
+scope:
+  included: ["the dependency-update profile"]
+  excluded: ["other profiles"]
+  non_goals: ["building the orchestrator"]
+  assumptions: ["python 3.12 available"]
+  open_questions: []
+sources:
+  - location: "WS-P2.10 design spec"
+    authority_level: authoritative
+    required_version: "2026-07-04"
+    trust: trusted_instruction
+    sensitivity: internal
+constraints:
+  time_budget: null
+  technology: "Python 3.12+"
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+acceptance:
+  - id: AC-001
+    condition: "the target repo's named check passes on the PR head"
+    evidence_type: automated_check
+    evidence: "ci: named check passes on the PR head"
+    approver: policy
+  - id: AC-002
+    condition: "a human confirms the version bump is safe to ship"
+    evidence_type: human_review
+    evidence: "human: reviewed changelog and confirmed no breaking changes"
+    approver: policy
+deliverables:
+  artifacts: ["the validated package"]
+  destination: "packages/"
+  recipient: "devon"
+  definition_of_done: "validate passes"
+  operator_responsibilities: []
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+authority:
+  allowed: [repository_read, repository_write, test_execution]
+  requires_approval: [merge_to_main]
+  prohibited: [secret_write]
+  budgets:
+    max_attempts: null
+    max_llm_calls: null
+risk:
+  failure_modes: ["schema drift"]
+  max_impact: "low"
+  stop_conditions: ["validate errors"]
+  rollback: "revert the package file"
+  escalation_target: "devon"
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: "1.0"
+"""
+
+
+# A complete, valid maintenance-remediation-profile package (WS-P2.10 task 7).
+_MAINTENANCE_REMEDIATION_PACKAGE_YAML = """\
+schema_version: 1
+package_id: sample-maintenance-remediation-package
+title: "A sample maintenance-remediation profile package"
+revision: 1
+status: draft
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-03T00:00:00Z"
+supersedes: null
+profile: maintenance-remediation
+profile_fields:
+  repo: "AlobarQuest/intent-packages"
+  remediation_source: "backlog item WS-P3.2-drift-7"
+  rollback_plan: "git revert the remediation commit"
+outcome:
+  what: "The maintenance-remediation profile validates end to end."
+  why: "To prove the profile validator works."
+  beneficiary: "The software factory."
+  success_signal: "validate returns no errors."
+scope:
+  included: ["the maintenance-remediation profile"]
+  excluded: ["other profiles"]
+  non_goals: ["building the orchestrator"]
+  assumptions: ["python 3.12 available"]
+  open_questions: []
+sources:
+  - location: "WS-P2.10 design spec"
+    authority_level: authoritative
+    required_version: "2026-07-04"
+    trust: trusted_instruction
+    sensitivity: internal
+constraints:
+  time_budget: null
+  technology: "Python 3.12+"
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+acceptance:
+  - id: AC-001
+    condition: "the target repo's named check passes on the PR head"
+    evidence_type: automated_check
+    evidence: "ci: named check passes on the PR head"
+    approver: policy
+  - id: AC-002
+    condition: "a human confirms the handoff item is closed"
+    evidence_type: human_review
+    evidence: "human: confirmed the remediation closes the handoff item"
+    approver: policy
+deliverables:
+  artifacts: ["the validated package"]
+  destination: "packages/"
+  recipient: "devon"
+  definition_of_done: "validate passes"
+  operator_responsibilities: []
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+authority:
+  allowed: [repository_read, repository_write, test_execution]
+  requires_approval: [merge_to_main]
+  prohibited: [secret_write]
+  budgets:
+    max_attempts: null
+    max_llm_calls: null
+risk:
+  failure_modes: ["schema drift"]
+  max_impact: "low"
+  stop_conditions: ["validate errors"]
+  rollback: "revert the package file"
+  escalation_target: "devon"
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: "1.0"
+"""
+
+
+# A complete, valid non-software-operational-profile package (WS-P2.10 task 8).
+_NON_SOFTWARE_OPERATIONAL_PACKAGE_YAML = """\
+schema_version: 1
+package_id: sample-non-software-operational-package
+title: "A sample non-software-operational profile package"
+revision: 1
+status: draft
+created_by: claude-code-interactive
+owner: devon
+created_at: "2026-07-03T00:00:00Z"
+supersedes: null
+profile: non-software-operational
+profile_fields:
+  owner: "devon"
+  operating_procedure: "listing launch checklist v1"
+  external_systems: ["mls", "zillow"]
+outcome:
+  what: "The non-software-operational profile validates end to end."
+  why: "To prove the profile validator works."
+  beneficiary: "The software factory."
+  success_signal: "validate returns no errors."
+scope:
+  included: ["the non-software-operational profile"]
+  excluded: ["other profiles"]
+  non_goals: ["building the orchestrator"]
+  assumptions: ["python 3.12 available"]
+  open_questions: []
+sources:
+  - location: "WS-P2.10 design spec"
+    authority_level: authoritative
+    required_version: "2026-07-04"
+    trust: trusted_instruction
+    sensitivity: internal
+constraints:
+  time_budget: null
+  technology: "Python 3.12+"
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+acceptance:
+  - id: AC-001
+    condition: "a human confirms the operating procedure was followed"
+    evidence_type: human_review
+    evidence: "human: confirmed the operating procedure was followed"
+    approver: policy
+  - id: AC-002
+    condition: "the external system confirms the listing is live"
+    evidence_type: external_attestation
+    evidence: "external: MLS confirms the listing is live"
+    approver: "external:mls-vendor"
+  - id: AC-003
+    condition: "days-on-market signal is observed post-launch"
+    evidence_type: observation
+    evidence: "observation: days-on-market tracked for 30 days"
+    approver: policy
+deliverables:
+  artifacts: ["the validated package"]
+  destination: "packages/"
+  recipient: "devon"
+  definition_of_done: "validate passes"
+  operator_responsibilities: []
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+authority:
+  allowed: [repository_read, repository_write, test_execution]
+  requires_approval: [merge_to_main]
+  prohibited: [secret_write]
+  budgets:
+    max_attempts: null
+    max_llm_calls: null
+risk:
+  failure_modes: ["schema drift"]
+  max_impact: "low"
+  stop_conditions: ["validate errors"]
+  rollback: "revert the package file"
+  escalation_target: "devon"
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: "1.0"
+"""
+
+
 def _read_yaml(path: Path):
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
@@ -386,6 +665,101 @@ def infrastructure_change_package(tmp_path):
     package_hash = canonical.package_hash(loader.load_package(pkg_dir))
     lineage = {
         "package_id": "sample-infrastructure-change-package",
+        "current_state": "draft",
+        "revisions": [
+            {
+                "revision": 1,
+                "hash": package_hash,
+                "created_at": "2026-07-03T00:00:00Z",
+                "author": "claude-code-interactive",
+            }
+        ],
+        "transitions": [],
+        "approvals": [],
+        "grants": [],
+    }
+    _write_yaml(pkg_dir / "lineage.yaml", lineage)
+
+    return pkg_dir
+
+
+@pytest.fixture
+def dependency_update_package(tmp_path):
+    """Write a complete, valid packages/sample-dependency-update-package/ dir
+    (profile: dependency-update), mirroring the `valid_package` fixture."""
+    from intent_packages import canonical, loader
+
+    pkg_dir = tmp_path / "packages" / "sample-dependency-update-package"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "package.yaml").write_text(_DEPENDENCY_UPDATE_PACKAGE_YAML, encoding="utf-8")
+
+    package_hash = canonical.package_hash(loader.load_package(pkg_dir))
+    lineage = {
+        "package_id": "sample-dependency-update-package",
+        "current_state": "draft",
+        "revisions": [
+            {
+                "revision": 1,
+                "hash": package_hash,
+                "created_at": "2026-07-03T00:00:00Z",
+                "author": "claude-code-interactive",
+            }
+        ],
+        "transitions": [],
+        "approvals": [],
+        "grants": [],
+    }
+    _write_yaml(pkg_dir / "lineage.yaml", lineage)
+
+    return pkg_dir
+
+
+@pytest.fixture
+def maintenance_remediation_package(tmp_path):
+    """Write a complete, valid packages/sample-maintenance-remediation-package/
+    dir (profile: maintenance-remediation), mirroring the `valid_package`
+    fixture."""
+    from intent_packages import canonical, loader
+
+    pkg_dir = tmp_path / "packages" / "sample-maintenance-remediation-package"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "package.yaml").write_text(_MAINTENANCE_REMEDIATION_PACKAGE_YAML, encoding="utf-8")
+
+    package_hash = canonical.package_hash(loader.load_package(pkg_dir))
+    lineage = {
+        "package_id": "sample-maintenance-remediation-package",
+        "current_state": "draft",
+        "revisions": [
+            {
+                "revision": 1,
+                "hash": package_hash,
+                "created_at": "2026-07-03T00:00:00Z",
+                "author": "claude-code-interactive",
+            }
+        ],
+        "transitions": [],
+        "approvals": [],
+        "grants": [],
+    }
+    _write_yaml(pkg_dir / "lineage.yaml", lineage)
+
+    return pkg_dir
+
+
+@pytest.fixture
+def non_software_operational_package(tmp_path):
+    """Write a complete, valid
+    packages/sample-non-software-operational-package/ dir (profile:
+    non-software-operational), mirroring the `valid_package` fixture."""
+    from intent_packages import canonical, loader
+
+    pkg_dir = tmp_path / "packages" / "sample-non-software-operational-package"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "package.yaml").write_text(_NON_SOFTWARE_OPERATIONAL_PACKAGE_YAML, encoding="utf-8")
+
+    package_hash = canonical.package_hash(loader.load_package(pkg_dir))
+    lineage = {
+        "package_id": "sample-non-software-operational-package",
         "current_state": "draft",
         "revisions": [
             {

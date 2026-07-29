@@ -44,6 +44,24 @@ def test_forbidden_check_empty_set_is_noop():
     assert base.check_forbidden_evidence_types(pkg, frozenset()) == []
 
 
+def test_factory_executable_profiles_match_routing_change_classes():
+    # A profile with a change_class REQUIRES a routing row, and every routing
+    # row must belong to a registered factory-executable profile — the
+    # design's "shipping a new factory-executable profile requires adding its
+    # routing row in the same change", enforced instead of remembered.
+    from intent_packages import routing
+
+    declared = {p.change_class for p in profiles.PROFILES.values() if p.change_class is not None}
+    assert declared == set(routing.load_policy().change_classes)
+
+
+def test_no_registered_profile_is_a_silent_noop():
+    # A reporting/validation obligation that can be switched off is one that
+    # will be: every registered profile must actually check something.
+    for name, profile in profiles.PROFILES.items():
+        assert profile.validate is not None or profile.forbidden_evidence_types, name
+
+
 def test_validate_profile_applies_profile_forbid_set(monkeypatch):
     strict = base.DeliveryProfile(
         name="strict-profile", forbidden_evidence_types=frozenset({"automated_test"})
