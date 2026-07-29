@@ -202,9 +202,7 @@ def test_credential_error_surfaces_as_a_clean_api_error():
 def test_history_returns_the_bare_array_body_not_a_wrapped_dict():
     """Fix round 1/5, Critical 4. `GET /work-units/{id}/history` is
     `response_model=list[EventResponse]` on the orchestrator side -- a bare
-    JSON array, never `{"events": [...]}`. Routed through the plain `_get`,
-    not `_get_dict` (which would raise `invalid_response` on an array
-    body)."""
+    JSON array, never `{"events": [...]}`. Routed through `_get_list`."""
 
     def handler(request):
         return httpx.Response(
@@ -215,16 +213,43 @@ def test_history_returns_the_bare_array_body_not_a_wrapped_dict():
     assert result == [{"action": "dispatch.dispatched", "payload": {"runner_attempt": 1}}]
 
 
+def test_history_rejects_a_non_array_body():
+    """Fix round 2/5. Between fix rounds 1 and 2, `history()` was routed
+    through the plain `_get`, which let a malformed (non-array) body reach
+    `_scan_dispatch_events` untyped -- it iterates a dict's KEYS, and
+    `event.get("action", "")` then raised a raw `AttributeError: 'str' object
+    has no attribute 'get'`. `_get_list` must raise a clean `ApiError`
+    instead, before that code is ever reached."""
+
+    def handler(request):
+        return httpx.Response(200, json={"events": []})
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).history("u1")
+    assert error.value.code == "invalid_response"
+
+
 def test_list_proposals_returns_the_bare_array_body_not_a_wrapped_dict():
     """Fix round 1/5, Important 1. Same defect, same fix:
     `GET .../decomposition-proposals` is a bare array, never
-    `{"items": [...]}`."""
+    `{"items": [...]}`. Routed through `_get_list`."""
 
     def handler(request):
         return httpx.Response(200, json=[{"id": "p1", "state": "approved"}])
 
     result = _api(handler).list_proposals("r1")
     assert result == [{"id": "p1", "state": "approved"}]
+
+
+def test_list_proposals_rejects_a_non_array_body():
+    """Fix round 2/5. Same regression, same fix as `history()`."""
+
+    def handler(request):
+        return httpx.Response(200, json={"items": []})
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).list_proposals("r1")
+    assert error.value.code == "invalid_response"
 
 
 def test_in_flight_units_hits_the_right_path_and_returns_the_parsed_body():

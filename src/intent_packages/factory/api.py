@@ -122,6 +122,22 @@ class OrchestratorApi:
             raise ApiError("invalid_response", "the API returned a non-object body")
         return value
 
+    def _request_list(
+        self, method: str, path: str, role: Role, payload: dict | None = None
+    ) -> list:
+        """Like `_request_dict`, but for endpoints whose contract is a JSON array.
+
+        A body that decoded as a JSON object (or anything else non-list) would
+        otherwise reach a `-> list[dict]` method's caller untyped and fail with a
+        raw `AttributeError` on the first iteration/`.get(...)` -- instead of a
+        clean `ApiError`. Mirrors `_request_dict`'s reasoning for the opposite
+        shape.
+        """
+        value = self._request(method, path, role, payload)
+        if not isinstance(value, list):
+            raise ApiError("invalid_response", "the API returned a non-array body")
+        return value
+
     def _request_text(self, path: str, role: Role = Role.SYSTEM) -> str:
         return self._send("GET", path, role, None).text
 
@@ -130,6 +146,9 @@ class OrchestratorApi:
 
     def _get_dict(self, path: str, role: Role = Role.SYSTEM) -> dict:
         return self._request_dict("GET", path, role)
+
+    def _get_list(self, path: str, role: Role = Role.SYSTEM) -> list:
+        return self._request_list("GET", path, role)
 
     def _post(self, path: str, payload: dict, role: Role = Role.SYSTEM) -> Any:
         return self._request("POST", path, role, payload)
@@ -143,8 +162,10 @@ class OrchestratorApi:
 
     def list_proposals(self, revision_id: str) -> list[dict]:
         """The route's body is a bare JSON array, not `{"items": [...]}` -- routed
-        through the plain `_get`, not `_get_dict` (which would reject it)."""
-        return self._get(f"/api/v1/package-intakes/{revision_id}/decomposition-proposals")
+        through `_get_list`, which raises a clean `ApiError` on a non-array body
+        (fix round 2/5: `_get` alone let a malformed body reach the caller
+        untyped)."""
+        return self._get_list(f"/api/v1/package-intakes/{revision_id}/decomposition-proposals")
 
     def traceability(self, *, revision_id: str | None = None, work_unit_id: str | None = None):
         if not revision_id and not work_unit_id:
@@ -163,9 +184,11 @@ class OrchestratorApi:
 
     def history(self, unit_id: str) -> list[dict]:
         """The route's body is a bare JSON array (`response_model=list[EventResponse]`
-        on the orchestrator side), not `{"events": [...]}` -- routed through the
-        plain `_get`, not `_get_dict` (which would reject an array body)."""
-        return self._get(f"/api/v1/work-units/{unit_id}/history")
+        on the orchestrator side), not `{"events": [...]}` -- routed through
+        `_get_list`, which raises a clean `ApiError` on a non-array body (fix
+        round 2/5: a malformed body used to reach `_scan_dispatch_events`
+        untyped and raise a raw `AttributeError` iterating a dict's keys)."""
+        return self._get_list(f"/api/v1/work-units/{unit_id}/history")
 
     def in_flight_units(self) -> dict:
         """READY (and every other in-flight-but-not-DRAFT) unit's `version` and

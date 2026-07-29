@@ -1,4 +1,7 @@
+import httpx
+
 from intent_packages.factory import execution
+from intent_packages.factory.api import OrchestratorApi
 
 
 def _fake_api(**overrides):
@@ -88,20 +91,32 @@ def _history_with_dispatch(runner_attempt, dispatch_record_id):
     return history
 
 
-# -- next_runner_attempt -----------------------------------------------------
+# -- next_runner_attempt (pure arithmetic, fix round 2/5) --------------------
+#
+# Fix round 2/5 changed the signature from `(api, unit_id, attempt_count)` to
+# `(attempt_count, latest_runner_attempt)`: `dispatch()` used to call
+# `next_runner_attempt` (one `history()` fetch) AND a second helper for the
+# no-op guard's record-id set (a second `history()` fetch) -- two reads of
+# the same data, and a real TOCTOU window between them. `next_runner_attempt`
+# is now a pure function over facts `_scan_dispatch_events` already produced
+# in ONE scan; `dispatch()` calls that scan once and feeds both outputs
+# onward. It is still the actual function `dispatch()` calls for the
+# ordinal (Important 2, fix round 1/5) -- it just no longer does its own I/O.
 
 
 def test_next_runner_attempt_uses_the_max_of_both_counters():
-    api = _fake_api(history=_history_with_dispatch(2, "d-2"))
-    assert execution.next_runner_attempt(api, "u1", attempt_count=1) == 3
-    assert execution.next_runner_attempt(api, "u1", attempt_count=5) == 6
+    assert execution.next_runner_attempt(1, 2) == 3
+    assert execution.next_runner_attempt(5, 2) == 6
 
 
 def test_next_runner_attempt_is_one_when_never_dispatched():
-    assert execution.next_runner_attempt(_fake_api(), "u1", attempt_count=0) == 1
+    assert execution.next_runner_attempt(0, 0) == 1
 
 
-def test_next_runner_attempt_reads_the_action_field_not_type():
+# -- _scan_dispatch_events (the single history scan) -------------------------
+
+
+def test_scan_dispatch_events_reads_the_action_field_not_type():
     """The real orchestrator event field is `action` (`EventResponse.action`),
     never `type`. An event carrying `type` instead of `action` must be
     invisible to the scan -- proving the matcher keys on the field that is
@@ -110,20 +125,22 @@ def test_next_runner_attempt_reads_the_action_field_not_type():
     def history(unit_id):
         return [{"type": "dispatch.dispatched", "payload": {"runner_attempt": 9}}]
 
-    assert execution.next_runner_attempt(_fake_api(history=history), "u1", attempt_count=0) == 1
+    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    assert (latest, ids) == (0, frozenset())
 
 
-def test_next_runner_attempt_ignores_non_dispatch_events():
+def test_scan_dispatch_events_ignores_non_dispatch_events():
     def history(unit_id):
         return [
             {"action": "unit.claimed", "payload": {}},
             {"action": "work_unit.transitioned", "payload": {"version": 3}},
         ]
 
-    assert execution.next_runner_attempt(_fake_api(history=history), "u1", attempt_count=2) == 3
+    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    assert (latest, ids) == (0, frozenset())
 
 
-def test_next_runner_attempt_counts_a_skipped_decision_as_a_consumed_ordinal():
+def test_scan_dispatch_events_counts_a_skipped_decision_as_a_consumed_ordinal():
     """Fix round 1/5, Critical 2 regression. `DISPATCH_RECORD_STATUSES` is
     `(dispatched, skipped, blocked, failed)`; all four go through
     `_record_dispatch` with the SAME `runner_attempt` under
@@ -137,17 +154,33 @@ def test_next_runner_attempt_counts_a_skipped_decision_as_a_consumed_ordinal():
     def history(unit_id):
         return [_dispatch_event("dispatch.skipped", 1, "d-1")]
 
-    assert execution.next_runner_attempt(_fake_api(history=history), "u1", attempt_count=0) == 2
+    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    assert (latest, ids) == (1, frozenset({"d-1"}))
 
 
-def test_next_runner_attempt_counts_blocked_and_failed_too():
+def test_scan_dispatch_events_counts_blocked_and_failed_too():
     def history(unit_id):
         return [
             _dispatch_event("dispatch.blocked", 1, "d-1"),
             _dispatch_event("dispatch.failed", 2, "d-2"),
         ]
 
-    assert execution.next_runner_attempt(_fake_api(history=history), "u1", attempt_count=0) == 3
+    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    assert (latest, ids) == (2, frozenset({"d-1", "d-2"}))
+
+
+def test_scan_dispatch_events_collects_every_record_id_not_just_the_latest():
+    """Fix round 1/5, Critical 1 regression: the record-id set must carry
+    EVERY prior dispatch record, not only the one at the highest ordinal."""
+
+    def history(unit_id):
+        return [
+            _dispatch_event("dispatch.dispatched", 1, "d-1"),
+            _dispatch_event("dispatch.dispatched", 2, "d-2"),
+        ]
+
+    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    assert (latest, ids) == (2, frozenset({"d-1", "d-2"}))
 
 
 # -- dispatch: the no-op detection -------------------------------------------
@@ -239,8 +272,8 @@ def test_dispatch_calls_next_runner_attempt_not_a_parallel_implementation(monkey
     asserting the POST payload carries exactly the value it returned."""
     seen = {}
 
-    def fake_next_runner_attempt(api, unit_id, attempt_count):
-        seen["called_with"] = (unit_id, attempt_count)
+    def fake_next_runner_attempt(attempt_count, latest_runner_attempt):
+        seen["called_with"] = (attempt_count, latest_runner_attempt)
         return 99
 
     def dispatch(unit_id, payload):
@@ -250,8 +283,84 @@ def test_dispatch_calls_next_runner_attempt_not_a_parallel_implementation(monkey
     monkeypatch.setattr(execution, "next_runner_attempt", fake_next_runner_attempt)
     rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(dispatch=dispatch))
     assert rc == 0
-    assert seen["called_with"] == ("u1", 0)
+    assert seen["called_with"] == (0, 0)
     assert seen["payload"]["runner_attempt"] == 99
+
+
+def test_dispatch_reads_history_exactly_once_over_the_real_api():
+    """Fix round 2/5 regression. `dispatch()` used to call `history()` TWICE
+    -- once inside `next_runner_attempt`'s own fetch, once more inside a
+    second helper for the no-op guard's record-id set -- a wasted round trip
+    and a real TOCTOU window (a concurrent dispatch landing between the two
+    reads could make them disagree). Counts the actual HTTP requests through
+    a mock transport on a REAL `OrchestratorApi`, not the duck-typed fake, so
+    a regression that reintroduces a second internal call site is caught
+    even if it doesn't touch `_scan_dispatch_events` itself."""
+    seen = []
+
+    def handler(request):
+        path = request.url.path
+        seen.append((request.method, path))
+        if path == "/api/v1/traceability":
+            return httpx.Response(
+                200,
+                json={
+                    "anchor": {"kind": "revision"},
+                    "chains": [
+                        {
+                            "unit": {
+                                "id": "u1",
+                                "unit_key": "bump-fastapi",
+                                "state": "ready",
+                                "authority_fingerprint": "fp1",
+                                "authority_approved_by": "devon",
+                                "authority_decision": "approved",
+                            },
+                            "pr": None,
+                        }
+                    ],
+                },
+            )
+        if path == "/api/v1/in-flight-units":
+            return httpx.Response(
+                200,
+                json={
+                    "units": [
+                        {
+                            "work_unit_id": "u1",
+                            "unit_key": "bump-fastapi",
+                            "version": 3,
+                            "attempt_count": 1,
+                        }
+                    ],
+                    "release_bindings": [],
+                },
+            )
+        if path == "/api/v1/work-units/u1/history":
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "action": "dispatch.dispatched",
+                        "payload": {"runner_attempt": 2, "dispatch_record_id": "d-2"},
+                    }
+                ],
+            )
+        if path == "/api/v1/work-units/u1/dispatch":
+            return httpx.Response(
+                200, json={"id": "d-new", "status": "dispatched", "reason_code": None}
+            )
+        raise AssertionError(f"unexpected request: {request.method} {path}")
+
+    api = OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(handler),
+        token_resolver=lambda role: "t",
+    )
+    rc = execution.dispatch("r1", "bump-fastapi", api=api)
+    assert rc == 0
+    history_calls = [p for m, p in seen if p == "/api/v1/work-units/u1/history"]
+    assert len(history_calls) == 1
 
 
 def test_dispatch_posts_the_computed_runner_attempt_and_in_flight_version():

@@ -134,10 +134,11 @@ def _scan_dispatch_events(api: ExecutionApi, unit_id: str) -> tuple[int, frozens
     Critical 2) -- e.g. a dispatch skipped by a closed window still
     occupies its ordinal.
 
-    This is the single scan both `next_runner_attempt` (the ordinal) and
-    `dispatch` (the full record-id set, for the no-op guard) are built
-    from -- one predicate, in one place, not two copies that could drift
-    apart again.
+    Called exactly ONCE per `dispatch()` invocation -- one `api.history()`
+    request, not two (fix round 2/5). `dispatch()` feeds the returned
+    `latest` into `next_runner_attempt` and the returned record-id set
+    straight into the no-op guard, rather than re-deriving either
+    separately.
     """
     latest = 0
     record_ids: set[str] = set()
@@ -155,25 +156,30 @@ def _scan_dispatch_events(api: ExecutionApi, unit_id: str) -> tuple[int, frozens
     return latest, frozenset(record_ids)
 
 
-def next_runner_attempt(api: ExecutionApi, unit_id: str, attempt_count: int) -> int:
-    """The next dispatch ordinal.
+def next_runner_attempt(attempt_count: int, latest_runner_attempt: int) -> int:
+    """The next dispatch ordinal, given facts already scanned from `history`.
 
     Dispatch and claim ordinals are INDEPENDENT: `DispatchRecord.runner_attempt`
     counts dispatch decisions including skipped ones, while `attempt_count`
     counts worker claims. They drift apart the moment a dispatch is skipped or
     a claim is reclaimed, so `attempt_count + 1` is not a safe substitute for
     either.
+
+    Fix round 2/5: this used to take `(api, unit_id, attempt_count)` and do
+    its own `_scan_dispatch_events` call -- so `dispatch()`, which also needs
+    the record-id set from that same scan, called it twice (once here, once
+    via a second helper), issuing two `api.history()` requests for what
+    should be one atomic read. The fix for Important 2 (fix round 1/5) was
+    never "this function must do its own I/O" -- only that `dispatch()` must
+    call the SAME tested arithmetic it is measured by, not a parallel inline
+    copy. Making this a pure function over the scan's own outputs satisfies
+    that while collapsing the read to one: `dispatch()` (and only
+    `dispatch()`) calls `_scan_dispatch_events`, once, and feeds both
+    resulting facts onward -- `latest_runner_attempt` here, the record-id set
+    into the no-op guard. Two sequential reads could also disagree if a
+    concurrent dispatch landed in between; one read cannot.
     """
-    latest, _ = _scan_dispatch_events(api, unit_id)
-    return max(attempt_count, latest) + 1
-
-
-def _prior_dispatch_record_ids(api: ExecutionApi, unit_id: str) -> frozenset[str]:
-    """Every `DispatchRecord` id already recorded for this unit -- the no-op
-    guard's membership set (fix round 1/5, Critical 1: NOT the single id at
-    the highest ordinal, which made the guard unsatisfiable)."""
-    _, record_ids = _scan_dispatch_events(api, unit_id)
-    return record_ids
+    return max(attempt_count, latest_runner_attempt) + 1
 
 
 def ready(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None) -> int:
@@ -216,10 +222,13 @@ def dispatch(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None
     """SYSTEM: dispatch a READY unit to the runner.
 
     The unit is in flight (READY), so `version`/`attempt_count` come straight
-    off `GET /in-flight-units` -- no probe. `runner_attempt` is computed by
-    `next_runner_attempt` (the one function both this call and its own tests
-    exercise -- fix round 1/5, Important 2: it used to have zero production
-    callers, with `dispatch` reimplementing the same arithmetic separately).
+    off `GET /in-flight-units` -- no probe. `history` is read exactly ONCE
+    (fix round 2/5: it used to be read twice -- once to derive the ordinal,
+    once more to derive the no-op guard's record-id set -- which was both a
+    wasted round trip and a real TOCTOU window, since a concurrent dispatch
+    landing between the two reads could make them disagree). `runner_attempt`
+    is computed by `next_runner_attempt`, the one function both this call and
+    its own tests exercise for the arithmetic (fix round 1/5, Important 2).
 
     A response is only accepted as a real dispatch when ALL of: (1) its
     record id is not one already recorded for this unit at any earlier
@@ -247,8 +256,8 @@ def dispatch(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None
                 file=sys.stderr,
             )
             return 1
-        runner_attempt = next_runner_attempt(api, unit_id, snapshot["attempt_count"])
-        prior_dispatch_ids = _prior_dispatch_record_ids(api, unit_id)
+        latest_runner_attempt, prior_dispatch_ids = _scan_dispatch_events(api, unit_id)
+        runner_attempt = next_runner_attempt(snapshot["attempt_count"], latest_runner_attempt)
         idempotency_key = f"factory-dispatch-{uuid.uuid4()}"
         response = api.dispatch(
             unit_id,
