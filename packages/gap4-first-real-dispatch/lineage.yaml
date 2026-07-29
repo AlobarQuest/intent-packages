@@ -1,0 +1,23 @@
+package_id: gap4-first-real-dispatch
+current_state: approved
+revisions:
+- revision: 1
+  hash: 55a8afe66506f47b2cbb11e91e5f40a4dd76f964a10d99f3426d8c338eafa32f
+  created_at: '2026-07-28T23:35:00Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-28T23:37:23.234074+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-28T23:37:23.234074+00:00'
+  actor: claude-code-interactive
+  event_id: evt-5d3135974f7642a3a331d3b7b1ee4276
+approvals:
+- revision: 1
+  approved_hash: 55a8afe66506f47b2cbb11e91e5f40a4dd76f964a10d99f3426d8c338eafa32f
+  approver: devon
+  approved_at: '2026-07-29T00:21:55.254627+00:00'
+  commit: 16e0b38b406c6a54c60600589b779daf5d282819
+  event_id: evt-fb29e512a3644c2f897467b0776488ac
+grants: []
