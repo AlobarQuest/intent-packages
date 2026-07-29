@@ -1,3 +1,4 @@
+import httpx
 import yaml
 
 from intent_packages.factory import journey
@@ -241,6 +242,23 @@ def test_unknown_unit_key_lists_the_real_ones(capsys):
     assert "bump-fastapi" in capsys.readouterr().err
 
 
+def test_evidence_with_unit_key_uses_the_unit_pack_as_json(capsys):
+    """The most common invocation: a known --unit-key, no --markdown. Must hit
+    `evidence_pack` (not `evidence_pack_markdown` or `revision_evidence_pack`)
+    and print it as JSON."""
+    called = {}
+
+    def evidence_pack(unit_id):
+        called["unit"] = unit_id
+        return {"unit_id": unit_id, "acceptance_criteria": []}
+
+    rc = journey.evidence("r1", unit_key="bump-fastapi", api=_fake_api(evidence_pack=evidence_pack))
+    assert rc == 0
+    assert called["unit"] == "u1"
+    out = capsys.readouterr().out
+    assert '"unit_id": "u1"' in out
+
+
 def test_status_requires_a_revision_when_none_given(capsys, monkeypatch):
     monkeypatch.delenv("FACTORY_REVISION", raising=False)
     rc = journey.status("", api=_fake_api())
@@ -372,3 +390,60 @@ def test_units_for_derives_flat_unit_dicts_with_pr_when_present():
     assert [u["unit_key"] for u in units] == ["k1", "k2"]
     assert "pr" not in units[0]
     assert units[1]["pr"] == {"number": 7, "state": "open"}
+
+
+def test_status_drives_a_real_api_with_the_expected_methods_and_paths():
+    """Wire-fidelity canary: a REAL `OrchestratorApi` over a mock transport --
+    not a duck-typed fake (same reasoning as `test_decompose.py`'s
+    `_api_returning_intake`). The eighteen behavioural tests above stay on the
+    duck-typed `_fake_api()` fixture on purpose -- converting all of them to
+    stateful `MockTransport` routing would burden output-formatting tests with
+    HTTP plumbing for no additional protection. This one test buys back the
+    guarantee that `RevisionApi`'s method names and `traceability`'s query
+    params are what the real API actually expects, at the cost of one test
+    rather than eighteen."""
+    seen = []
+
+    def handler(request):
+        path = request.url.path
+        seen.append((request.method, path))
+        if path == "/api/v1/package-intakes/r1":
+            return httpx.Response(200, json={"id": "r1", "state": "intaken"})
+        if path == "/api/v1/package-intakes/r1/decomposition-proposals":
+            return httpx.Response(200, json={"items": []})
+        if path == "/api/v1/traceability":
+            assert dict(request.url.params) == {"revision_id": "r1"}
+            return httpx.Response(
+                200,
+                json={
+                    "anchor": {"kind": "revision"},
+                    "chains": [
+                        {
+                            "unit": {
+                                "id": "u1",
+                                "unit_key": "bump-fastapi",
+                                "state": "ready",
+                                "authority_fingerprint": "fp1",
+                                "authority_approved_by": "devon",
+                                "authority_decision": "approved",
+                            },
+                            "pr": None,
+                        }
+                    ],
+                },
+            )
+        if path == "/api/v1/work-units/u1/history":
+            return httpx.Response(200, json={"events": []})
+        raise AssertionError(f"unexpected request: {request.method} {path}")
+
+    api = OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(handler),
+        token_resolver=lambda role: "t",
+    )
+    rc = journey.status("r1", api=api)
+    assert rc == 0
+    assert ("GET", "/api/v1/package-intakes/r1") in seen
+    assert ("GET", "/api/v1/package-intakes/r1/decomposition-proposals") in seen
+    assert ("GET", "/api/v1/traceability") in seen
+    assert ("GET", "/api/v1/work-units/u1/history") in seen

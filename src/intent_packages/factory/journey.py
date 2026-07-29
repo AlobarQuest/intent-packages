@@ -47,9 +47,12 @@ class RevisionApi(Protocol):
     """The read surface `status`/`evidence`/`units_for` need.
 
     A structural protocol, same reasoning as `IntakeClient`: a test double
-    only has to implement these eight methods, not *be* an `OrchestratorApi`.
+    only has to implement these seven methods, not *be* an `OrchestratorApi`.
     The concrete `OrchestratorApi` satisfies this structurally, so production
-    callers pass it unchanged.
+    callers pass it unchanged. `readiness` is deliberately absent: nothing
+    here calls it (fix round 1/5, task 7) -- `_next_action` derives the next
+    step entirely from `unit["state"]`, so fetching readiness per unit was an
+    HTTP round trip for a value nothing ever read.
     """
 
     def get_intake(self, revision_id: str) -> dict: ...
@@ -57,7 +60,6 @@ class RevisionApi(Protocol):
     def traceability(
         self, *, revision_id: str | None = None, work_unit_id: str | None = None
     ) -> Any: ...
-    def readiness(self, unit_id: str) -> dict: ...
     def history(self, unit_id: str) -> dict: ...
     def evidence_pack(self, unit_id: str) -> dict: ...
     def revision_evidence_pack(self, revision_id: str) -> dict: ...
@@ -223,7 +225,7 @@ def units_for(api: RevisionApi, revision_id: str) -> list[dict]:
     return units
 
 
-def _next_action(base_url: str, unit: dict, readiness: dict) -> str:
+def _next_action(base_url: str, unit: dict) -> str:
     if unit["state"] == "draft" and unit.get("authority_decision") == "approved":
         return (
             f"authority approved but the unit is still DRAFT -- authority approval does not move "
@@ -272,8 +274,7 @@ def _print_units(base_url: str, api: RevisionApi, units: list[dict]) -> None:
             else "no authority approval recorded"
         )
         print(f"  {unit['unit_key']} [{unit['state']}] -- {approval}")
-        readiness = api.readiness(unit["id"])
-        print(f"    next: {_next_action(base_url, unit, readiness)}")
+        print(f"    next: {_next_action(base_url, unit)}")
         events = api.history(unit["id"]).get("events") or []
         if events:
             print(f"    history: {len(events)} event(s) recorded")
