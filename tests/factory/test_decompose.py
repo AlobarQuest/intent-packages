@@ -144,6 +144,74 @@ def test_run_end_to_end_no_submit(tmp_path, capsys, portable_pip):
     assert body["ac_mappings"][0]["ac_id"] == "uuid-2"
 
 
+def test_routing_note_lands_in_rationale(tmp_path, capsys, portable_pip):
+    repo = _git_repo(tmp_path)
+    out_file = tmp_path / "proposal.json"
+
+    def runner(argv):
+        cmd = argv[1]
+        body = _INTAKE if cmd == "show-package-intake" else _CONFORMANCE
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
+
+    rc = decompose.run(
+        revision="rev-1",
+        ac="AC-002",
+        target_repo="AlobarQuest/brain",
+        repo_path=str(repo),
+        tooling="pip",
+        package="fastapi",
+        from_version="0.139.0",
+        to_version="0.139.2",
+        unit_key="",
+        rationale="",
+        out=str(out_file),
+        submit=False,
+        client=OrchestratorClient(runner=runner),
+    )
+    assert rc == 0
+    proposal = json.loads(out_file.read_text())
+    assert proposal["rationale"].endswith(" routing: sonnet-5 per routing-policy v1.")
+
+
+def test_missing_routing_row_fails_closed(tmp_path, capsys, portable_pip):
+    repo = _git_repo(tmp_path)
+
+    def runner(argv):
+        cmd = argv[1]
+        body = _INTAKE if cmd == "show-package-intake" else _CONFORMANCE
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
+
+    policy = tmp_path / "p.toml"
+    policy.write_text(
+        'version = 1\n[models]\nsonnet-5 = "claude-sonnet-5"\n'
+        "[no_llm]\nitems = []\n"
+        '[[surface]]\nid = "runner-implementation"\nmodels = ["sonnet-5"]\n'
+        'where = "w"\nrationale = "r"\ndecided = "2026-07-29"\n',
+        encoding="utf-8",
+    )
+
+    rc = decompose.run(
+        revision="rev-1",
+        ac="AC-002",
+        target_repo="AlobarQuest/brain",
+        repo_path=str(repo),
+        tooling="pip",
+        package="fastapi",
+        from_version="0.139.0",
+        to_version="0.139.2",
+        unit_key="",
+        rationale="",
+        out="",
+        submit=False,
+        client=OrchestratorClient(runner=runner),
+        policy_path=policy,
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "decompose failed:" in err
+    assert "unknown change-class" in err
+
+
 def test_run_fails_closed_on_no_diff(tmp_path, portable_pip):
     repo = tmp_path / "brain"
     repo.mkdir()
