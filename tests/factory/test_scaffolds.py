@@ -49,3 +49,41 @@ def test_ac_id_semantics_are_documented_in_the_output(tmp_path):
     scaffolds.create("software-delivery", "probe", str(tmp_path))
     text = (tmp_path / "probe" / "package.yaml").read_text()
     assert "database UUID" in text and "AC-001" in text
+
+
+@pytest.mark.parametrize("profile_name", sorted(PROFILES))
+def test_ac001_is_profile_derived_ac002_is_always_human_review(profile_name, tmp_path):
+    """AC-002's condition ("a reviewer confirms...") describes human judgment,
+    so its evidence_type must be human_review regardless of what AC-001's
+    profile-derived evidence type happens to be (fix round 1)."""
+    scaffolds.create(profile_name, "scaffold-probe", str(tmp_path))
+    document = yaml.safe_load((tmp_path / "scaffold-probe" / "package.yaml").read_text())
+    ac1, ac2 = document["acceptance"]
+
+    assert ac1["id"] == "AC-001"
+    assert ac1["evidence_type"] == scaffolds._evidence_type(PROFILES[profile_name])
+    assert ac1["evidence_type"] != "automated_test"
+
+    assert ac2["id"] == "AC-002"
+    assert ac2["evidence_type"] == "human_review"
+
+
+def test_dependency_update_envelope_comment_precedes_authority_not_acceptance(tmp_path):
+    """The envelope-discipline comment is about allowed_commands, a downstream
+    work-unit authority-envelope concern that never appears in package.yaml —
+    it belongs above `authority:`, not adjacent to `acceptance:` where the
+    unrelated ac_id comment lives (fix round 1)."""
+    scaffolds.create("dependency-update", "probe", str(tmp_path))
+    text = (tmp_path / "probe" / "package.yaml").read_text()
+
+    ac_id_index = text.index("ac_id means two different things")
+    acceptance_index = text.index("\nacceptance:\n")
+    envelope_index = text.index("allowed_commands is an ORDERED list")
+    authority_index = text.index("\nauthority:\n")
+
+    assert ac_id_index < acceptance_index < envelope_index < authority_index
+
+    # Not adjacent: both acceptance items sit between the two comment blocks.
+    between = text[acceptance_index:envelope_index]
+    assert "id: AC-001" in between
+    assert "id: AC-002" in between

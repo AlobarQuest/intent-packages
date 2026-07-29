@@ -72,24 +72,38 @@ def _tag_for_evidence_type(profile: DeliveryProfile, evidence_type: str) -> str:
 
 
 def _acceptance_items(profile: DeliveryProfile) -> list[dict]:
-    """Exactly two acceptance items, both using an evidence type this profile
-    permits and a producer tag that matches it (per `_evidence_tags.check_evidence_tags`)."""
-    evidence_type = _evidence_type(profile)
-    tag = _tag_for_evidence_type(profile, evidence_type)
+    """Exactly two acceptance items.
+
+    AC-001's evidence type is drawn from the profile (`_evidence_type`) —
+    whichever automated producer this profile's tag map permits. AC-002 is
+    always `human_review`, hardcoded rather than derived the same way: for
+    software-delivery and infrastructure-change, `_evidence_type` itself
+    already resolves to `human_review` (their tag maps permit nothing else
+    once `automated_test` is excluded), but for the other three profiles
+    deriving AC-002 the same way as AC-001 would type a
+    "a reviewer confirms..." condition as a machine check
+    (`automated_check`/`external_attestation`) — a scaffold that contradicts
+    what its own condition text asserts. `human_review` is legal for every
+    registered profile (each declares a `"human:"` tag mapping to it), so one
+    hardcoded value covers all five with no per-profile branching.
+    """
+    ac1_type = _evidence_type(profile)
+    ac1_tag = _tag_for_evidence_type(profile, ac1_type)
+    ac2_tag = _tag_for_evidence_type(profile, "human_review")
     return [
         {
             "id": "AC-001",
             "condition": f"this {profile.name} package's primary outcome is achieved",
-            "evidence_type": evidence_type,
-            "evidence": f"{tag} describe the {evidence_type} evidence produced for AC-001",
+            "evidence_type": ac1_type,
+            "evidence": f"{ac1_tag} describe the {ac1_type} evidence produced for AC-001",
             "approver": "policy",
         },
         {
             "id": "AC-002",
             "condition": "a reviewer confirms this package was ready before execution began",
-            "evidence_type": evidence_type,
-            "evidence": f"{tag} describe the {evidence_type} evidence produced for AC-002",
-            "approver": "policy",
+            "evidence_type": "human_review",
+            "evidence": f"{ac2_tag} describe the human judgment recorded for AC-002",
+            "approver": "devon",
         },
     ]
 
@@ -274,26 +288,42 @@ def render_lineage(package_id: str, created_at: str) -> dict:
     }
 
 
-def _splice_acceptance_comments(yaml_text: str, profile: DeliveryProfile) -> str:
-    """Insert comment blocks above the `acceptance:` key. `yaml.safe_dump`
-    does not preserve comments, so they are spliced into the rendered text
-    rather than attached to the data."""
-    lines = yaml_text.splitlines(keepends=True)
-    marker = "acceptance:\n"
+def _insert_before(lines: list[str], marker: str, comment_block: str) -> list[str]:
+    """Return a copy of `lines` with `comment_block` (plus a blank-line
+    separator) spliced in immediately above the first line that equals
+    `marker` exactly (a top-level `key:\\n`, at zero indentation)."""
     for index, line in enumerate(lines):
         if line == marker:
-            blocks = ""
-            if profile.name == "dependency-update":
-                blocks += _DEPENDENCY_UPDATE_ENVELOPE_COMMENT
-            blocks += _AC_ID_COMMENT
-            lines.insert(index, "\n" + blocks)
-            return "".join(lines)
-    raise ValueError("rendered package.yaml has no top-level 'acceptance:' key")  # pragma: no cover
+            result = list(lines)
+            result.insert(index, "\n" + comment_block)
+            return result
+    raise ValueError(f"rendered package.yaml has no top-level {marker!r} key")  # pragma: no cover
+
+
+def _splice_comments(yaml_text: str, profile: DeliveryProfile) -> str:
+    """Insert comment blocks above their respective top-level keys.
+    `yaml.safe_dump` does not preserve comments, so they are spliced into the
+    rendered text rather than attached to any yaml node.
+
+    The `ac_id` semantics block always precedes `acceptance:`. For
+    `dependency-update`, the envelope-discipline block precedes `authority:`
+    instead of `acceptance:` — `allowed_commands` is a downstream work-unit
+    authority-envelope concern (`profiles/dependency_update.py::build_envelope`)
+    and the key never appears in this file at all, so it belongs where the
+    package's own `authority` section begins, not immediately above acceptance
+    criteria it has no topical link to. The two blocks are therefore never
+    adjacent: the two acceptance items sit between them.
+    """
+    lines = yaml_text.splitlines(keepends=True)
+    lines = _insert_before(lines, "acceptance:\n", _AC_ID_COMMENT)
+    if profile.name == "dependency-update":
+        lines = _insert_before(lines, "authority:\n", _DEPENDENCY_UPDATE_ENVELOPE_COMMENT)
+    return "".join(lines)
 
 
 def _render_package_yaml(package: dict, profile: DeliveryProfile) -> str:
     body = yaml.safe_dump(package, sort_keys=False, default_flow_style=False, allow_unicode=True)
-    return _splice_acceptance_comments(body, profile)
+    return _splice_comments(body, profile)
 
 
 def create(
