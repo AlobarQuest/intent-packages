@@ -1,5 +1,10 @@
 """Thin subprocess wrappers over the `orchestrator` CLI (must be on PATH).
 
+Scoped to LOCAL computation the orchestrator owns (e.g. `conformance-claim`,
+which runs real scanners against a checkout) -- never API calls. Those speak
+HTTP via `intent_packages.factory.api.OrchestratorApi` instead: one transport,
+one auth path, one error vocabulary for everything that crosses the network.
+
 Mirrors emitter.py's shell-out pattern so intent-packages keeps a pyyaml-only
 runtime footprint. Every call uses --json (compact json.dumps stdout) and treats
 an "error" key or a non-zero exit as failure.
@@ -43,11 +48,5 @@ class OrchestratorClient:
             raise OrchestratorCliError(f"expected a JSON object, got {type(value).__name__}")
         return value
 
-    def show_package_intake(self, revision_id: str) -> dict:
-        return self._call(["show-package-intake", revision_id])
-
     def conformance_claim(self, repo_path: str) -> dict:
         return self._call(["conformance-claim", repo_path])
-
-    def propose_decomposition(self, revision_id: str, proposal_path: str) -> dict:
-        return self._call(["propose-decomposition", revision_id, "--data", f"@{proposal_path}"])
