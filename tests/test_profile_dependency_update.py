@@ -101,4 +101,4 @@ def test_envelope_key_set_is_the_pinned_contract():
 
 def test_old_registry_name_is_gone():
     with pytest.raises(AttributeError):
-        dependency_update.PROFILES  # noqa: B018  # type: ignore[attr-defined]
+        getattr(dependency_update, "PROFILES")
