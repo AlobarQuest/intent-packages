@@ -21,6 +21,20 @@ _INTAKE = {
 _CONFORMANCE = {"accepted_standards": [], "standards_touched": ["project"], "status": "green"}
 
 
+class _FakeBrain:
+    """Offline stand-in for the brains' lookup API.
+
+    decompose resolves enrichment before it builds the proposal, so without an
+    injected client every one of these tests would reach for a BWS credential.
+    """
+
+    def get_road(self, slug):
+        return {"road": {"slug": slug, "status": "paved"}, "rules": [], "exemplars": []}
+
+    def list_infra_rules(self):
+        return []
+
+
 def _conformance_client():
     def runner(argv):
         return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(_CONFORMANCE), stderr="")
@@ -154,6 +168,7 @@ def test_run_end_to_end_no_submit(tmp_path, capsys, portable_pip):
     out_file = tmp_path / "proposal.json"
 
     rc = decompose.run(
+        brain_client=_FakeBrain(),
         revision="rev-1",
         ac="AC-002",
         target_repo="AlobarQuest/brain",
@@ -202,6 +217,7 @@ def test_run_end_to_end_submit_posts_the_proposal_dict_directly(tmp_path, capsys
     )
 
     rc = decompose.run(
+        brain_client=_FakeBrain(),
         revision="rev-1",
         ac="AC-002",
         target_repo="AlobarQuest/brain",
@@ -235,6 +251,7 @@ def test_routing_note_lands_in_rationale(tmp_path, capsys, portable_pip):
     out_file = tmp_path / "proposal.json"
 
     rc = decompose.run(
+        brain_client=_FakeBrain(),
         revision="rev-1",
         ac="AC-002",
         target_repo="AlobarQuest/brain",
@@ -268,6 +285,7 @@ def test_missing_routing_row_fails_closed(tmp_path, capsys, portable_pip):
     )
 
     rc = decompose.run(
+        brain_client=_FakeBrain(),
         revision="rev-1",
         ac="AC-002",
         target_repo="AlobarQuest/brain",
@@ -294,6 +312,7 @@ def test_run_fails_closed_on_no_diff(tmp_path, capsys, portable_pip):
     repo = _git_repo(tmp_path, content="fastapi==0.139.2\n")  # already at target
 
     rc = decompose.run(
+        brain_client=_FakeBrain(),
         revision="rev-1",
         ac="AC-002",
         target_repo="AlobarQuest/brain",
@@ -327,6 +346,7 @@ def test_run_fails_closed_on_stale_checkout(tmp_path, capsys, portable_pip):
         subprocess.run(["git", *argv], cwd=origin, check=True)
 
     rc = decompose.run(
+        brain_client=_FakeBrain(),
         revision="rev-1",
         ac="AC-002",
         target_repo="AlobarQuest/brain",

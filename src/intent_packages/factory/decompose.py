@@ -13,6 +13,8 @@ from pathlib import Path
 
 from intent_packages import routing
 from intent_packages.factory.api import ApiError, OrchestratorApi
+from intent_packages.factory.brains import SupportsBrainReads, enrichment_for_profile
+from intent_packages.factory.credentials import CredentialError
 from intent_packages.factory.orchestrator_cli import OrchestratorClient, OrchestratorCliError
 from intent_packages.factory.validations import (
     ValidationError,
@@ -49,6 +51,7 @@ def build_proposal(
     conformance: dict,
     sites: list[PinSite],
     rationale: str,
+    context_enrichment: dict | None = None,
 ) -> dict:
     uuids = _criteria_uuid_map(intake)
     if ac not in uuids:
@@ -60,6 +63,12 @@ def build_proposal(
         for human_id, uuid in uuids.items()
         if human_id != ac
     ]
+    # The same resolution rides every unit of a proposal. Resolving per unit would
+    # let two units of one proposal disagree about the standards they were approved
+    # under, and the human approving them could not see that they had.
+    enrichment = (
+        {"context_enrichment": context_enrichment} if context_enrichment is not None else {}
+    )
     return {
         "idempotency_key": f"factory-decompose-{target_repo}-{package}-{new}".replace("/", "-"),
         "expected_version": 0,
@@ -75,6 +84,7 @@ def build_proposal(
                 "required_capability": "repo.edit",
                 "authority": envelope,
                 "max_attempts": 3,
+                **enrichment,
             }
         ],
         "dependencies": [],
@@ -105,6 +115,7 @@ def run(
     submit: bool,
     client: OrchestratorClient | None = None,
     api: OrchestratorApi | None = None,
+    brain_client: SupportsBrainReads | None = None,
     policy_path: Path | None = None,
     verbose: bool = False,
 ) -> int:
@@ -141,6 +152,7 @@ def run(
             conformance,
             sites,
             rationale,
+            context_enrichment=enrichment_for_profile("dependency-update", client=brain_client),
         )
         change_class = proposal["proposed_units"][0]["authority"]["change_class"]
         policy = routing.load_policy(policy_path)
@@ -166,6 +178,7 @@ def run(
         return 0
     except (
         DecomposeError,
+        CredentialError,
         ValidationError,
         OrchestratorCliError,
         ApiError,

@@ -24,7 +24,7 @@ import json
 import os
 import tomllib
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -264,3 +264,37 @@ def resolve_enrichment(
     }
     document["content_fingerprint"] = content_fingerprint(document)
     return document
+
+
+def enrichment_for_profile(
+    profile_name: str,
+    *,
+    client: SupportsBrainReads | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any] | None:
+    """Resolve the registered profile's enrichment, building a live client if needed.
+
+    Returns None for a profile that declares no spec — a profile the factory
+    cannot execute has no workers to tell. Raises KeyError for an unregistered
+    name rather than resolving an empty document, because a typo that silently
+    produced "enriched with nothing" is the failure this whole field exists to
+    make impossible to hide.
+
+    Fails closed when the brains are unreachable: a unit whose workers were told
+    nothing, shipped as though they had been, is worse than a decomposition that
+    stops and says so.
+    """
+    from intent_packages.profiles import PROFILES
+
+    profile = PROFILES[profile_name]
+    if profile.enrichment is None:
+        return None
+    if client is None:
+        client = BrainClient({brain: resolve_brain_key(brain) for brain in BrainKey})
+    return resolve_enrichment(
+        profile.enrichment,
+        profile=profile.name,
+        change_class=profile.change_class or profile.name,
+        client=client,
+        now=now or datetime.now(UTC),
+    )
