@@ -1,0 +1,326 @@
+schema_version: 1
+package_id: wsp213-bws-machine-token-rotation
+title: WS-P2.13 — rotate the exposed shared BWS machine-account access token
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-07-30T21:07:17Z'
+supersedes: null
+profile: non-software-operational
+profile_fields:
+  owner: devon
+  operating_procedure: >-
+    Make-before-break credential rotation, run from the two prior rotations' lesson sets
+    (~/docs/software-delivery-system/2026-07-29-gap7-postgres-password-rotation.md and the
+    closure section of 2026-07-30-sds-bws-token-migration-plan.md). Five rules bind, in this
+    order: a COMPLETED consumer inventory before any mutation, never a started one; persist an
+    issued secret before the first mutation that depends on it; secrets never enter a transcript,
+    a tool argument, an echo, or a parsed component, so comparisons are made on sha256 prefixes,
+    lengths and booleans only; verify in both directions, meaning the replacement proven live,
+    the retired credential proven dead, and every dependent system proven unaffected by one real
+    cycle rather than by inspection; and read the credential's own shape before assuming an order,
+    because what is safe for a password inside a data volume is not what is safe for a token an
+    external console issues. Devon holds the Bitwarden Secrets Manager console and his own
+    terminal; the operator holds everything reachable without a secret value.
+  external_systems:
+  - Bitwarden Secrets Manager — the console that issues and revokes the access token
+  - macOS login Keychain, service Claude — the only place this credential is stored
+  - launchd — the five scheduled jobs that consume it
+outcome:
+  what: >-
+    The shared BWS machine account's access token (access key 8ba33ccd-b73e-4924-8c65-b46701587319)
+    is replaced. A new token is issued and written to the three Keychain entries that hold it, the
+    exposed token is revoked, and each consumer is proven to work on the replacement by being run
+    for real after the revocation rather than by being reasoned about.
+  why: >-
+    The token was printed into a session transcript on 2026-07-09 and again on 2026-07-22, and it
+    is the credential behind the backup lane, the nightly infrastructure drift audit, the change
+    window, the email capture lane, and the infraops MCP server. It has been deliberately parked
+    since 2026-07-10 under a standing decision not to rotate it by hand but to wait until this
+    system could drive the rotation itself. That capability now exists, so the debt is payable and
+    the reason for deferring it has expired.
+  beneficiary: >-
+    Devon, whose infrastructure control plane stops resting on a credential two transcripts have
+    seen; and the delivery system, whose non-software profile stops being a definition and becomes
+    something that has carried real operational work.
+  success_signal: >-
+    A read with the retired token is refused while the same read with the replacement succeeds, a
+    deliberately wrong token is refused too so the probe is shown to discriminate, and one real
+    cycle of every scheduled consumer completes with no new warnings or errors against its own
+    baseline after the revocation has taken effect.
+scope:
+  included:
+  - >-
+    Enumerate every consumer of the credential and every location holding it, by search rather
+    than by recollection, recording the positive exclusions as well as the hits.
+  - Issue a replacement token, write it to all three Keychain entries, and prove it live.
+  - >-
+    Revoke the exposed token and prove it dead, with a control proving the probe discriminates.
+  - >-
+    Run one real cycle of each scheduled consumer and restart the infraops MCP server, all after
+    revocation, so what is proven is that they work without the retired credential.
+  - >-
+    Remove the Bitwarden command-line state file keyed to the retired access key, and close the
+    two portfolio backlog items this package discharges.
+  excluded:
+  - >-
+    Splitting the shared account into per-workload least-privilege accounts. That is a separate
+    open item, and folding it in would move several variables at once — the practice both prior
+    rotations depended on avoiding.
+  - >-
+    Rotating the orchestrator Postgres password, the other deferred item, which was discharged on
+    2026-07-29.
+  - >-
+    Rotating the three unrelated BWS credentials on this machine — the SDS operator, cred-rotation
+    and VideoCreator accounts — none of which is this one.
+  - Any change to what the machine account can read, or to which secrets live in which project.
+  non_goals:
+  - >-
+    Automating credential rotation. This package drives one rotation as governed work; building a
+    lane that detects and schedules rotations is separate and later.
+  assumptions:
+  - >-
+    Bitwarden Secrets Manager permits a machine account to hold more than one live access token.
+    That is what makes a make-before-break order possible and leaves no window in which the
+    consumers hold a credential the service will not accept.
+  - >-
+    Every consumer reads the credential from the Keychain at run time rather than holding a copy —
+    which the inventory establishes rather than assumes.
+  open_questions: []
+sources:
+- location: >-
+    ~/docs/software-delivery-system/2026-07-30-wsp213-p1-rotations-handoff-prompt.md — the
+    workstream brief, together with Devon's in-session decisions of 2026-07-30 on scope and on the
+    unit capability vocabulary.
+  authority_level: authoritative
+  required_version: '2026-07-30'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    ~/docs/software-delivery-system/2026-07-10-phase6-exit-checklist.md — the standing disposition
+    that this credential waits for the system to rotate it rather than being rotated by hand.
+  authority_level: authoritative
+  required_version: '2026-07-10'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    ~/Projects/security-standards/PROJECT.md, the P1 recording the 2026-07-22 exposure of access
+    key 8ba33ccd-b73e-4924-8c65-b46701587319, and ~/Projects/vps-backup/PROJECT.md, the P1
+    recording the 2026-07-09 exposure of the same credential.
+  authority_level: authoritative
+  required_version: '2026-07-30'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    ~/docs/software-delivery-system/2026-07-29-gap7-postgres-password-rotation.md and the closure
+    section of 2026-07-30-sds-bws-token-migration-plan.md — the two prior rotations, whose lessons
+    are this package's operating procedure.
+  authority_level: supporting
+  required_version: '2026-07-30'
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: >-
+    One session. The make-before-break order means there is no window to keep short: both tokens
+    are live between issue and revocation, so the work can pause safely at any point before the
+    revocation and at any point after the consumer cycles.
+  technology: >-
+    The Bitwarden Secrets Manager console, the macOS security command, launchd, and each
+    consumer's own entry point. The infraops MCP cannot write a secret safely — its environment
+    write takes the value as a tool argument, which is a transcript — so no part of this rotation
+    goes through it.
+  policy_legal: null
+  privacy_security: >-
+    No token value may appear in a transcript, a tool argument, a command echo, a log, or a file.
+    Comparisons are made on sha256 prefixes and lengths. A parsed component of a secret-bearing
+    string is never printed, because a failed parse puts the whole secret into every component.
+    The Keychain writes happen at Devon's own terminal prompt, and the operator never handles the
+    value at all.
+  compatibility: >-
+    All three Keychain entries hold the same credential and must be written together; leaving one
+    behind strands whichever consumer reads it.
+  quality_accessibility: null
+  operational: >-
+    Revocation is the irreversible step and it comes last. The infraops MCP server holds the
+    retired token in the environment of a running process, so it must be restarted after
+    revocation and proven working, not assumed.
+  other:
+  - >-
+    The nightly drift audit deliberately overrides this credential for one step with the SDS
+    operator token. That override must still resolve after the rotation, and it is verified
+    separately from the audit's own identity.
+acceptance:
+- id: AC-001
+  condition: >-
+    A completed consumer inventory exists before any mutation: every consumer of the credential
+    and every location holding it is enumerated by search, each consumer names the Keychain entry
+    it reads and what triggers it, and the credentials positively excluded are listed with the
+    evidence that excludes them.
+  evidence_type: human_review
+  evidence: >-
+    human: the enumerated inventory recorded in the run's evidence file, naming the search that
+    produced each entry, the trigger for each consumer, and the excluded credentials with the
+    distinguishing hashes.
+  approver: devon
+- id: AC-002
+  condition: >-
+    A replacement token is issued and persisted before anything is revoked: all three Keychain
+    entries hold the new credential, verified by hash to be identical to each other and different
+    from the retired one, and a read of a secret the account owns succeeds using it.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the three Keychain entries' sha256 prefixes before and after the write, and a
+    successful Bitwarden Secrets Manager read performed with the replacement credential.
+  approver: devon
+- id: AC-003
+  condition: >-
+    The exposed token is revoked and proven dead: a read attempted with it is refused, the same
+    read with the replacement succeeds, and a deliberately wrong token is refused too, so the
+    probe is shown to discriminate rather than to fail for its own reasons.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the three probe outcomes — retired credential refused, replacement accepted, wrong
+    credential refused — recorded with the sha256 prefix identifying each.
+  approver: devon
+- id: AC-004
+  condition: >-
+    Every consumer is proven unaffected after revocation by one real cycle rather than by
+    inspection: the backup lane completes a full run, the drift audit and the change window each
+    complete a run, the email capture lane completes a run, and the infraops MCP server is
+    restarted and answers a live call. Each is compared against its own prior baseline for new
+    warnings or errors.
+  evidence_type: human_review
+  evidence: >-
+    human: the per-consumer run records — start and end times, exit status, and warning and error
+    counts against baseline — for every consumer named in AC-001, all timestamped after the
+    revocation recorded for AC-003.
+  approver: devon
+- id: AC-005
+  condition: >-
+    The rotation leaves nothing stale behind: the Bitwarden command-line state file keyed to the
+    retired access key is removed, the security scanner reports no new finding in either
+    repository that records this credential, and both portfolio backlog items are closed against
+    this run.
+  evidence_type: human_review
+  evidence: >-
+    human: the removed state file path, the scanner result for both repositories, and the two
+    closed backlog entries citing this package.
+  approver: devon
+authority:
+  allowed:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  requires_approval:
+  - secret_write
+  prohibited:
+  - repository_write
+  - infra_mutation
+  - outward_publish
+  - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - >-
+    A replaced credential — a live replacement token in all three Keychain entries, and a revoked
+    token that no longer authenticates.
+  - >-
+    A dated evidence file in ~/docs/software-delivery-system/ recording the inventory, the
+    per-step hashes, the both-directions probes, and the per-consumer cycles.
+  - >-
+    Terminal work units in the production ledger carrying the per-criterion evidence and
+    adjudications.
+  destination: ~/docs/software-delivery-system/
+  recipient: devon
+  definition_of_done: >-
+    The replacement is live, the exposed token is dead with a discriminating control, every
+    consumer has completed a real cycle since the revocation, the stale state file is gone, both
+    backlog items are closed, and every acceptance criterion carries evidence and an adjudication.
+  operator_responsibilities:
+  - >-
+    Devon issues the replacement token and revokes the retired one in the Bitwarden console, and
+    writes all three Keychain entries at his own terminal. No other actor sees the value.
+  - >-
+    Devon approves the package, the decomposition, each unit's authority envelope, and each
+    criterion's adjudication.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    Devon's 2026-07-10 disposition that this credential waits for the system to rotate it, whose
+    condition is now met.
+  - >-
+    Devon's 2026-07-30 decision to rotate only, leaving the per-workload account split as its own
+    item.
+  required_people_systems:
+  - Devon, for the console actions, the Keychain writes, and every approval
+  - Bitwarden Secrets Manager
+  - The macOS login Keychain on this machine
+  required_capabilities:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  blocking_conditions:
+  - >-
+    The consumer inventory is incomplete, or a consumer is found holding the credential somewhere
+    other than the Keychain.
+  - >-
+    Bitwarden Secrets Manager will not hold two live access tokens for the account, which would
+    turn a make-before-break rotation into a break-before-make one and require re-planning rather
+    than improvising.
+  - A consumer cannot be exercised for real, leaving its proof to inspection alone.
+risk:
+  failure_modes:
+  - >-
+    A consumer is missed by the inventory and fails silently. The drift audit is the precedent: it
+    swallows a failed secret read and returns an empty string, so a break surfaces as a logged
+    warning on a nightly job rather than as an error anyone sees.
+  - >-
+    The replacement is written to some but not all three Keychain entries, stranding one consumer
+    while the others pass.
+  - >-
+    The retired token is revoked before the consumers are proven, turning a recoverable step into
+    an outage of the backup and drift lanes.
+  - >-
+    A token value reaches the transcript, which converts this rotation into the reason for the
+    next one.
+  max_impact: >-
+    Loss of the nightly backup, drift audit, change window, and email capture lanes until a fresh
+    token is issued. No production service reads this credential at run time, so sds.alobar.net
+    and every deployed application are unaffected by any outcome of this package.
+  stop_conditions:
+  - A blocking condition is met.
+  - >-
+    A token value is observed anywhere it should not be, in which case the rotation continues but
+    the exposure is disclosed immediately and the newly issued token is itself treated as burned.
+  - A consumer fails its post-revocation cycle for a reason the run cannot explain.
+  rollback: >-
+    Before revocation there is nothing to roll back: both credentials are live, and the Keychain
+    write rewrites a value Devon holds. After revocation the recovery is forward rather than
+    backward — the machine account still exists, so Devon issues another token and the Keychain
+    entries are rewritten again. The retired token is never restored, which is the point.
+  escalation_target: devon
+verification:
+  independent_review:
+  - Devon adjudicates each criterion against its evidence in the review interface.
+  non_mechanical:
+  - >-
+    Whether a consumer's post-revocation cycle is genuinely equivalent to its normal run, rather
+    than a reduced version that happens to pass, is a judgment recorded per consumer.
+  - >-
+    Whether the inventory is complete is a judgment about an absence, and absence is what the
+    prior rotation's inventory got wrong by naming three consumers of five.
+follow_up:
+  required: true
+  revisit_when: >-
+    The per-workload account split is taken up, or the next time this credential is exposed.
+  signals:
+  - A scheduled consumer begins failing or warning after this run.
+  - A new consumer of this credential is added without appearing in the inventory.
+  owner: devon
+applicable_standards:
+  project: '1.0'
+  security: '1.0'

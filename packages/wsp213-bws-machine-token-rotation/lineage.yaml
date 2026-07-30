@@ -1,0 +1,23 @@
+package_id: wsp213-bws-machine-token-rotation
+current_state: approved
+revisions:
+- revision: 1
+  hash: c56ca4433cdbe0b5078db4252065254ae5b860f992fa7052d97f1136085f8449
+  created_at: '2026-07-30T21:07:17Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-30T21:10:58.446365+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-30T21:10:58.446365+00:00'
+  actor: claude-code-interactive
+  event_id: evt-69a6295fcb974f67ac60ba26d9d2b1ab
+approvals:
+- revision: 1
+  approved_hash: c56ca4433cdbe0b5078db4252065254ae5b860f992fa7052d97f1136085f8449
+  approver: devon
+  approved_at: '2026-07-30T21:36:55.248449+00:00'
+  commit: edd3288ab167eec44a53744a67ff339679a6713a
+  event_id: evt-552f28f77be14806a47c7a3944b28892
+grants: []

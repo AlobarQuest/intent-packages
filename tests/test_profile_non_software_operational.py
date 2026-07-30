@@ -43,6 +43,21 @@ def test_registered_without_envelope_or_tooling():
     assert profile.forbidden_evidence_types == frozenset({"automated_test"})
 
 
+def test_declares_enrichment_despite_not_being_factory_executable():
+    """The one profile with no change_class that still tells its workers something.
+
+    `enrichment_for_profile` returns None for an absent spec because "a profile the factory
+    cannot execute has no workers to tell". This profile's units are discharged by a human or a
+    local operator reading the runner brief, so it has workers; without a spec their briefs
+    carried nothing, which is the dead-config shape rather than a considered emptiness.
+    """
+    profile = profiles.PROFILES["non-software-operational"]
+    assert profile.change_class is None
+    assert profile.enrichment is not None
+    assert profile.enrichment.code_road_slugs == ()
+    assert profile.enrichment.infra_min_authority == "required"
+
+
 def test_valid_package_passes():
     assert profiles.validate_profile(_pkg(VALID_FIELDS, VALID_AC)) == []
 

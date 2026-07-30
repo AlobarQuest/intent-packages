@@ -114,6 +114,26 @@ def test_enrichment_for_profile_resolves_the_registered_spec() -> None:
     assert document["profile"] == "software-delivery"
 
 
+def test_non_software_operational_resolves_the_credential_rules() -> None:
+    """WS-P2.13: the profile has no change_class, and still resolves a real document.
+
+    Before it declared a spec this returned None, so every brief for the class carried nothing.
+    The content is the point: an infra-authority projection is exactly the governed knowledge a
+    credential rotation must honour, which is why the emptiness was worth closing rather than
+    recording.
+    """
+    document = enrichment_for_profile(
+        "non-software-operational", client=FakeBrainClient(), now=WHEN
+    )
+
+    assert document is not None
+    assert document["profile"] == "non-software-operational"
+    assert document["change_class"] == "non-software-operational"
+    assert document["roads"] == []  # this profile ships no code
+    assert len(document["rules"]) == 4
+    assert document["content_fingerprint"].startswith("sha256:")
+
+
 def test_a_brain_outage_fails_the_decomposition_closed(tmp_path, capsys) -> None:
     """No credential, no proposal. A unit whose workers were told nothing, shipped
     as though they had been, is worse than a decomposition that stops and says so.
