@@ -454,7 +454,160 @@ def test_dispatch_reports_api_errors_cleanly(capsys):
 
     rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(dispatch=dispatch))
     assert rc == 1
-    assert "dispatch failed: work_unit_not_ready" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "dispatch failed: work_unit_not_ready" in err
+    # A server verdict is conclusive: nothing landed, so the reconciliation
+    # re-read must NOT run and no retry advice may be printed.
+    assert "IT LANDED" not in err
+    assert "did not land" not in err
+
+
+# -- A1: an inconclusive POST is reconciled, never left to a retry ------------
+
+
+def _timing_out_dispatch(code="api_timeout"):
+    from intent_packages.factory.api import ApiError
+
+    def dispatch(unit_id, payload):
+        raise ApiError(code, "POST /api/v1/work-units/u1/dispatch timed out")
+
+    return dispatch
+
+
+def test_a_timed_out_dispatch_that_landed_says_do_not_retry(capsys):
+    """A1. The orchestrator commits the `DispatchRecord` and fires the
+    `workflow_dispatch` before the response reaches the client, and the window in
+    which the response is slow IS the Actions queue delay -- exactly when an
+    operator retries a 30s timeout. A retry mints a fresh
+    `factory-dispatch-{uuid4()}`, so it can never reach the orchestrator's
+    idempotency-key replay path; it computes the next ordinal and fires a SECOND
+    real run instead. So a timeout must be reconciled against the record-id set
+    captured BEFORE the POST, not handed to the operator as an open question.
+    """
+    calls = {"n": 0}
+
+    def history(unit_id):
+        calls["n"] += 1
+        events = [_dispatch_event("dispatch.dispatched", 1, "d-1")]
+        if calls["n"] > 1:
+            # The re-read sees the record the timed-out POST actually created.
+            events.append(_dispatch_event("dispatch.dispatched", 2, "d-2"))
+        return events
+
+    rc = execution.dispatch(
+        "r1", "bump-fastapi", api=_fake_api(history=history, dispatch=_timing_out_dispatch())
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "dispatch failed: api_timeout" in err
+    assert "IT LANDED" in err
+    assert "d-2" in err
+    assert "DO NOT RETRY" in err
+    assert calls["n"] == 2  # one scan before the POST, one re-read after
+
+
+def test_a_timed_out_dispatch_that_did_not_land_says_retrying_is_safe(capsys):
+    """The other verdict, and the reason the diff is against a SET captured
+    before the POST rather than a count: the prior record must not be reported as
+    newly landed."""
+
+    def history(unit_id):
+        return [_dispatch_event("dispatch.dispatched", 1, "d-1")]
+
+    rc = execution.dispatch(
+        "r1", "bump-fastapi", api=_fake_api(history=history, dispatch=_timing_out_dispatch())
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "did not land" in err
+    assert "safe" in err
+    assert "IT LANDED" not in err
+
+
+def test_a_never_dispatched_unit_that_times_out_does_not_claim_a_landing(capsys):
+    """The empty-set case. `prior_dispatch_ids` is empty AND the re-read is
+    empty, so nothing landed -- proving the guard distinguishes "the scan found
+    nothing" from "the scan never ran". A flag, not set emptiness, is what
+    carries that distinction in `dispatch()`."""
+    rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(dispatch=_timing_out_dispatch()))
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "did not land" in err
+    assert "IT LANDED" not in err
+
+
+def test_a_connection_failure_is_reconciled_too(capsys):
+    """`api_unavailable` is the same hazard as `api_timeout`: the request may
+    have been received and acted on before the connection dropped."""
+
+    calls = {"n": 0}
+
+    def history(unit_id):
+        calls["n"] += 1
+        return [] if calls["n"] == 1 else [_dispatch_event("dispatch.dispatched", 1, "d-1")]
+
+    rc = execution.dispatch(
+        "r1",
+        "bump-fastapi",
+        api=_fake_api(history=history, dispatch=_timing_out_dispatch("api_unavailable")),
+    )
+    assert rc == 1
+    assert "IT LANDED" in capsys.readouterr().err
+
+
+def test_a_failed_reread_says_so_instead_of_guessing(capsys):
+    """If the re-read ALSO fails, the honest answer is "cannot tell" plus the
+    command that would tell -- never a guess in either direction."""
+    from intent_packages.factory.api import ApiError
+
+    calls = {"n": 0}
+
+    def history(unit_id):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise ApiError("api_timeout", "GET history timed out")
+        return []
+
+    rc = execution.dispatch(
+        "r1", "bump-fastapi", api=_fake_api(history=history, dispatch=_timing_out_dispatch())
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "could NOT determine whether it landed" in err
+    assert "factory status --revision r1" in err
+    assert "IT LANDED" not in err
+
+
+def test_a_timeout_before_the_scan_is_not_reconciled(capsys):
+    """The reconciliation needs a pre-POST record-id set. A timeout on an
+    EARLIER read (here `traceability`, via `resolve_unit_id`) has no such set, so
+    the verb must report the failure and stop -- not diff against nothing."""
+    from intent_packages.factory.api import ApiError
+
+    def traceability(*, revision_id=None, work_unit_id=None):
+        raise ApiError("api_timeout", "GET /api/v1/traceability timed out")
+
+    rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(traceability=traceability))
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "dispatch failed: api_timeout" in err
+    assert "IT LANDED" not in err
+    assert "did not land" not in err
+
+
+def test_dispatch_never_retries_the_post(capsys):
+    """ADR-independent but load-bearing: reconciliation must be a READ, never a
+    second POST. Counts dispatch calls."""
+    from intent_packages.factory.api import ApiError
+
+    calls = {"dispatch": 0}
+
+    def dispatch(unit_id, payload):
+        calls["dispatch"] += 1
+        raise ApiError("api_timeout", "timed out")
+
+    execution.dispatch("r1", "bump-fastapi", api=_fake_api(dispatch=dispatch))
+    assert calls["dispatch"] == 1
 
 
 def test_dispatch_unknown_unit_key_lists_the_real_ones(capsys):

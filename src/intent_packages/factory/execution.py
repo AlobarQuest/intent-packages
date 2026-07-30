@@ -164,6 +164,11 @@ def dispatch(
     "dispatched"` -- a brand-new record with `status="skipped"` (e.g. the
     bounded window is closed) proves nothing was dispatched either, and no
     id check can catch that case because the record really is new.
+
+    And when the POST itself times out, the answer is neither: see
+    `_reconcile_inconclusive_dispatch`. This is the only verb with an
+    irreversible external effect, so "did it land?" has to be answered rather
+    than left to the operator's judgement.
     """
     api = api or OrchestratorApi(verbose=verbose)
     try:
@@ -172,6 +177,13 @@ def dispatch(
         print(f"dispatch failed: {error}", file=sys.stderr)
         return 2
 
+    unit_id: str | None = None
+    runner_attempt = 0
+    prior_dispatch_ids: frozenset[str] = frozenset()
+    # A separate flag, not `prior_dispatch_ids` being empty: an empty set is the
+    # legitimate "never dispatched" case, and reconciling against a scan that
+    # never ran would report every prior record as newly landed.
+    scanned_before_post = False
     try:
         unit_id = reads.resolve_unit_id(api, revision_id, unit_key, verb="dispatch")
         if unit_id is None:
@@ -185,6 +197,7 @@ def dispatch(
             )
             return 1
         latest_runner_attempt, prior_dispatch_ids = reads.scan_dispatch_events(api, unit_id)
+        scanned_before_post = True
         runner_attempt = next_runner_attempt(snapshot["attempt_count"], latest_runner_attempt)
         idempotency_key = f"factory-dispatch-{uuid.uuid4()}"
         response = api.dispatch(
@@ -197,8 +210,79 @@ def dispatch(
         )
     except ApiError as error:
         print(f"dispatch failed: {error}", file=sys.stderr)
+        if error.code in _INCONCLUSIVE_CODES and unit_id and scanned_before_post:
+            _reconcile_inconclusive_dispatch(api, unit_id, revision_id, prior_dispatch_ids)
         return 1
 
+    return _report_dispatch_outcome(response, prior_dispatch_ids, runner_attempt)
+
+
+def _reconcile_inconclusive_dispatch(
+    api: ExecutionApi,
+    unit_id: str,
+    revision_id: str,
+    prior_dispatch_ids: frozenset[str],
+) -> None:
+    """Say whether an inconclusive dispatch POST actually landed.
+
+    A 30-second timeout on `POST .../dispatch` does NOT mean nothing happened:
+    the orchestrator commits the `DispatchRecord` and fires the
+    `workflow_dispatch` before the response reaches us, and the window in which
+    the response is slow is precisely the Actions queue delay -- i.e. exactly
+    when an operator would retry.
+
+    Retrying is NOT safe. The orchestrator does have a replay path -- it
+    short-circuits on `idempotency_key` BEFORE the ordinal check and hands back
+    the identical record -- but every `factory dispatch` invocation mints a fresh
+    `factory-dispatch-{uuid4()}`, so a retry can never reach it. It computes a
+    new ordinal instead and fires a SECOND real workflow run, which is how two
+    live dispatches (ordinals 1 and 2) were demonstrated with the second exiting
+    0.
+
+    So the decision is made from data already in hand: re-read `history` and diff
+    against the record-id set captured BEFORE the POST. A new `dispatch.*` record
+    means it landed. Deliberately NOT solved by persisting the idempotency key --
+    decision 4 of the design is that this tool holds no state between runs, and a
+    key file is a second source of truth that can go stale. The caller has
+    already printed the failure and returns non-zero either way; this adds the
+    verdict.
+    """
+    try:
+        _latest, current_ids = reads.scan_dispatch_events(api, unit_id)
+    except ApiError as reread_error:
+        print(
+            f"dispatch: could NOT determine whether it landed ({reread_error}) -- do not retry "
+            f"blind; run: factory status --revision {revision_id} and compare the latest "
+            "dispatch ordinal before deciding",
+            file=sys.stderr,
+        )
+        return
+    landed = current_ids - prior_dispatch_ids
+    if landed:
+        print(
+            "dispatch: IT LANDED. A new dispatch record "
+            f"({', '.join(sorted(landed))}) appeared on re-read, so the request WAS acted on and "
+            "a workflow_dispatch fired despite the timeout. DO NOT RETRY -- a retry mints a fresh "
+            "idempotency key, computes the next ordinal and fires a SECOND real run. Confirm the "
+            f"Actions run, then continue with: factory status --revision {revision_id}",
+            file=sys.stderr,
+        )
+        return
+    print(
+        "dispatch: it did not land -- no new dispatch record appeared on re-read, so nothing was "
+        "dispatched and re-running this command is safe.",
+        file=sys.stderr,
+    )
+
+
+def _report_dispatch_outcome(
+    response: dict, prior_dispatch_ids: frozenset[str], runner_attempt: int
+) -> int:
+    """Accept the response as a real dispatch, or say exactly why it is not.
+
+    Extracted from `dispatch()` to keep both under the C901 ceiling once the
+    inconclusive-POST branch joined.
+    """
     new_id = response.get("id")
     if new_id is not None and new_id in prior_dispatch_ids:
         print(
