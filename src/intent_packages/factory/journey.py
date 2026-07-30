@@ -317,6 +317,7 @@ def status(
     poll_seconds: float = 15,
     timeout_seconds: float = 1800,
     api: RevisionApi | None = None,
+    verbose: bool = False,
 ) -> int:
     """Print one screen for a revision: intake, proposals, units, next action.
 
@@ -326,7 +327,7 @@ def status(
     with the generic `/review` button (`subject_type=action`, which does not
     satisfy readiness at all).
     """
-    api = api or OrchestratorApi()
+    api = api or OrchestratorApi(verbose=verbose)
     try:
         revision_id = resolve_revision(revision_id)
     except RevisionRequired as error:
@@ -373,6 +374,7 @@ def evidence(
     unit_key: str | None = None,
     markdown: bool = False,
     api: RevisionApi | None = None,
+    verbose: bool = False,
 ) -> int:
     """Fetch and print the evidence pack for a revision, or one of its units.
 
@@ -383,7 +385,7 @@ def evidence(
     full-fidelity (auth-gated); redaction, when it happens, is the renderer's
     decision, never this CLI's.
     """
-    api = api or OrchestratorApi()
+    api = api or OrchestratorApi(verbose=verbose)
     try:
         revision_id = resolve_revision(revision_id)
     except RevisionRequired as error:

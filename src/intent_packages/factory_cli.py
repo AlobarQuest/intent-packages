@@ -13,6 +13,11 @@ from pathlib import Path
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="factory", description=__doc__)
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="print method, path and status for every orchestrator API call (never a token)",
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser(
         "decompose", help="author + validate a dependency-update decomposition proposal"
@@ -128,6 +133,7 @@ def _run_decompose(args: argparse.Namespace) -> int:
         rationale=args.rationale,
         out=args.out,
         submit=args.submit,
+        verbose=args.verbose,
     )
 
 
@@ -173,25 +179,27 @@ def _run_submit(args: argparse.Namespace) -> int:
 def _run_status(args: argparse.Namespace) -> int:
     from intent_packages.factory import journey
 
-    return journey.status(args.revision, wait=args.wait)
+    return journey.status(args.revision, wait=args.wait, verbose=args.verbose)
 
 
 def _run_evidence(args: argparse.Namespace) -> int:
     from intent_packages.factory import journey
 
-    return journey.evidence(args.revision, unit_key=args.unit_key, markdown=args.markdown)
+    return journey.evidence(
+        args.revision, unit_key=args.unit_key, markdown=args.markdown, verbose=args.verbose
+    )
 
 
 def _run_ready(args: argparse.Namespace) -> int:
     from intent_packages.factory import execution
 
-    return execution.ready(args.revision, args.unit_key)
+    return execution.ready(args.revision, args.unit_key, verbose=args.verbose)
 
 
 def _run_dispatch(args: argparse.Namespace) -> int:
     from intent_packages.factory import execution
 
-    return execution.dispatch(args.revision, args.unit_key)
+    return execution.dispatch(args.revision, args.unit_key, verbose=args.verbose)
 
 
 def _run_verify(args: argparse.Namespace) -> int:
@@ -206,6 +214,7 @@ def _run_verify(args: argparse.Namespace) -> int:
         run_id=args.run_id,
         run_url=args.run_url,
         assertions=args.assertions,
+        verbose=args.verbose,
     )
 
 

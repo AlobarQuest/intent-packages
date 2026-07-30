@@ -105,9 +105,10 @@ def run(
     client: OrchestratorClient | None = None,
     api: OrchestratorApi | None = None,
     policy_path: Path | None = None,
+    verbose: bool = False,
 ) -> int:
     client = client or OrchestratorClient()
-    api = api or OrchestratorApi()
+    api = api or OrchestratorApi(verbose=verbose)
     resolved_key = unit_key or f"{_repo_name(target_repo)}-{ac.lower()}"
     local_repo = _resolve_repo_path(target_repo, repo_path)
     try:

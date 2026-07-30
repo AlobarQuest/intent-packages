@@ -68,15 +68,78 @@ factory route --change-class dependency-update
 `factory decompose` fails closed if a change-class has no routing row. Graduation edits follow the
 contract in the file's header comment.
 
-## factory decompose
+## factory — the front-door CLI
 
-Author + validate a dependency-update decomposition proposal for an intaken revision:
+```bash
+PYTHONPATH=src python3 -m intent_packages.factory_cli <verb> [flags]
+```
+
+(or, if the console script is on `PATH`: `factory <verb> [flags]`.)
+
+Ten verbs carry an intent package from scaffold to a verified, merged PR. Each is a thin front
+door over the orchestrator's own API and lifecycle rules — it validates, derives, and refuses
+locally where it safely can, but it never invents an approval, a merge, or a human decision.
+
+| Verb | What it does |
+|------|--------------|
+| `create` | Scaffold a package from a registered delivery profile (`--profile`, `--name`). |
+| `validate` | Validate a package directory or `package.yaml`. |
+| `route` | Resolve a model from `routing-policy.toml` by `--surface` or `--change-class`. |
+| `decompose` | Author + validate a dependency-update decomposition proposal for an intaken revision. |
+| `submit` | Stage an intake payload, copy it, and print the `/review/intakes/new` link. Stops there. |
+| `status` | One screen for a revision: intake, proposals, units, and the next action. `--wait` polls until a unit's state changes. |
+| `evidence` | Fetch a revision's or a unit's evidence pack (`--unit-key`; `--markdown` for the redacted PR-comment form). |
+| `ready` | SYSTEM: move a unit `DRAFT -> READY` (an authority approval alone never does this). |
+| `dispatch` | SYSTEM: dispatch a `READY` unit to the runner. |
+| `verify` | VERIFIER: post named-check evidence, then evaluate the unit's acceptance criteria. |
+
+`decompose`'s usage, as the most-flagged verb:
 
 ```bash
 factory decompose --revision <id> --ac AC-002 --target-repo AlobarQuest/brain \
   --tooling pip --package fastapi --from 0.139.0 --to 0.139.2 [--out proposal.json] [--submit]
 ```
 
-Requires the `orchestrator` CLI on PATH and `ORCHESTRATOR_API_URL` / `ORCHESTRATOR_API_TOKEN` /
-`ORCHESTRATOR_API_CREDENTIAL_KEY_ID` set (use the **system** M2M credential for `--submit`).
 Without `--submit` it validates and prints the proposal only. It never approves or merges.
+
+### Credentials
+
+`ready`, `dispatch`, `status`, `evidence` and decomposition submission use the **SYSTEM** role;
+`verify` uses the **VERIFIER** role. Each resolves its bearer token from the environment first,
+falling back to Bitwarden Secrets Manager (`bws secret get`, keyed by the UUIDs in
+`.bws-secrets.toml`) when `BWS_ACCESS_TOKEN` is set:
+
+- `ORCHESTRATOR_SYSTEM_TOKEN` — SYSTEM role.
+- `ORCHESTRATOR_VERIFIER_TOKEN` — VERIFIER role.
+
+**`factory decompose`'s environment contract changed on this branch.** It used to shell out to
+the `orchestrator` CLI entirely and read `ORCHESTRATOR_API_TOKEN`. It now speaks HTTP directly for
+every API call (shelling out only for local computation — `conformance-claim`,
+`emit-intake-payload`) and reads **`ORCHESTRATOR_SYSTEM_TOKEN`** instead, with the same BWS
+fallback as every other verb above. If you're following an older note (including the
+orchestrator repo's own docs, which still name the old variable) and see a clean "no credential"
+error, it's naming the current variable, not a broken credential.
+
+`ORCHESTRATOR_API_URL` selects the orchestrator base URL for every verb (default
+`http://127.0.0.1:8000`).
+
+### `$FACTORY_REVISION`
+
+`status`, `evidence`, `ready`, `dispatch` and `verify` all take an optional `--revision`; when it
+is omitted, each falls back to `$FACTORY_REVISION`. Neither set is a clean exit code `2` naming
+the missing variable — never a stack trace.
+
+### `--verbose`
+
+A global flag: `factory --verbose <verb> ...` prints `METHOD /path -> status` for every
+orchestrator API call that verb makes. It never prints a token, request body, or response body —
+only the request line.
+
+### Human gates are browser-only, permanently (ADR-0006)
+
+No `factory` verb can act as a human, and none ever will — there is no `--as-human`, `--human`,
+`--force`, or `--impersonate` flag, and the orchestrator's own decomposition- and
+authority-approval routes require a real `HUMAN` actor. Where the flow reaches a human gate
+(package intake, decomposition approval, authority approval), the CLI **stops**: it stages the
+payload, copies it to the clipboard, and prints a `/review` deep link for you to act on in a
+browser. `submit` is the clearest example — it can never complete an intake itself, by design.

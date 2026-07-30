@@ -231,6 +231,7 @@ def verify(
     run_url: str,
     assertions: list[str],
     api: VerifyApi | None = None,
+    verbose: bool = False,
 ) -> int:
     """VERIFIER: post named-check evidence, then evaluate the unit's ACs.
 
@@ -238,7 +239,7 @@ def verify(
     `in-flight-units`. A missing or invalid source is a named refusal, never a
     guess or a substitution.
     """
-    api = api or OrchestratorApi()
+    api = api or OrchestratorApi(verbose=verbose)
     try:
         revision_id = resolve_revision(revision_id)
     except RevisionRequired as error:

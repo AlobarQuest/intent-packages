@@ -228,7 +228,9 @@ def next_runner_attempt(attempt_count: int, latest_runner_attempt: int) -> int:
     return max(attempt_count, latest_runner_attempt) + 1
 
 
-def ready(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None) -> int:
+def ready(
+    revision_id: str, unit_key: str, *, api: ExecutionApi | None = None, verbose: bool = False
+) -> int:
     """SYSTEM: move a unit DRAFT -> READY.
 
     Authority approval alone never does this (it only sets
@@ -237,7 +239,7 @@ def ready(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None) -
     no `version` on any read surface), so this resolves it via
     `api.resolve_version`'s documented probe before posting the real command.
     """
-    api = api or OrchestratorApi()
+    api = api or OrchestratorApi(verbose=verbose)
     try:
         revision_id = resolve_revision(revision_id)
     except RevisionRequired as error:
@@ -264,7 +266,9 @@ def ready(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None) -
     return 0
 
 
-def dispatch(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None) -> int:
+def dispatch(
+    revision_id: str, unit_key: str, *, api: ExecutionApi | None = None, verbose: bool = False
+) -> int:
     """SYSTEM: dispatch a READY unit to the runner.
 
     The unit is in flight (READY), so `version`/`attempt_count` come straight
@@ -283,7 +287,7 @@ def dispatch(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None
     bounded window is closed) proves nothing was dispatched either, and no
     id check can catch that case because the record really is new.
     """
-    api = api or OrchestratorApi()
+    api = api or OrchestratorApi(verbose=verbose)
     try:
         revision_id = resolve_revision(revision_id)
     except RevisionRequired as error:
