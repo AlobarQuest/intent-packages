@@ -290,7 +290,7 @@ def test_missing_routing_row_fails_closed(tmp_path, capsys, portable_pip):
     assert "unknown change-class" in err
 
 
-def test_run_fails_closed_on_no_diff(tmp_path, portable_pip):
+def test_run_fails_closed_on_no_diff(tmp_path, capsys, portable_pip):
     repo = _git_repo(tmp_path, content="fastapi==0.139.2\n")  # already at target
 
     rc = decompose.run(
@@ -310,6 +310,8 @@ def test_run_fails_closed_on_no_diff(tmp_path, portable_pip):
         api=_api_returning_intake(),
     )
     assert rc == 1
+    # Pin the failure to the dry-run, not the (newer) checkout-currency guard.
+    assert "no diff" in capsys.readouterr().err
 
 
 def test_run_fails_closed_on_stale_checkout(tmp_path, capsys, portable_pip):
