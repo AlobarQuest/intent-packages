@@ -83,7 +83,16 @@ def _build_parser() -> argparse.ArgumentParser:
     vf = sub.add_parser("verify", help="VERIFIER: post named-check evidence, then evaluate")
     vf.add_argument("--revision", default="", help="revision id (default: $FACTORY_REVISION)")
     vf.add_argument("--unit-key", dest="unit_key", required=True)
-    vf.add_argument("--ac", dest="ac_id", required=True, help="human AC id, e.g. AC-001")
+    vf.add_argument(
+        "--ac",
+        dest="ac_id",
+        required=True,
+        help=(
+            "human AC id, e.g. AC-001 (never the criterion UUID). Must name a criterion whose "
+            "evidence_type is automated_check -- any other type resolves to judgment_required "
+            "however good the evidence, and verify refuses locally rather than POSTing"
+        ),
+    )
     vf.add_argument("--check-name", dest="check_name", required=True)
     vf.add_argument(
         "--conclusion",

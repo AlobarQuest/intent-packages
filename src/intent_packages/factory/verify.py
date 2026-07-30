@@ -37,10 +37,12 @@ the derived value is the only one that can ever pass -- an override is a
 guaranteed mismatch, and it would not even help the missing-`target_repository`
 refusal, which fires first.
 
-Three reads happen, not two: `resolve_unit_id` (via `units_for`) reads
-`traceability`, then `history`, then `in-flight-units`. `traceability`'s `pr`
-hop is deliberately unused -- `pr_number`/`head_sha` come from `in-flight-units`
-instead -- and there is no `evidence_pack` call at all.
+FOUR reads happen: `get_intake` (to pre-check `--ac`'s `evidence_type`),
+`traceability` (via `resolve_unit_id`), `history`, and `in-flight-units`.
+`traceability`'s `pr` hop is deliberately unused -- `pr_number`/`head_sha` come
+from `in-flight-units` instead -- and there is no `evidence_pack` call at all.
+The `--ac` pre-check narrows but does not close the refusal set; see
+`_ac_evidence_type_refusal` for exactly what it cannot see.
 
 **Which `head_sha` field, and why:** `InFlightUnitModel` carries both
 `head_sha` (mutable, worker-written -- a rebase mid-flight is normal) and
@@ -62,8 +64,8 @@ import sys
 import uuid
 from typing import Protocol
 
-from intent_packages.factory import reads
-from intent_packages.factory.api import ApiError, OrchestratorApi
+from intent_packages.factory import links, reads
+from intent_packages.factory.api import ApiError, OrchestratorApi, base_url_from_env
 from intent_packages.factory.reads import (
     InFlightApi,
     RevisionApi,
@@ -72,6 +74,20 @@ from intent_packages.factory.reads import (
 )
 
 MAX_ASSERTIONS = 32
+
+# The ONLY `evidence_type` for which `evaluate_criterion` routes to the
+# named-check evaluator (`services/verifier_evaluators.py`). Every other type,
+# including the deceptively-named `automated_test`, resolves to
+# `judgment_required` regardless of the evidence.
+NAMED_CHECK_EVIDENCE_TYPE = "automated_check"
+
+# `VerificationResult` (`services/verifier_types.py`) is
+# `Literal["completed", "revision_required", "awaiting_review", "failed"]` --
+# NOT `passed`/`judgment_required`/`failed`. `EvaluationStatus` is the separate
+# per-AC vocabulary `passed`/`failed`/`failed_closed`/`judgment_required`.
+_RESULT_COMPLETED = "completed"
+_RESULT_AWAITING_REVIEW = "awaiting_review"
+_STATUS_JUDGMENT_REQUIRED = "judgment_required"
 # `services/verifier_named_check.py::validate_named_check_bindings` only accepts
 # named-check evidence while the unit is SUBMITTED or VERIFYING; every other
 # in-flight state (e.g. EXECUTING, on the REVISION_REQUIRED -> READY -> EXECUTING
@@ -239,6 +255,11 @@ def verify(
     Every field is either a flag or read straight off `history`/
     `in-flight-units`. A missing or invalid source is a named refusal, never a
     guess or a substitution.
+
+    **Exit code reflects the verification RESULT** (Devon's decision, 2026-07-29),
+    because this is the command a factory script gates on -- see
+    `_report_verification`. `awaiting_review` exits 0 with an unmissable line
+    saying it is not a pass.
     """
     api = api or OrchestratorApi(verbose=verbose)
     try:
@@ -254,6 +275,11 @@ def verify(
         return 1
 
     try:
+        refusal = _ac_evidence_type_refusal(api, revision_id, ac_id)
+        if refusal is not None:
+            print(f"verify failed: {refusal}", file=sys.stderr)
+            return 1
+
         unit_id = reads.resolve_unit_id(api, revision_id, unit_key, verb="verify")
         if unit_id is None:
             return 1
@@ -282,13 +308,130 @@ def verify(
         print(f"verify failed: {error}", file=sys.stderr)
         return 1
 
+    return _report_verification(unit_id, verify_response)
+
+
+def _criteria_evidence_types(intake: dict) -> dict[str, str | None]:
+    """`{ac_id: evidence_type}` for every criterion on the revision.
+
+    `PackageAcceptanceCriterionResponse` types both fields as required strings,
+    but this reads a decoded JSON body: a non-`str` `evidence_type` is mapped to
+    `None` so the caller's inequality against `automated_check` still refuses it
+    rather than crashing on an unexpected shape.
+    """
+    types: dict[str, str | None] = {}
+    for item in intake.get("acceptance_criteria") or []:
+        if not isinstance(item, dict):
+            continue
+        ac_id = item.get("ac_id")
+        if not isinstance(ac_id, str) or not ac_id:
+            continue
+        evidence_type = item.get("evidence_type")
+        types[ac_id] = evidence_type if isinstance(evidence_type, str) else None
+    return types
+
+
+def _ac_evidence_type_refusal(api: VerifyApi, revision_id: str, ac_id: str) -> str | None:
+    """Refuse locally when `--ac` cannot possibly accept named-check evidence.
+
+    `evaluate_criterion` (`services/verifier_evaluators.py`) routes a criterion to
+    the named-check evaluator ONLY when its `evidence_type` is exactly
+    `automated_check`. Anything else -- and `automated_test` in particular, which
+    is a *named* member of `JUDGMENT_TYPES` and therefore resolves to
+    `judgment_required` for every automated AC however good the evidence -- makes
+    the named-check POST pointless work. That trap is the refusal an operator is
+    most likely to hit blind, so it is caught here from
+    `get_intake(revision_id)["acceptance_criteria"]`, which carries `ac_id` and
+    `evidence_type` for every criterion on the revision.
+
+    **What this CANNOT catch.** The server resolves `--ac` through the
+    unit<->criterion mapping (`services/verifier_criteria.py`, filtering
+    `DecompositionProposalAcMapping.unit_key`), and `get_intake` cannot see that
+    mapping at all: it lists every criterion on the REVISION, not the ones mapped
+    to THIS unit. So a criterion that exists on the revision, has
+    `evidence_type: automated_check`, and is simply not mapped to `--unit-key`
+    will still pass this check, round-trip, and come back
+    `evidence_subject_invalid`. This narrows the failure set; it does not close
+    it, and no read available to this client can.
+
+    Returns the refusal text, or `None` to proceed.
+    """
+    by_ac_id = _criteria_evidence_types(api.get_intake(revision_id))
+    if ac_id not in by_ac_id:
+        known = ", ".join(sorted(by_ac_id)) or "(none)"
+        return (
+            f"unknown --ac {ac_id!r} on revision {revision_id}; criteria on this revision: "
+            f"{known}. --ac takes the HUMAN string (e.g. AC-001), never the criterion UUID"
+        )
+    evidence_type = by_ac_id[ac_id]
+    if evidence_type != NAMED_CHECK_EVIDENCE_TYPE:
+        return (
+            f"--ac {ac_id} declares evidence_type {evidence_type!r}, but named-check evidence is "
+            f"only evaluated for {NAMED_CHECK_EVIDENCE_TYPE!r} -- every other type (notably "
+            "'automated_test', which is a named judgment type) resolves to judgment_required "
+            "however good the evidence, so this POST would not change the outcome. Fix the "
+            "package's evidence_type, or adjudicate this criterion in /review instead. NOTE: "
+            "this check reads the criteria of the REVISION and cannot see the unit<->criterion "
+            "mapping, so an --ac that is valid here may still be rejected as "
+            "evidence_subject_invalid if it is not mapped to this unit_key"
+        )
+    return None
+
+
+def _report_verification(unit_id: str, verify_response: dict) -> int:
+    """Print the result and per-AC outcomes, and return the exit code.
+
+    **The `result` vocabulary is not `passed`/`judgment_required`/`failed`.**
+    `VerificationResult` (`services/verifier_types.py`) is
+    `Literal["completed", "revision_required", "awaiting_review", "failed"]`, and
+    `_result_for_state` derives it from the state the verification transitioned
+    to. The per-AC `status` is the `passed`/`failed`/`failed_closed`/
+    `judgment_required` vocabulary (`EvaluationStatus`); `outcome` is
+    `passed`/`failed`/`waived`/`not_applicable`/None.
+
+    Devon's decision, mapped onto that real vocabulary:
+
+    - `completed` -> exit 0. Every required criterion passed; this is the pass.
+    - `awaiting_review` -> exit 0, but with an unmissable line stating it is NOT
+      a pass and awaits human adjudication. At least one criterion came back
+      `judgment_required`, which is a legitimate outcome needing a human, not a
+      failure -- but a script that treated a silent 0 as "verified" would be
+      wrong, so the line names the criteria and the /review page.
+    - `revision_required`, `failed`, or anything else -> non-zero. A failure, or
+      a result this client does not recognise; either way not a pass.
+    """
     print(
         f"unit {unit_id} -> {verify_response.get('state')} "
         f"(version {verify_response.get('version')}), result: {verify_response.get('result')}"
     )
-    for evaluation in verify_response.get("evaluations", []):
+    evaluations = verify_response.get("evaluations", [])
+    for evaluation in evaluations:
         print(
             f"  {evaluation.get('ac_id')}: {evaluation.get('status')} "
             f"({evaluation.get('outcome')}) -- {evaluation.get('reason')}"
         )
-    return 0
+
+    result = verify_response.get("result")
+    if result == _RESULT_COMPLETED:
+        print("verified: every required acceptance criterion passed.")
+        return 0
+    if result == _RESULT_AWAITING_REVIEW:
+        pending = ", ".join(
+            str(item.get("ac_id"))
+            for item in evaluations
+            if item.get("status") == _STATUS_JUDGMENT_REQUIRED
+        )
+        print(
+            "*** NOT A PASS: this unit is AWAITING HUMAN REVIEW. ***\n"
+            f"*** {pending or 'at least one criterion'} came back judgment_required, which no "
+            "amount of evidence can turn into a pass -- a human must adjudicate it in /review "
+            f"({links.unit(base_url_from_env(), unit_id)}).\n"
+            "*** This command exits 0 because the verification itself succeeded; do NOT read "
+            "that as verified."
+        )
+        return 0
+    print(
+        f"verify: result {result!r} is not a pass -- this unit did not verify",
+        file=sys.stderr,
+    )
+    return 1

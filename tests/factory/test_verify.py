@@ -16,7 +16,36 @@ def _fake_api(**overrides):
 
     class FakeApi:
         def get_intake(self, revision_id):
-            return {"id": revision_id, "state": "intaken", "acceptance_criteria": []}
+            # Real `PackageIntakeResponse`/`PackageAcceptanceCriterionResponse`
+            # shape -- `acceptance_criteria` was `[]`, which the D2 pre-check
+            # would (correctly) refuse.
+            return {
+                "id": revision_id,
+                "package_id": "probe",
+                "revision": 1,
+                "source_repository": "AlobarQuest/probe",
+                "status_at_intake": "approved",
+                "intake_source": "review_form",
+                "profile": "dependency-update",
+                "acceptance_criteria": [
+                    {
+                        "id": "11111111-1111-1111-1111-111111111111",
+                        "ac_id": "AC-001",
+                        "condition": "the named check passes on the PR head",
+                        "evidence_type": "automated_check",
+                        "evidence": "a GitHub named check",
+                        "approver": "policy",
+                    },
+                    {
+                        "id": "22222222-2222-2222-2222-222222222222",
+                        "ac_id": "AC-002",
+                        "condition": "a reviewer confirms readiness",
+                        "evidence_type": "human_review",
+                        "evidence": "a recorded human judgment",
+                        "approver": "devon",
+                    },
+                ],
+            }
 
         def list_proposals(self, revision_id):
             return []
@@ -558,6 +587,296 @@ def test_verify_prints_one_line_per_evaluation(capsys):
     assert "AC-001: passed (passed)" in out
 
 
+# -- B4: the missing-dispatch-field refusals ----------------------------------
+
+
+def _history_missing(field):
+    payload = {
+        "runner_attempt": 1,
+        "dispatch_record_id": "d1",
+        "target_repository": "AlobarQuest/brain",
+    }
+    del payload[field]
+
+    def history(unit_id):
+        return [{"action": "dispatch.dispatched", "payload": payload}]
+
+    return history
+
+
+def test_refuses_when_the_dispatch_event_has_no_record_id(capsys):
+    """B4. Uncovered before: the mutant that dropped this refusal POSTed
+    `dispatch_id: null` and exited 0. `dispatch_id` is the binding the whole
+    named-check attests to -- a null one cannot validate against anything."""
+    seen = {}
+
+    def named_check(unit_id, payload):
+        seen["payload"] = payload
+        return {"id": "e1"}
+
+    rc = verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-001",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=["ok=true:true"],
+        api=_fake_api(history=_history_missing("dispatch_record_id"), named_check=named_check),
+    )
+    assert rc == 1
+    assert "missing dispatch_record_id or target_repository" in capsys.readouterr().err
+    assert "payload" not in seen  # never POSTed
+
+
+def test_refuses_when_the_dispatch_event_has_no_target_repository(capsys):
+    """The other half of B4. The mutant POSTed `repository: null` AND a
+    `pr_url` of `https://github.com/None/pull/12` -- a URL built from the
+    missing value -- and still exited 0."""
+    seen = {}
+
+    def named_check(unit_id, payload):
+        seen["payload"] = payload
+        return {"id": "e1"}
+
+    rc = verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-001",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=["ok=true:true"],
+        api=_fake_api(history=_history_missing("target_repository"), named_check=named_check),
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "missing dispatch_record_id or target_repository" in err
+    assert "payload" not in seen
+    assert "github.com/None" not in err
+
+
+# -- D1: the exit code reflects the verification result -----------------------
+#
+# `VerificationResult` is `completed | revision_required | awaiting_review |
+# failed` (`orchestrator/services/verifier_types.py`) -- NOT
+# `passed`/`judgment_required`/`failed`, which is the per-AC `EvaluationStatus`
+# vocabulary. These tests are written against the real one.
+
+
+def _verify_returning(result, evaluations=()):
+    def verify_call(unit_id, payload):
+        return {
+            "unit_id": unit_id,
+            "state": result,
+            "version": 6,
+            "result": result,
+            "evaluations": list(evaluations),
+        }
+
+    return verify_call
+
+
+def _run_verify(api, capsys=None):
+    return verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-001",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=["ok=true:true"],
+        api=api,
+    )
+
+
+def test_a_completed_verification_exits_zero_and_says_so(capsys):
+    rc = _run_verify(_fake_api(verify=_verify_returning("completed")))
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "every required acceptance criterion passed" in out
+    assert "NOT A PASS" not in out
+
+
+def test_awaiting_review_exits_zero_but_says_unmissably_that_it_is_not_a_pass(capsys, monkeypatch):
+    """`judgment_required` is a legitimate outcome needing a human, not a
+    failure -- so exit 0. But a script reading a silent 0 as "verified" would be
+    wrong, so the line has to be impossible to miss and has to name the criteria
+    and the /review page."""
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    evaluations = [
+        {
+            "ac_id": "AC-002",
+            "evidence_type": "human_review",
+            "status": "judgment_required",
+            "outcome": None,
+            "reason": "human_review requires review",
+        }
+    ]
+    rc = _run_verify(_fake_api(verify=_verify_returning("awaiting_review", evaluations)))
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "NOT A PASS" in out
+    assert "AWAITING HUMAN REVIEW" in out
+    assert "AC-002" in out
+    assert "https://sds.example/review/units/u1" in out
+    assert "do NOT read that as verified" in out
+
+
+def test_revision_required_exits_non_zero(capsys):
+    """A failed criterion transitions the unit to REVISION_REQUIRED, whose
+    result is `revision_required`. That is a failure and must not exit 0."""
+    evaluations = [
+        {
+            "ac_id": "AC-001",
+            "evidence_type": "automated_check",
+            "status": "failed",
+            "outcome": "failed",
+            "reason": "named check conclusion is failure",
+        }
+    ]
+    rc = _run_verify(_fake_api(verify=_verify_returning("revision_required", evaluations)))
+    assert rc == 1
+    assert "is not a pass" in capsys.readouterr().err
+
+
+def test_a_failed_result_exits_non_zero(capsys):
+    rc = _run_verify(_fake_api(verify=_verify_returning("failed")))
+    assert rc == 1
+    assert "is not a pass" in capsys.readouterr().err
+
+
+def test_an_unrecognised_result_exits_non_zero(capsys):
+    """Fail closed on a vocabulary this client does not know: a future
+    `VerificationResult` member must not be silently reported as a pass."""
+    rc = _run_verify(_fake_api(verify=_verify_returning("quiesced")))
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "'quiesced'" in err
+    assert "is not a pass" in err
+
+
+# -- D2: the --ac pre-check ---------------------------------------------------
+
+
+def test_refuses_an_ac_whose_evidence_type_is_not_automated_check(capsys):
+    """D2. `evaluate_criterion` routes to the named-check evaluator ONLY for
+    `automated_check`; every other type resolves to `judgment_required` however
+    good the evidence. AC-002 in the fixture is `human_review`."""
+    seen = {}
+
+    def named_check(unit_id, payload):
+        seen["called"] = True
+        return {"id": "e1"}
+
+    rc = verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-002",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=["ok=true:true"],
+        api=_fake_api(named_check=named_check),
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "'human_review'" in err
+    assert "automated_check" in err
+    assert "called" not in seen
+
+
+def test_the_ac_precheck_names_the_automated_test_trap(capsys):
+    """The specific trap this pre-check exists for: `automated_test` is a NAMED
+    member of `JUDGMENT_TYPES`, so it looks automated and is not."""
+
+    def get_intake(revision_id):
+        return {
+            "id": revision_id,
+            "acceptance_criteria": [
+                {
+                    "id": "33333333-3333-3333-3333-333333333333",
+                    "ac_id": "AC-001",
+                    "condition": "the suite passes",
+                    "evidence_type": "automated_test",
+                    "evidence": "pytest output",
+                    "approver": "policy",
+                }
+            ],
+        }
+
+    rc = _run_verify(_fake_api(get_intake=get_intake))
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "'automated_test'" in err
+    assert "judgment_required" in err
+
+
+def test_refuses_an_ac_that_is_not_on_the_revision_at_all(capsys):
+    """A typo'd or UUID-shaped `--ac` is refused with the real ac_ids listed."""
+    rc = verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-999",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=["ok=true:true"],
+        api=_fake_api(),
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "unknown --ac 'AC-999'" in err
+    assert "AC-001, AC-002" in err
+    assert "never the criterion UUID" in err
+
+
+def test_the_ac_precheck_message_admits_what_it_cannot_see(capsys):
+    """The refusal must NOT claim the pre-check makes an unmapped `--ac`
+    impossible: the server resolves `--ac` through
+    `DecompositionProposalAcMapping.unit_key`, which `get_intake` cannot see, so
+    a revision-valid `--ac` that is not mapped to this unit still round-trips to
+    `evidence_subject_invalid`."""
+    rc = verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-002",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=["ok=true:true"],
+        api=_fake_api(),
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "evidence_subject_invalid" in err
+    assert "cannot see the unit" in err
+
+
+def test_the_ac_precheck_runs_before_any_other_read(capsys):
+    """It costs one read; it must therefore come first, so a bad `--ac` does not
+    pay for `traceability` + `history` + `in-flight-units` as well."""
+    order = []
+
+    def get_intake(revision_id):
+        order.append("get_intake")
+        return {"id": revision_id, "acceptance_criteria": []}
+
+    def traceability(*, revision_id=None, work_unit_id=None):
+        order.append("traceability")
+        raise AssertionError("must not be reached")
+
+    rc = _run_verify(_fake_api(get_intake=get_intake, traceability=traceability))
+    assert rc == 1
+    assert order == ["get_intake"]
+
+
 def test_named_check_is_posted_before_verify():
     order = []
 
@@ -571,7 +890,7 @@ def test_named_check_is_posted_before_verify():
             "unit_id": unit_id,
             "state": "awaiting_review",
             "version": 6,
-            "result": "x",
+            "result": "completed",
             "evaluations": [],
         }
 
@@ -602,6 +921,23 @@ def test_verify_over_the_real_api_with_production_wire_shapes():
     def handler(request):
         path = request.url.path
         seen.append((request.method, path))
+        if path == "/api/v1/package-intakes/r1":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "r1",
+                    "acceptance_criteria": [
+                        {
+                            "id": "11111111-1111-1111-1111-111111111111",
+                            "ac_id": "AC-001",
+                            "condition": "the named check passes",
+                            "evidence_type": "automated_check",
+                            "evidence": "a GitHub named check",
+                            "approver": "policy",
+                        }
+                    ],
+                },
+            )
         if path == "/api/v1/traceability":
             return httpx.Response(
                 200,
