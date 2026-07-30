@@ -1,0 +1,17 @@
+package_id: wsp211-conformance-kit
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 950145f93071aabea0e95f16e3635b713ec83f244b84f6f90134950709c4c122
+  created_at: '2026-07-30T14:39:38Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-30T14:41:50.493426+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-30T14:41:50.493426+00:00'
+  actor: claude-code-interactive
+  event_id: evt-7f4370d8d3754bdfb43052e89acf95e4
+approvals: []
+grants: []

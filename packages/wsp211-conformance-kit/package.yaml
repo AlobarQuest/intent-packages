@@ -1,0 +1,180 @@
+schema_version: 1
+package_id: wsp211-conformance-kit
+title: WS-P2.11 Conformance Kit + Readiness-as-Proposals
+revision: 1
+status: ready_for_review
+created_by: factory-create
+owner: devon
+created_at: '2026-07-30T14:39:38Z'
+supersedes: null
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/project-standards
+  branch: main
+  deploy_target: null
+  required_checks:
+  - 'github-actions: quality.yml (project-standards and intent-packages; collected-test
+    count read from the job log, never the check color)'
+  rollback_plan: Revert the increment PRs. The kit is additive and read-only against
+    target repos and GitHub settings; no data, deploy, or settings state to unwind.
+outcome:
+  what: One-command repo onboarding (`portfolio onboard <repo>`) that emits a versioned
+    machine-readable readiness result (portfolio-readiness/v1) whose failed admission
+    checks form a remediation queue, consumable by `factory create --from-readiness`
+    to scaffold Draft remediation packages that stop at Devon's gates; plus the owned
+    factory-runner caller template anchored to a declared pin.
+  why: Onboarding a repo into the factory is today an undocumented, hand-assembled
+    audit; failures are silent (CI green having run nothing, callers 15 commits
+    stale). The kit turns onboarding into a queue with the next action named at
+    every step, and feeds program exit criterion #2.
+  beneficiary: Devon (one command, decisions at gates only) and every future
+    factory-onboarded repo.
+  success_signal: change-manager passes admission ~clean; brain emits a real
+    remediation queue that becomes a validated Draft package ending at Devon's gate;
+    a docs-only canary certifies one onboarded repo end to end.
+scope:
+  included:
+  - portfolio onboard verb, 7 admission + 4 advisory checks, readiness result
+    schema portfolio-readiness/v1 with remediation queue (project-standards)
+  - factory onboard passthrough and factory create --from-readiness consumer
+    (intent-packages)
+  - RECOMMENDED_CALLER_PIN declaration file (factory-runner, one line)
+  - owned caller workflow template with declared-pin slot (project-standards)
+  - validation runs on change-manager and brain; certification canary (last)
+  excluded:
+  - onboarding the remaining exit-criterion-#2 repos (later adoption work)
+  - factory-runner CI / functional-consistency guard (its own open P1 chain)
+  - any orchestrator change (hard stop; return to HQ)
+  - any GitHub settings write (check-and-report only)
+  non_goals:
+  - replacing foundation/scan; the kit composes them per-repo
+  assumptions:
+  - construction mode per 2026-07-30 ruling (dispatch config for the canary is a
+    setting to flip; rigor kept, ceremony not)
+  open_questions: []
+sources:
+- location: ~/docs/software-delivery-system/2026-07-30-wsp211-conformance-kit-handoff-prompt.md
+    plus the approved spec at project-standards docs/superpowers/specs/2026-07-30-wsp211-conformance-kit-spec.md
+    (decisions register of 2026-07-30) and the construction-mode ruling of the same date.
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: Python 3.12; composition over project-standards, code-standards,
+    security-standards, intent-packages, factory-runner; no new runtime dependencies.
+  policy_legal: null
+  privacy_security: Kit reads GitHub via gh; no secrets echoed; BWS discipline in full.
+  compatibility: Readiness schema is a versioned cross-repo contract; breaking
+    changes bump portfolio-readiness/v1 and both sides in one change-set.
+  quality_accessibility: Full repo gates green with real collected counts; every
+    admission check proven to fire on a constructed failing instance.
+  operational: Kit is read-only against target repos and GitHub settings; writes
+    only stdout/stderr and ~/.portfolio/readiness/.
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: portfolio onboard is merged in project-standards, emitting
+    portfolio-readiness/v1 with the 7 admission + 4 advisory checks, every admission
+    check proven to FIRE on a constructed failing instance, full gate green with the
+    collected count read
+  evidence_type: human_review
+  evidence: 'human: merged PR link + test names for each fired guard + collected count'
+  approver: devon
+- id: AC-002
+  condition: factory onboard passthrough and factory create --from-readiness are
+    merged in intent-packages; the consumer fail-closes on any schema string other
+    than portfolio-readiness/v1; its fixture is captured from a live kit run
+  evidence_type: human_review
+  evidence: 'human: merged PR link + fixture provenance comment'
+  approver: devon
+- id: AC-003
+  condition: factory-runner declares RECOMMENDED_CALLER_PIN at repo root and the
+    kit's runner.caller check reads it by pointer (behind-declared-pin is the
+    staleness condition)
+  evidence_type: human_review
+  evidence: 'human: merged one-line PR + the kit check''s live read in validation'
+  approver: devon
+- id: AC-004
+  condition: validation runs retained as evidence — change-manager ~clean, brain
+    emitting a real remediation queue that becomes a validated Draft
+    maintenance-remediation package stopping at Devon's gate
+  evidence_type: human_review
+  evidence: 'human: both readiness JSONs + the validated Draft package path'
+  approver: devon
+- id: AC-005
+  condition: one docs-only canary runs the full factory path on an onboarded repo
+    under WS-6.4 dry-run rules (config flipped, run, restored, noted in closeout);
+    Devon merges the canary PR; the certified/checks-pass distinction is demonstrated
+  evidence_type: human_review
+  evidence: 'human: canary PR link + config flip/restore note + re-run readiness result'
+  approver: devon
+- id: AC-006
+  condition: a reviewer confirms this package was ready before execution began
+  evidence_type: human_review
+  evidence: 'human: Devon''s package approval at the /review gate'
+  approver: devon
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: null
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - portfolio onboard verb + readiness schema + caller template (project-standards)
+  - factory onboard + create --from-readiness (intent-packages)
+  - RECOMMENDED_CALLER_PIN (factory-runner)
+  - two retained validation readiness results + brain Draft remediation package
+  - closeout per session-closeout-contract.md incl. claim corrections
+  destination: packages/
+  recipient: devon
+  definition_of_done: All six acceptance criteria hold; five-repo closeout table
+    clean; residuals (exit-#2 adoption, factory-runner guard chain) named honestly.
+  operator_responsibilities:
+  - Devon merges each increment PR and the canary PR; approves this package at /review
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - construction-mode ruling 2026-07-30 (in force)
+  required_people_systems:
+  - Devon (merges, package approval, canary PR)
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes:
+  - 'the ci.executed check misparses gh logs and reads absence as green (mitigated:
+    UNKNOWN is admission-failing by design; test constructs the case)'
+  - 'schema drift between kit and consumer (mitigated: exact-string version gate,
+    fixture from live run)'
+  max_impact: low
+  stop_conditions:
+  - any design pressure toward an orchestrator change
+  rollback: Revert the increment PRs; delete ~/.portfolio/readiness outputs; no
+    other state exists.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: true
+  revisit_when: 'kit exists but exit criterion #2 needs the remaining repos onboarded
+    (adoption work, separate sessions)'
+  signals:
+  - a readiness run on a not-yet-onboarded repo emits a queue nobody turns into a package
+  owner: devon
+applicable_standards:
+  project: '1.0'
