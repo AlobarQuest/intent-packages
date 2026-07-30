@@ -2,7 +2,7 @@ schema_version: 1
 package_id: wsp211-conformance-kit
 title: WS-P2.11 Conformance Kit + Readiness-as-Proposals
 revision: 1
-status: ready_for_review
+status: approved
 created_by: factory-create
 owner: devon
 created_at: '2026-07-30T14:39:38Z'

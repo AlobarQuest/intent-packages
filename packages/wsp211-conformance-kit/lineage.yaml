@@ -1,5 +1,5 @@
 package_id: wsp211-conformance-kit
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 950145f93071aabea0e95f16e3635b713ec83f244b84f6f90134950709c4c122
@@ -13,5 +13,11 @@ transitions:
   at: '2026-07-30T14:41:50.493426+00:00'
   actor: claude-code-interactive
   event_id: evt-7f4370d8d3754bdfb43052e89acf95e4
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 950145f93071aabea0e95f16e3635b713ec83f244b84f6f90134950709c4c122
+  approver: devon
+  approved_at: '2026-07-30T16:11:08.037448+00:00'
+  commit: 9f6f7c2e9e6c9b0d166fc2f0277ba4b1abdd0004
+  event_id: evt-e33cc3625e414c959ea15ed9d566f188
 grants: []
