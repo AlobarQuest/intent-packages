@@ -1,0 +1,181 @@
+schema_version: 1
+package_id: wsp29-production-drive
+title: 'WS-P2.9 production drive: raise the alembic floor in change-manager'
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-07-30T12:02:05Z'
+supersedes: null
+profile: dependency-update
+profile_fields:
+  target_repo: AlobarQuest/change-manager
+  package: alembic
+  from_version: '1.13'
+  to_version: '1.18.5'
+outcome:
+  what: AlobarQuest/change-manager's declared alembic floor moves from >=1.13 to
+    >=1.18.5, matching the version its uv.lock already resolves, delivered as a
+    runner-opened PR whose named check passes on the PR head.
+  why: The declared floor is roughly five minor versions below what the project
+    actually resolves and installs. A floor that loose lets a fresh resolve legally
+    pick an alembic old enough to predate migration behaviour the repo now depends
+    on, and it makes the manifest a misleading statement of what change-manager
+    supports. Raising it to the already-locked version removes that gap without
+    changing a single resolved dependency.
+  beneficiary: change-manager, whose manifest becomes an accurate statement of its
+    real floor; and the software delivery system, for which this is the first flow
+    driven end to end through the `factory` front door alone.
+  success_signal: A PR on AlobarQuest/change-manager changing only pyproject.toml's
+    alembic constraint, with uv.lock byte-identical, its named check green on the
+    PR head, and orchestrator evidence recorded against AC-001.
+scope:
+  included:
+  - Raise the alembic version constraint in change-manager's pyproject.toml
+    [project].dependencies from '>=1.13' to '>=1.18.5'.
+  excluded:
+  - Any change to uv.lock's resolved versions. The floor-raise is deliberately
+    chosen to land on the already-locked version, so the lock is unchanged.
+  - Any other dependency in change-manager, including the stale fastapi floor
+    (>=0.110 against a locked 0.139.0), which is a separate candidate.
+  - Merging the resulting PR. Merge remains a human gate.
+  non_goals:
+  - Proving the software-delivery profile. This package deliberately uses the
+    dependency-update profile, the only lane proven in production (GAP-4), so the
+    drive exercises the `factory` front door and nothing else.
+  assumptions:
+  - change-manager's caller workflow pins factory-runner at f1cf3c5 or later.
+    Verified 2026-07-30 — the caller's reusable-workflow ref is f1cf3c5, whose own
+    CLI install pin is c266769, that being the exact commit f1cf3c5 was raised to
+    advance it to.
+  - change-manager's uv.lock resolves alembic 1.18.5. Verified 2026-07-30 against
+    origin/main at 3d47088.
+  open_questions: []
+sources:
+- location: '~/docs/software-delivery-system/2026-07-30-wsp29-production-drive-handoff-prompt.md
+    — the WS-P2.9 production drive handoff, including the HQ addition recommending
+    the dependency-update profile targeting change-manager.'
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: The dispatch window must stay open until the run is terminal in all
+    three senses (Actions run concluded, unit left executing, cost-actuals exist).
+    Closing it early restarts the orchestrator into the runner's finalize-run and
+    strands the unit — the GAP-4 failure, twice.
+  technology: uv. The mutator is `uv add`, the verifier `uv lock --check`.
+  policy_legal: null
+  privacy_security: null
+  compatibility: The floor-raise cannot break change-manager's resolve, because
+    1.18.5 is the version already locked. Raising a floor to an already-resolved
+    version is a no-op for every consumer of the lockfile.
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: change-manager's pyproject.toml declares alembic '>=1.18.5' on a
+    runner-opened PR, and that repository's own named check passes on the PR head.
+  evidence_type: automated_check
+  evidence: 'ci: verifier-owned named-check evidence (verifier.github.named_check)
+    recorded against the PR head, naming change-manager''s CI check, its run id and
+    run url.'
+  approver: policy
+- id: AC-002
+  condition: a reviewer confirms this package was ready before execution began —
+    the target repo's factory-runner pin verified, the mutator dry-run proven to
+    yield a diff against the real target tree, and the authority envelope approved.
+  evidence_type: human_review
+  evidence: 'human: Devon''s decomposition approval and authority-envelope approval
+    recorded in /review, both under his Authentik identity.'
+  approver: devon
+
+# allowed_commands is an ORDERED list the worker re-executes at finalize, not a
+# permission set: put mutators first and the verifier last, or the recorded
+# evidence attests to a tree that is not the one pushed. `make check` must never
+# appear in this repo's envelope. Use `uv venv --clear`, never bare `uv venv`.
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 4
+deliverables:
+  artifacts:
+  - A pull request on AlobarQuest/change-manager raising the alembic floor to
+    '>=1.18.5' in pyproject.toml, with uv.lock unchanged.
+  destination: AlobarQuest/change-manager
+  recipient: devon
+  definition_of_done: The PR exists, its named check is green on the PR head,
+    verifier-owned named-check evidence is recorded against AC-001, and the unit
+    has left executing with cost-actuals recorded.
+  operator_responsibilities:
+  - Open the bounded dispatch window and close it only once the run is terminal in
+    all three senses.
+  - Merge or close the resulting PR. The runner does not merge.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - Devon's choice of subject (2026-07-30) — alembic floor-raise, selected over two
+    fastapi variants for having zero resolution risk, so the drive tests `factory`
+    rather than dependency resolution.
+  required_people_systems:
+  - Devon, present and logged into Authentik, for the intake, decomposition-approval
+    and authority-approval gates.
+  - GitHub Actions on AlobarQuest/change-manager, for the runner and its named check.
+  required_capabilities:
+  - repository_write
+  - test_execution
+  - pr_open
+  blocking_conditions:
+  - The dispatch gates (ORCHESTRATOR_DISPATCH_ENABLED,
+    ORCHESTRATOR_DISPATCH_ALLOWED_TARGET_REPOSITORIES) must admit
+    AlobarQuest/change-manager for the duration of the run.
+risk:
+  failure_modes:
+  - The mutator produces no diff, and the unit dies on the no-changes-to-submit
+    guard. Pre-empted by the decompose dry-run, which clones the real target at
+    HEAD, runs the ordered command list twice, and fails closed on an empty or
+    non-idempotent diff.
+  - The dispatch window is closed while the run is live, stranding the unit in
+    executing and spending an attempt. Pre-empted by holding the window open until
+    terminal in all three senses.
+  - A dispatch is issued at a reused ordinal, returning an existing record with
+    status dispatched and firing no workflow. Detected by confirming a new record
+    id, not by reading the status field.
+  max_impact: low
+  stop_conditions:
+  - Any surprise is a finding, not an obstacle — stop and capture rather than
+    improvise around it.
+  rollback: Close the PR without merging. Nothing outside the PR is mutated — the
+    orchestrator records evidence, and change-manager's main is untouched until a
+    human merges.
+  escalation_target: devon
+verification:
+  independent_review:
+  - change-manager's own named check on the PR head, which is the target repo's
+    verifier and is not owned by this package.
+  non_mechanical:
+  - Devon's confirmation that the front door — create, validate, submit, decompose,
+    ready, dispatch, evidence, verify — carried the flow with no command outside
+    `factory` and no orchestrator CLI fallback.
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'
