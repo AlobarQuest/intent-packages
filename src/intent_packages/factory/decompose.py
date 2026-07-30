@@ -8,12 +8,11 @@ out of scope. The only orchestrator write is the SYSTEM/M2M proposal submit.
 from __future__ import annotations
 
 import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 from intent_packages import routing
+from intent_packages.factory.api import ApiError, OrchestratorApi
 from intent_packages.factory.orchestrator_cli import OrchestratorClient, OrchestratorCliError
 from intent_packages.factory.validations import (
     ValidationError,
@@ -104,9 +103,12 @@ def run(
     out: str,
     submit: bool,
     client: OrchestratorClient | None = None,
+    api: OrchestratorApi | None = None,
     policy_path: Path | None = None,
+    verbose: bool = False,
 ) -> int:
     client = client or OrchestratorClient()
+    api = api or OrchestratorApi(verbose=verbose)
     resolved_key = unit_key or f"{_repo_name(target_repo)}-{ac.lower()}"
     local_repo = _resolve_repo_path(target_repo, repo_path)
     try:
@@ -122,7 +124,7 @@ def run(
         if not sites:
             raise DecomposeError(f"no pin site for {package} in {local_repo} ({tooling})")
 
-        intake = client.show_package_intake(revision)
+        intake = api.get_intake(revision)
         conformance = client.conformance_claim(str(local_repo))
 
         proposal = build_proposal(
@@ -157,19 +159,14 @@ def run(
             print(body)
 
         if submit:
-            with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
-                handle.write(body)
-                proposal_path = handle.name
-            try:
-                result = client.propose_decomposition(revision, proposal_path)
-            finally:
-                os.unlink(proposal_path)
+            result = api.propose_decomposition(revision, proposal)
             print(f"submitted: {json.dumps(result, sort_keys=True)}", file=sys.stderr)
         return 0
     except (
         DecomposeError,
         ValidationError,
         OrchestratorCliError,
+        ApiError,
         ProfileError,
         routing.RoutingPolicyError,
     ) as error:

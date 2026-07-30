@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import pytest
 
-from intent_packages.factory_cli import main
+from intent_packages.factory_cli import _HANDLERS, main
+
+ALL_COMMANDS = sorted(_HANDLERS)
 
 
 def test_no_subcommand_errors():
@@ -45,3 +49,487 @@ def test_decompose_delegates_to_run(monkeypatch):
     assert seen["revision"] == "rev-1" and seen["ac"] == "AC-002"
     assert seen["from_version"] == "0.139.0" and seen["to_version"] == "0.139.2"
     assert seen["submit"] is True
+
+
+def test_create_through_the_entrypoint(tmp_path):
+    from intent_packages.factory_cli import main
+
+    rc = main(
+        ["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)]
+    )
+    assert rc == 0
+    assert (tmp_path / "probe" / "package.yaml").exists()
+
+
+def test_validate_through_the_entrypoint(tmp_path):
+    from intent_packages.factory_cli import main
+
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    assert main(["validate", str(tmp_path / "probe")]) == 0
+
+
+def test_validate_reports_an_invalid_package_as_a_failure(tmp_path, capsys):
+    """B2. `factory validate`'s FAILURE path had no coverage at all: replacing
+    the whole body with `return 0` kept every test green, because the only
+    existing test validated a package `create` had just written and already
+    validated. Exit 1, and the validator's own errors on stderr."""
+    import yaml
+
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    package_path = tmp_path / "probe" / "package.yaml"
+    document = yaml.safe_load(package_path.read_text())
+    del document["acceptance"]
+    package_path.write_text(yaml.safe_dump(document, sort_keys=False))
+    capsys.readouterr()
+
+    rc = main(["validate", str(package_path)])
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert "acceptance" in captured.err
+    assert ": valid" not in captured.out
+
+
+def test_validate_accepts_the_package_yaml_path_as_well_as_the_directory(tmp_path, capsys):
+    """`validate` takes "a package directory or its package.yaml"; the happy path
+    was only ever exercised with the directory."""
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    capsys.readouterr()
+    assert main(["validate", str(tmp_path / "probe" / "package.yaml")]) == 0
+    assert "valid" in capsys.readouterr().out
+
+
+def test_verify_requires_its_flags():
+    with pytest.raises(SystemExit):
+        main(["verify", "--unit-key", "bump-fastapi"])
+
+
+def test_verify_delegates_to_verify_module(monkeypatch):
+    seen = {}
+
+    def fake_verify(revision_id, unit_key, **kwargs):
+        seen["args"] = (revision_id, unit_key)
+        seen["kwargs"] = kwargs
+        return 0
+
+    monkeypatch.setattr("intent_packages.factory.verify.verify", fake_verify)
+    rc = main(
+        [
+            "verify",
+            "--revision",
+            "r1",
+            "--unit-key",
+            "bump-fastapi",
+            "--ac",
+            "AC-001",
+            "--check-name",
+            "Quality",
+            "--conclusion",
+            "success",
+            "--run-id",
+            "99",
+            "--run-url",
+            "https://github.com/x/y/actions/runs/99",
+            "--assert",
+            "collected=295:295",
+            "--assert",
+            "passed=true:true",
+        ]
+    )
+    assert rc == 0
+    assert seen["args"] == ("r1", "bump-fastapi")
+    assert seen["kwargs"]["ac_id"] == "AC-001"
+    assert seen["kwargs"]["check_name"] == "Quality"
+    assert seen["kwargs"]["conclusion"] == "success"
+    assert seen["kwargs"]["run_id"] == "99"
+    assert seen["kwargs"]["run_url"] == "https://github.com/x/y/actions/runs/99"
+    assert seen["kwargs"]["assertions"] == ["collected=295:295", "passed=true:true"]
+    assert "repository" not in seen["kwargs"]
+
+
+def test_verify_rejects_an_unknown_conclusion():
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "verify",
+                "--unit-key",
+                "k",
+                "--ac",
+                "AC-001",
+                "--check-name",
+                "Quality",
+                "--conclusion",
+                "stale",
+                "--run-id",
+                "99",
+                "--run-url",
+                "u",
+            ]
+        )
+
+
+# -- B1: submit through the real parser wiring ---------------------------------
+#
+# `submit` was the ONE verb never driven through `main(argv)`: replacing
+# `_run_submit`'s body with `return 0` kept all 197 factory tests green. Spec §6's
+# first testing requirement is that command functions are reached through the real
+# parser wiring, and `submit` is also the verb carrying the ADR-0006 gate -- so a
+# broken `_run_submit` would silently disable the front door's only human handoff.
+
+
+def _approved_package_dir(tmp_path):
+    """A package `submit` will accept: scaffolded, then flipped to approved in
+    both files (intake requires `status == current_state == approved`)."""
+    import yaml
+
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    for name, key in (("package.yaml", "status"), ("lineage.yaml", "current_state")):
+        path = tmp_path / "probe" / name
+        document = yaml.safe_load(path.read_text())
+        document[key] = "approved"
+        path.write_text(yaml.safe_dump(document, sort_keys=False))
+    return tmp_path / "probe"
+
+
+class _FakeOrchestratorClient:
+    """Stands in for the `OrchestratorClient` `submit` constructs itself.
+
+    Patched at `journey.OrchestratorClient` -- the construction site -- rather
+    than injected, because `_run_submit` passes no `client`: injecting one would
+    test a path the CLI never takes.
+    """
+
+    calls: list[tuple] = []
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def emit_intake_payload(self, package_path, source_repository, idempotency_key):
+        _FakeOrchestratorClient.calls.append((package_path, source_repository, idempotency_key))
+        return {"idempotency_key": idempotency_key, "source_repository": source_repository}
+
+
+def _patch_submit_boundaries(monkeypatch):
+    """Replace the two process boundaries `submit` reaches for by default: the
+    `orchestrator` subprocess and `pbcopy`."""
+    _FakeOrchestratorClient.calls = []
+    copied: list[str] = []
+    monkeypatch.setattr(
+        "intent_packages.factory.journey.OrchestratorClient", _FakeOrchestratorClient
+    )
+    monkeypatch.setattr(
+        "intent_packages.factory.journey._default_clipboard", lambda text: copied.append(text)
+    )
+    return copied
+
+
+def test_submit_through_the_entrypoint(tmp_path, capsys, monkeypatch):
+    """The whole verb, driven by `main(argv)`: parser wiring, package resolution,
+    payload emission, clipboard, deep link, and the resume instruction."""
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    copied = _patch_submit_boundaries(monkeypatch)
+    package = _approved_package_dir(tmp_path)
+    capsys.readouterr()
+
+    rc = main(
+        ["submit", "--package", str(package), "--source-repository", "AlobarQuest/intent-packages"]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "https://sds.example/review/intakes/new" in out
+    assert "waiting on your approval" in out
+    assert "factory status --revision" in out
+    # The parsed flags actually reached `emit_intake_payload`.
+    assert len(_FakeOrchestratorClient.calls) == 1
+    package_path, source_repository, idempotency_key = _FakeOrchestratorClient.calls[0]
+    assert package_path == str(package)
+    assert source_repository == "AlobarQuest/intent-packages"
+    assert idempotency_key.startswith("factory-submit-")
+    # ...and the emitted payload reached the clipboard.
+    assert len(copied) == 1
+    assert "factory-submit-" in copied[0]
+
+
+def test_submit_through_the_entrypoint_refuses_an_unapproved_package(tmp_path, capsys, monkeypatch):
+    """The refusal path through the real wiring: a draft package must not even
+    reach `emit_intake_payload`, and the operator gets the `intent_packages`
+    commands that would fix it."""
+    _patch_submit_boundaries(monkeypatch)
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    capsys.readouterr()
+
+    rc = main(
+        [
+            "submit",
+            "--package",
+            str(tmp_path / "probe"),
+            "--source-repository",
+            "AlobarQuest/probe",
+        ]
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "is not approved" in err
+    assert "intent_packages approve" in err
+    assert _FakeOrchestratorClient.calls == []
+
+
+def test_submit_through_the_entrypoint_cannot_post_an_intake(tmp_path, monkeypatch):
+    """ADR-0006, proven on the path the CLI actually takes.
+
+    `test_journey.py` already forecloses `OrchestratorApi` construction inside
+    `journey.submit`; this does it for `main(["submit", ...])`, so a regression
+    that made `_run_submit` build a client (or route through a different
+    function) is caught too.
+    """
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    _patch_submit_boundaries(monkeypatch)
+
+    def _exploding_init(self, *args, **kwargs):
+        raise AssertionError("submit must not construct an OrchestratorApi")
+
+    from intent_packages.factory.api import OrchestratorApi as _Api
+
+    monkeypatch.setattr(_Api, "__init__", _exploding_init)
+
+    package = _approved_package_dir(tmp_path)
+    assert (
+        main(["submit", "--package", str(package), "--source-repository", "AlobarQuest/probe"]) == 0
+    )
+
+
+def test_submit_open_flag_reaches_the_browser(tmp_path, monkeypatch):
+    """`--open` is the only submit flag with an out-of-process effect; assert it
+    is wired rather than trusting the parser."""
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    _patch_submit_boundaries(monkeypatch)
+    opened: list[str] = []
+    monkeypatch.setattr(
+        "intent_packages.factory.journey.webbrowser.open", lambda url: opened.append(url)
+    )
+
+    package = _approved_package_dir(tmp_path)
+    assert (
+        main(
+            [
+                "submit",
+                "--package",
+                str(package),
+                "--source-repository",
+                "AlobarQuest/probe",
+                "--open",
+            ]
+        )
+        == 0
+    )
+    assert opened == ["https://sds.example/review/intakes/new"]
+
+
+def test_submit_without_open_does_not_touch_the_browser(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    _patch_submit_boundaries(monkeypatch)
+
+    def _explode(url):
+        raise AssertionError("submit must not open a browser without --open")
+
+    monkeypatch.setattr("intent_packages.factory.journey.webbrowser.open", _explode)
+    package = _approved_package_dir(tmp_path)
+    assert (
+        main(["submit", "--package", str(package), "--source-repository", "AlobarQuest/probe"]) == 0
+    )
+
+
+def test_submit_requires_its_flags():
+    with pytest.raises(SystemExit):
+        main(["submit", "--package", "packages/probe"])
+
+
+# -- Task 10: entrypoint coverage for every verb -------------------------------
+
+
+@pytest.mark.parametrize("command", ALL_COMMANDS)
+def test_every_command_is_reachable_and_has_help(command, capsys):
+    """Drive every `_HANDLERS` key through the real parser wiring -- `main`,
+    not the module function. `ALL_COMMANDS` is derived from `_HANDLERS` itself
+    (not a hand-maintained list), so a future verb added to the dispatch table
+    without a matching subparser fails this test the moment it lands."""
+    with pytest.raises(SystemExit) as exit_info:
+        main([command, "--help"])
+    assert exit_info.value.code == 0
+    assert command in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("command", ["status", "evidence", "ready", "dispatch", "verify"])
+def test_revision_falls_back_to_the_environment(command, monkeypatch):
+    """--revision defaults to $FACTORY_REVISION; neither set is exit 2.
+
+    `decompose` is deliberately excluded: its `--revision` is `required=True`
+    at the parser level (a missing value is a parser SystemExit, not this
+    fallback), and `create`/`validate`/`route`/`submit` take no `--revision`
+    at all.
+    """
+    monkeypatch.delenv("FACTORY_REVISION", raising=False)
+    argv = [command]
+    if command in {"ready", "dispatch", "verify"}:
+        argv += ["--unit-key", "k"]
+    if command == "verify":
+        argv += [
+            "--ac",
+            "AC-001",
+            "--check-name",
+            "Q",
+            "--conclusion",
+            "success",
+            "--run-id",
+            "1",
+            "--run-url",
+            "u",
+        ]
+    assert main(argv) == 2
+
+
+def test_no_command_can_impersonate_a_human():
+    """ADR-0006: human gates are browser-only permanently, so no flag may
+    exist that could be read as satisfying `_require_human`. This is a
+    SOURCE SCAN, not a proof -- it only shows these four known spellings are
+    absent from this file, not that no functionally-equivalent flag exists.
+    """
+    import intent_packages.factory_cli as cli
+
+    text = Path(cli.__file__).read_text()
+    for forbidden in ("--as-human", "--human", "--force", "--impersonate"):
+        assert forbidden not in text
+
+
+# -- Task 10: --verbose ---------------------------------------------------------
+
+
+def test_verbose_prints_the_request_line_and_no_token(capsys):
+    """`OrchestratorApi(verbose=True)` prints method/path/status and never the
+    token -- verified directly against the real client, independent of any
+    particular verb's wiring."""
+    import httpx
+
+    from intent_packages.factory.api import OrchestratorApi
+
+    api = OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+        token_resolver=lambda role: "supersecret",
+        verbose=True,
+    )
+    api.get_intake("r1")
+    out = capsys.readouterr().out
+    assert "GET /api/v1/package-intakes/r1 -> 200" in out
+    assert "supersecret" not in out
+
+
+class _VerboseCaptured(Exception):
+    """Raised by the spy `OrchestratorApi` stand-ins below, immediately after
+    recording the `verbose` kwarg they were constructed with. This proves
+    `--verbose` reached that verb's OWN `OrchestratorApi(...)` construction
+    site -- not merely that the CLI parsed the flag -- for each of the six
+    sites across journey.py, execution.py, verify.py and decompose.py: a flag
+    that works for three verbs and silently does nothing for the other two
+    would be worse than no flag at all.
+    """
+
+
+def _capturing_api(monkeypatch, target: str) -> list[bool | None]:
+    seen: list[bool | None] = []
+
+    class _Spy:
+        def __init__(self, *args, **kwargs):
+            seen.append(kwargs.get("verbose"))
+            raise _VerboseCaptured
+
+    monkeypatch.setattr(target, _Spy)
+    return seen
+
+
+def test_verbose_reaches_decompose(monkeypatch):
+    seen = _capturing_api(monkeypatch, "intent_packages.factory.decompose.OrchestratorApi")
+    with pytest.raises(_VerboseCaptured):
+        main(
+            [
+                "--verbose",
+                "decompose",
+                "--revision",
+                "r1",
+                "--ac",
+                "AC-001",
+                "--target-repo",
+                "AlobarQuest/brain",
+                "--tooling",
+                "pip",
+                "--package",
+                "fastapi",
+                "--from",
+                "1.0",
+                "--to",
+                "1.1",
+            ]
+        )
+    assert seen == [True]
+
+
+def test_verbose_reaches_status(monkeypatch):
+    seen = _capturing_api(monkeypatch, "intent_packages.factory.journey.OrchestratorApi")
+    with pytest.raises(_VerboseCaptured):
+        main(["--verbose", "status", "--revision", "r1"])
+    assert seen == [True]
+
+
+def test_verbose_reaches_evidence(monkeypatch):
+    seen = _capturing_api(monkeypatch, "intent_packages.factory.journey.OrchestratorApi")
+    with pytest.raises(_VerboseCaptured):
+        main(["--verbose", "evidence", "--revision", "r1"])
+    assert seen == [True]
+
+
+def test_verbose_reaches_ready(monkeypatch):
+    seen = _capturing_api(monkeypatch, "intent_packages.factory.execution.OrchestratorApi")
+    with pytest.raises(_VerboseCaptured):
+        main(["--verbose", "ready", "--revision", "r1", "--unit-key", "k"])
+    assert seen == [True]
+
+
+def test_verbose_reaches_dispatch(monkeypatch):
+    seen = _capturing_api(monkeypatch, "intent_packages.factory.execution.OrchestratorApi")
+    with pytest.raises(_VerboseCaptured):
+        main(["--verbose", "dispatch", "--revision", "r1", "--unit-key", "k"])
+    assert seen == [True]
+
+
+def test_verbose_reaches_verify(monkeypatch):
+    seen = _capturing_api(monkeypatch, "intent_packages.factory.verify.OrchestratorApi")
+    with pytest.raises(_VerboseCaptured):
+        main(
+            [
+                "--verbose",
+                "verify",
+                "--revision",
+                "r1",
+                "--unit-key",
+                "k",
+                "--ac",
+                "AC-001",
+                "--check-name",
+                "Q",
+                "--conclusion",
+                "success",
+                "--run-id",
+                "1",
+                "--run-url",
+                "u",
+            ]
+        )
+    assert seen == [True]
+
+
+def test_verbose_defaults_to_false(monkeypatch):
+    """Without --verbose, the constructed api gets verbose=False -- the flag
+    is opt-in, not sticky."""
+    seen = _capturing_api(monkeypatch, "intent_packages.factory.journey.OrchestratorApi")
+    with pytest.raises(_VerboseCaptured):
+        main(["status", "--revision", "r1"])
+    assert seen == [False]

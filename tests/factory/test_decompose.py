@@ -2,9 +2,11 @@ import dataclasses
 import json
 import subprocess
 
+import httpx
 import pytest
 
 from intent_packages.factory import decompose
+from intent_packages.factory.api import OrchestratorApi
 from intent_packages.factory.orchestrator_cli import OrchestratorClient
 from intent_packages.profiles import dependency_update as dep_update
 from intent_packages.profiles.dependency_update import PinSite
@@ -17,6 +19,33 @@ _INTAKE = {
     ]
 }
 _CONFORMANCE = {"accepted_standards": [], "standards_touched": ["project"], "status": "green"}
+
+
+def _conformance_client():
+    def runner(argv):
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(_CONFORMANCE), stderr="")
+
+    return OrchestratorClient(runner=runner)
+
+
+def _api_returning_intake(intake=None):
+    """A REAL `OrchestratorApi` over a mock transport -- not a duck-typed fake.
+
+    Used for the submit=False tests, which only ever call `get_intake`; any
+    other request is a test bug, not a thing to shrug off with a lenient
+    handler.
+    """
+    body = _INTAKE if intake is None else intake
+
+    def handler(request):
+        assert request.method == "GET", f"unexpected method: {request.method}"
+        return httpx.Response(200, json=body)
+
+    return OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(handler),
+        token_resolver=lambda role: "t",
+    )
 
 
 def test_build_proposal_maps_uuid_and_covers_all_acs():
@@ -118,11 +147,6 @@ def test_run_end_to_end_no_submit(tmp_path, capsys, portable_pip):
     repo = _git_repo(tmp_path)
     out_file = tmp_path / "proposal.json"
 
-    def runner(argv):
-        cmd = argv[1]
-        body = _INTAKE if cmd == "show-package-intake" else _CONFORMANCE
-        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
-
     rc = decompose.run(
         revision="rev-1",
         ac="AC-002",
@@ -136,7 +160,8 @@ def test_run_end_to_end_no_submit(tmp_path, capsys, portable_pip):
         rationale="",
         out=str(out_file),
         submit=False,
-        client=OrchestratorClient(runner=runner),
+        client=_conformance_client(),
+        api=_api_returning_intake(),
     )
     assert rc == 0
     assert out_file.exists()
@@ -144,14 +169,64 @@ def test_run_end_to_end_no_submit(tmp_path, capsys, portable_pip):
     assert body["ac_mappings"][0]["ac_id"] == "uuid-2"
 
 
+def test_run_end_to_end_submit_posts_the_proposal_dict_directly(tmp_path, capsys, portable_pip):
+    """The HTTP path posts the exact proposal dict to the exact route; no
+
+    tempfile is involved. Pins method + path for BOTH calls (a typo'd path in
+    api.py would otherwise pass every test, since a duck-typed fake only
+    asserts what it is told to expect) and ties the posted body to the
+    `--out` bytes byte-for-byte, rather than checking a single key.
+    """
+    repo = _git_repo(tmp_path)
+    out_file = tmp_path / "proposal.json"
+    calls = []
+    posted = {}
+
+    def handler(request):
+        calls.append((request.method, request.url.path))
+        if request.method == "GET":
+            return httpx.Response(200, json=_INTAKE)
+        posted["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"proposal_id": "p-42"})
+
+    api = OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(handler),
+        token_resolver=lambda role: "t",
+    )
+
+    rc = decompose.run(
+        revision="rev-1",
+        ac="AC-002",
+        target_repo="AlobarQuest/brain",
+        repo_path=str(repo),
+        tooling="pip",
+        package="fastapi",
+        from_version="0.139.0",
+        to_version="0.139.2",
+        unit_key="",
+        rationale="",
+        out=str(out_file),
+        submit=True,
+        client=_conformance_client(),
+        api=api,
+    )
+    assert rc == 0
+    assert calls == [
+        ("GET", "/api/v1/package-intakes/rev-1"),
+        ("POST", "/api/v1/package-intakes/rev-1/decomposition-proposals"),
+    ]
+    written = json.loads(out_file.read_text())
+    assert posted["body"] == written
+    assert posted["body"]["rationale"].endswith(" routing: sonnet-5 per routing-policy v1.")
+    err = capsys.readouterr().err
+    assert "submitted:" in err
+    assert "p-42" in err
+
+
 def test_routing_note_lands_in_rationale(tmp_path, capsys, portable_pip):
     repo = _git_repo(tmp_path)
     out_file = tmp_path / "proposal.json"
-
-    def runner(argv):
-        cmd = argv[1]
-        body = _INTAKE if cmd == "show-package-intake" else _CONFORMANCE
-        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
 
     rc = decompose.run(
         revision="rev-1",
@@ -166,7 +241,8 @@ def test_routing_note_lands_in_rationale(tmp_path, capsys, portable_pip):
         rationale="",
         out=str(out_file),
         submit=False,
-        client=OrchestratorClient(runner=runner),
+        client=_conformance_client(),
+        api=_api_returning_intake(),
     )
     assert rc == 0
     proposal = json.loads(out_file.read_text())
@@ -175,11 +251,6 @@ def test_routing_note_lands_in_rationale(tmp_path, capsys, portable_pip):
 
 def test_missing_routing_row_fails_closed(tmp_path, capsys, portable_pip):
     repo = _git_repo(tmp_path)
-
-    def runner(argv):
-        cmd = argv[1]
-        body = _INTAKE if cmd == "show-package-intake" else _CONFORMANCE
-        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
 
     policy = tmp_path / "p.toml"
     policy.write_text(
@@ -203,7 +274,8 @@ def test_missing_routing_row_fails_closed(tmp_path, capsys, portable_pip):
         rationale="",
         out="",
         submit=False,
-        client=OrchestratorClient(runner=runner),
+        client=_conformance_client(),
+        api=_api_returning_intake(),
         policy_path=policy,
     )
     assert rc == 1
@@ -223,10 +295,6 @@ def test_run_fails_closed_on_no_diff(tmp_path, portable_pip):
     ):
         subprocess.run(["git", *argv], cwd=repo, check=True)
 
-    def runner(argv):
-        body = _INTAKE if argv[1] == "show-package-intake" else _CONFORMANCE
-        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
-
     rc = decompose.run(
         revision="rev-1",
         ac="AC-002",
@@ -240,6 +308,7 @@ def test_run_fails_closed_on_no_diff(tmp_path, portable_pip):
         rationale="",
         out="",
         submit=False,
-        client=OrchestratorClient(runner=runner),
+        client=_conformance_client(),
+        api=_api_returning_intake(),
     )
     assert rc == 1

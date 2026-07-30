@@ -1,0 +1,352 @@
+import httpx
+import pytest
+
+from intent_packages.factory.api import ApiError, OrchestratorApi
+from intent_packages.factory.credentials import CredentialError
+
+
+def _api(handler, **kw):
+    return OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(handler),
+        token_resolver=lambda role: f"token-for-{role.value}",
+        **kw,
+    )
+
+
+def test_get_sends_bearer_and_key_id():
+    seen = {}
+
+    def handler(request):
+        seen["auth"] = request.headers["authorization"]
+        seen["key_id"] = request.headers["x-credential-key-id"]
+        return httpx.Response(200, json={"id": "r1"})
+
+    assert _api(handler).get_intake("r1") == {"id": "r1"}
+    assert seen["auth"] == "Bearer token-for-orchestrator-system"
+    assert seen["key_id"] == "orchestrator-system"
+
+
+def test_verifier_routes_use_the_verifier_credential():
+    """BOTH VERIFIER-role writes, not just `verify()`.
+
+    This test was named for the plural and exercised only one of the two: a
+    regression sending `named_check` under `Role.SYSTEM` would be a production
+    403 on the FIRST of the two calls `factory verify` makes, with no test
+    failing. Each route is asserted against its own recorded key id, keyed by
+    path, so a swap in either direction fails.
+    """
+    seen = {}
+
+    def handler(request):
+        seen[request.url.path] = request.headers["x-credential-key-id"]
+        return httpx.Response(200, json={"ok": True})
+
+    api = _api(handler)
+    api.named_check("u1", {"idempotency_key": "k", "expected_version": 1})
+    api.verify("u1", {"idempotency_key": "k", "expected_version": 1})
+    assert seen == {
+        "/api/v1/work-units/u1/verifier-evidence/named-check": "orchestrator-verifier",
+        "/api/v1/work-units/u1/verify": "orchestrator-verifier",
+    }
+
+
+def test_system_routes_use_the_system_credential():
+    """The other side of the same guard: a write that silently moved to the
+    VERIFIER credential would 403 just as hard."""
+    seen = {}
+
+    def handler(request):
+        seen[request.url.path] = request.headers["x-credential-key-id"]
+        return httpx.Response(200, json={"ok": True})
+
+    api = _api(handler)
+    api.dispatch("u1", {"idempotency_key": "k", "runner_attempt": 1, "expected_version": 1})
+    api.command("u1", "ready", {"idempotency_key": "k", "expected_version": 1})
+    assert seen == {
+        "/api/v1/work-units/u1/dispatch": "orchestrator-system",
+        "/api/v1/work-units/u1/commands/ready": "orchestrator-system",
+    }
+
+
+def test_traceability_rejects_a_non_object_body():
+    """A3: `traceability` was the only read route on the bare `_get`, and the one
+    every API verb reaches through `reads.units_for`. A non-object body used to
+    escape as a raw `AttributeError` on `data.get("chains")`."""
+
+    def handler(request):
+        return httpx.Response(200, json=[{"anchor": {}}])
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).traceability(revision_id="r1")
+    assert error.value.code == "invalid_response"
+
+
+def test_error_envelope_is_surfaced_verbatim():
+    def handler(request):
+        return httpx.Response(
+            409,
+            json={
+                "error": {
+                    "code": "version_conflict",
+                    "message": "stale version",
+                    "recovery": "re-read the unit",
+                    "current_version": 7,
+                }
+            },
+        )
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).get_intake("r1")
+    assert error.value.code == "version_conflict"
+    assert error.value.recovery == "re-read the unit"
+    assert error.value.current_version == 7
+
+
+def test_401_is_annotated_and_not_retried():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        return httpx.Response(401, json={"error": {"code": "unauthorized", "message": "no"}})
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).get_intake("r1")
+    assert len(calls) == 1
+    assert "M2M-only" in (error.value.recovery or "")
+
+
+def test_resolve_version_reads_current_version_off_the_conflict():
+    def handler(request):
+        return httpx.Response(
+            409,
+            json={
+                "error": {
+                    "code": "version_conflict",
+                    "message": "stale",
+                    "recovery": None,
+                    "current_version": 4,
+                }
+            },
+        )
+
+    api = _api(handler)
+    assert api.resolve_version("u1", probe={"idempotency_key": "probe", "expected_version": 0}) == 4
+
+
+def test_resolve_version_returns_zero_when_the_probe_succeeds():
+    def handler(request):
+        return httpx.Response(200, json={"state": "ready"})
+
+    api = _api(handler)
+    assert api.resolve_version("u1", probe={"idempotency_key": "p", "expected_version": 0}) == 0
+
+
+def test_timeout_is_a_distinct_code():
+    def handler(request):
+        raise httpx.ConnectTimeout("slow")
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).get_intake("r1")
+    assert error.value.code == "api_timeout"
+
+
+def test_token_never_appears_in_an_error_string():
+    def handler(request):
+        return httpx.Response(500, text="boom")
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).get_intake("r1")
+    assert "token-for-" not in str(error.value)
+
+
+def test_string_current_version_is_discarded_not_coerced():
+    def handler(request):
+        return httpx.Response(
+            409,
+            json={
+                "error": {
+                    "code": "version_conflict",
+                    "message": "stale version",
+                    "recovery": None,
+                    "current_version": "4",
+                }
+            },
+        )
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).get_intake("r1")
+    assert error.value.current_version is None
+
+
+def test_integer_current_version_still_passes_through():
+    def handler(request):
+        return httpx.Response(
+            409,
+            json={
+                "error": {
+                    "code": "version_conflict",
+                    "message": "stale version",
+                    "recovery": None,
+                    "current_version": 4,
+                }
+            },
+        )
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).get_intake("r1")
+    assert error.value.current_version == 4
+
+
+def test_traceability_requires_an_anchor_and_makes_no_request():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        return httpx.Response(200, json={})
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).traceability()
+    assert error.value.code == "traceability_anchor_required"
+    assert calls == []
+
+
+def test_credential_error_surfaces_as_a_clean_api_error():
+    """A `CredentialError` from the token resolver must not escape as a raw
+
+    traceback -- it is mapped to `ApiError(code="credential_unavailable")`
+    inside `_send`, once, so every caller (not just `decompose.run`) gets a
+    clean error instead of an unhandled exception.
+    """
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        return httpx.Response(200, json={})
+
+    def failing_resolver(role):
+        raise CredentialError(
+            f"no credential for {role.value}: set {role.env_var}, or set BWS_ACCESS_TOKEN "
+            "so it can be fetched from BWS secret 660d5846-abcb-4751-be86-b483012899eb"
+        )
+
+    api = OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(handler),
+        token_resolver=failing_resolver,
+    )
+    with pytest.raises(ApiError) as error:
+        api.get_intake("r1")
+    assert error.value.code == "credential_unavailable"
+    assert "ORCHESTRATOR_SYSTEM_TOKEN" in error.value.message
+    assert "660d5846-abcb-4751-be86-b483012899eb" in error.value.message
+    assert calls == []  # never reached the transport
+
+
+def test_history_returns_the_bare_array_body_not_a_wrapped_dict():
+    """Fix round 1/5, Critical 4. `GET /work-units/{id}/history` is
+    `response_model=list[EventResponse]` on the orchestrator side -- a bare
+    JSON array, never `{"events": [...]}`. Routed through `_get_list`."""
+
+    def handler(request):
+        return httpx.Response(
+            200, json=[{"action": "dispatch.dispatched", "payload": {"runner_attempt": 1}}]
+        )
+
+    result = _api(handler).history("u1")
+    assert result == [{"action": "dispatch.dispatched", "payload": {"runner_attempt": 1}}]
+
+
+def test_history_rejects_a_non_array_body():
+    """Fix round 2/5. Between fix rounds 1 and 2, `history()` was routed
+    through the plain `_get`, which let a malformed (non-array) body reach
+    `scan_dispatch_events` untyped -- it iterates a dict's KEYS, and
+    `event.get("action", "")` then raised a raw `AttributeError: 'str' object
+    has no attribute 'get'`. `_get_list` must raise a clean `ApiError`
+    instead, before that code is ever reached."""
+
+    def handler(request):
+        return httpx.Response(200, json={"events": []})
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).history("u1")
+    assert error.value.code == "invalid_response"
+
+
+def test_list_proposals_returns_the_bare_array_body_not_a_wrapped_dict():
+    """Fix round 1/5, Important 1. Same defect, same fix:
+    `GET .../decomposition-proposals` is a bare array, never
+    `{"items": [...]}`. Routed through `_get_list`."""
+
+    def handler(request):
+        return httpx.Response(200, json=[{"id": "p1", "state": "approved"}])
+
+    result = _api(handler).list_proposals("r1")
+    assert result == [{"id": "p1", "state": "approved"}]
+
+
+def test_list_proposals_rejects_a_non_array_body():
+    """Fix round 2/5. Same regression, same fix as `history()`."""
+
+    def handler(request):
+        return httpx.Response(200, json={"items": []})
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).list_proposals("r1")
+    assert error.value.code == "invalid_response"
+
+
+def test_in_flight_units_hits_the_right_path_and_returns_the_parsed_body():
+    seen = {}
+
+    def handler(request):
+        seen["path"] = request.url.path
+        seen["method"] = request.method
+        return httpx.Response(
+            200,
+            json={
+                "units": [
+                    {
+                        "work_unit_id": "u1",
+                        "unit_key": "bump-fastapi",
+                        "state": "ready",
+                        "version": 2,
+                        "attempt_count": 1,
+                        "work_package_revision_id": "r1",
+                        "pr_number": None,
+                        "head_sha": None,
+                        "verification_read_head_sha": None,
+                    }
+                ],
+                "release_bindings": [],
+            },
+        )
+
+    result = _api(handler).in_flight_units()
+    assert seen == {"path": "/api/v1/in-flight-units", "method": "GET"}
+    assert result["units"][0]["work_unit_id"] == "u1"
+    assert result["units"][0]["version"] == 2
+    assert result["units"][0]["attempt_count"] == 1
+
+
+def test_in_flight_units_rejects_a_non_object_body():
+    def handler(request):
+        return httpx.Response(200, json=[1, 2, 3])
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).in_flight_units()
+    assert error.value.code == "invalid_response"
+
+
+def test_non_object_body_on_a_dict_endpoint_raises_cleanly():
+    """A JSON array from a `-> dict` endpoint must raise `ApiError`, not reach
+
+    the caller untyped and blow up on the first `.get(...)`/`[...]` access.
+    """
+
+    def handler(request):
+        return httpx.Response(200, json=[1, 2, 3])
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).get_intake("r1")
+    assert error.value.code == "invalid_response"
