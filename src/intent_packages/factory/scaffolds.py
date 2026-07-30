@@ -11,12 +11,18 @@ template to keep in sync with the schema.
 
 `create` always validates what it just wrote via `validate_package` — the
 same code path `intent_packages validate` uses — and refuses to leave an
-invalid package on disk while claiming success.
+invalid package on disk while claiming success. It validates in a temporary
+STAGING directory and moves the result into place only once validation passes:
+writing both files to the target first left a failed `create` on disk, and the
+next `create` then refused with "already exists", so a failed create was not
+retryable without a manual `rm -rf`.
 """
 
 from __future__ import annotations
 
+import shutil
 import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -335,12 +341,20 @@ def create(
     title: str = "",
 ) -> int:
     """Scaffold `<out_dir>/<package_id>/{package.yaml,lineage.yaml}` from a
-    registered profile, then validate what was written.
+    registered profile, validating BEFORE anything is committed to `out_dir`.
 
     Returns 0 on success; 1 (with errors on stderr) for an unregistered
     profile, an already-existing target directory, or a scaffold that fails
     its own validation — a front door that emits an invalid package is worse
     than a blank page.
+
+    The files are written into a temporary staging directory named `package_id`
+    (the name matters: `validate_package` resolves the package by directory) and
+    moved into place only once `validate_package` returns clean. Writing to the
+    target first meant a scaffold that failed its own validation was left on
+    disk, and the next `create` refused with "already exists" — so the fix for
+    the invalid scaffold was a manual `rm -rf`, and the retry the operator would
+    naturally attempt could not work.
     """
     if profile_name not in PROFILES:
         print(
@@ -361,16 +375,24 @@ def create(
     lineage_doc = render_lineage(package_id, created_at)
     lineage_doc["revisions"][0]["hash"] = canonical.package_hash(package)
 
-    pkg_dir.mkdir(parents=True)
-    (pkg_dir / "package.yaml").write_text(_render_package_yaml(package, profile), encoding="utf-8")
-    write_lineage(pkg_dir, lineage_doc)
+    with tempfile.TemporaryDirectory(prefix="factory-create-") as staging:
+        staged = Path(staging) / package_id
+        staged.mkdir()
+        (staged / "package.yaml").write_text(
+            _render_package_yaml(package, profile), encoding="utf-8"
+        )
+        write_lineage(staged, lineage_doc)
 
-    errors = validate_package(pkg_dir)
-    if errors:
-        print(f"create: scaffold at {pkg_dir} failed validation:", file=sys.stderr)
-        for error in errors:
-            print(f"  {error}", file=sys.stderr)
-        return 1
+        errors = validate_package(staged)
+        if errors:
+            print(f"create: the {profile_name} scaffold failed validation:", file=sys.stderr)
+            for error in errors:
+                print(f"  {error}", file=sys.stderr)
+            print(f"create: nothing was written to {pkg_dir}", file=sys.stderr)
+            return 1
+
+        pkg_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(staged), str(pkg_dir))
 
     print(f"created {pkg_dir}")
     return 0

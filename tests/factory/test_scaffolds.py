@@ -38,6 +38,49 @@ def test_refuses_to_overwrite(tmp_path):
     assert scaffolds.create("software-delivery", "probe", str(tmp_path)) == 1
 
 
+def test_a_scaffold_that_fails_validation_leaves_nothing_behind(tmp_path, capsys, monkeypatch):
+    """A5. `create` used to write both files to the target and validate them
+    there, so a scaffold that failed its own validation was left on disk — and
+    the next `create` then refused with "already exists". A failed create was not
+    retryable without a manual `rm -rf`, which is the opposite of what the
+    already-exists guard is for.
+
+    Forces the failure by stubbing `validate_package` (the profiles all scaffold
+    clean, which is what `test_every_registered_profile_scaffolds_and_validates`
+    exists to keep true — so the only honest way to reach this branch is to make
+    validation fail).
+    """
+    monkeypatch.setattr(scaffolds, "validate_package", lambda path: ["acceptance: broken"])
+
+    rc = scaffolds.create("software-delivery", "probe", str(tmp_path))
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "failed validation" in err
+    assert "acceptance: broken" in err
+    assert not (tmp_path / "probe").exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_failed_create_is_retryable(tmp_path, monkeypatch):
+    """The consequence that matters: after a failed create, the SAME command
+    must succeed once the cause is gone — not hit "already exists"."""
+    monkeypatch.setattr(scaffolds, "validate_package", lambda path: ["boom"])
+    assert scaffolds.create("software-delivery", "probe", str(tmp_path)) == 1
+
+    monkeypatch.undo()
+    assert scaffolds.create("software-delivery", "probe", str(tmp_path)) == 0
+    assert (tmp_path / "probe" / "package.yaml").exists()
+    assert validate_package(tmp_path / "probe") == []
+
+
+def test_create_makes_missing_parent_directories(tmp_path):
+    """`--out` may name a directory that does not exist yet; the staging move
+    must not depend on it being there already."""
+    out = tmp_path / "nested" / "packages"
+    assert scaffolds.create("software-delivery", "probe", str(out)) == 0
+    assert (out / "probe" / "lineage.yaml").exists()
+
+
 def test_lineage_starts_in_draft(tmp_path):
     scaffolds.create("software-delivery", "probe", str(tmp_path))
     lineage = yaml.safe_load((tmp_path / "probe" / "lineage.yaml").read_text())

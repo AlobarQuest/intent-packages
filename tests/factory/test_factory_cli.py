@@ -68,6 +68,36 @@ def test_validate_through_the_entrypoint(tmp_path):
     assert main(["validate", str(tmp_path / "probe")]) == 0
 
 
+def test_validate_reports_an_invalid_package_as_a_failure(tmp_path, capsys):
+    """B2. `factory validate`'s FAILURE path had no coverage at all: replacing
+    the whole body with `return 0` kept every test green, because the only
+    existing test validated a package `create` had just written and already
+    validated. Exit 1, and the validator's own errors on stderr."""
+    import yaml
+
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    package_path = tmp_path / "probe" / "package.yaml"
+    document = yaml.safe_load(package_path.read_text())
+    del document["acceptance"]
+    package_path.write_text(yaml.safe_dump(document, sort_keys=False))
+    capsys.readouterr()
+
+    rc = main(["validate", str(package_path)])
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert "acceptance" in captured.err
+    assert ": valid" not in captured.out
+
+
+def test_validate_accepts_the_package_yaml_path_as_well_as_the_directory(tmp_path, capsys):
+    """`validate` takes "a package directory or its package.yaml"; the happy path
+    was only ever exercised with the directory."""
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    capsys.readouterr()
+    assert main(["validate", str(tmp_path / "probe" / "package.yaml")]) == 0
+    assert "valid" in capsys.readouterr().out
+
+
 def test_verify_requires_its_flags():
     with pytest.raises(SystemExit):
         main(["verify", "--unit-key", "bump-fastapi"])
