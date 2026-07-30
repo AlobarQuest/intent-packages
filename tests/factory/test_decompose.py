@@ -112,16 +112,22 @@ def test_build_proposal_unknown_ac_raises():
         )
 
 
-def _git_repo(tmp_path):
-    repo = tmp_path / "brain"
-    repo.mkdir()
-    (repo / "requirements.txt").write_text("fastapi==0.139.0\n", encoding="utf-8")
+def _git_repo(tmp_path, content="fastapi==0.139.0\n"):
+    """A local checkout tracking a file:// origin — decompose now verifies currency
+    against origin/main before dry-running, so a bare origin-less repo fails closed."""
+    origin = tmp_path / "brain-origin"
+    origin.mkdir()
+    (origin / "requirements.txt").write_text(content, encoding="utf-8")
     for argv in (
-        ["init", "-q"],
+        ["init", "-q", "-b", "main"],
         ["add", "-A"],
         ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"],
     ):
-        subprocess.run(["git", *argv], cwd=repo, check=True)
+        subprocess.run(["git", *argv], cwd=origin, check=True)
+    repo = tmp_path / "brain"
+    subprocess.run(
+        ["git", "clone", "--quiet", str(origin), str(repo)], check=True, capture_output=True
+    )
     return repo
 
 
@@ -284,16 +290,8 @@ def test_missing_routing_row_fails_closed(tmp_path, capsys, portable_pip):
     assert "unknown change-class" in err
 
 
-def test_run_fails_closed_on_no_diff(tmp_path, portable_pip):
-    repo = tmp_path / "brain"
-    repo.mkdir()
-    (repo / "requirements.txt").write_text("fastapi==0.139.2\n", encoding="utf-8")  # already new
-    for argv in (
-        ["init", "-q"],
-        ["add", "-A"],
-        ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"],
-    ):
-        subprocess.run(["git", *argv], cwd=repo, check=True)
+def test_run_fails_closed_on_no_diff(tmp_path, capsys, portable_pip):
+    repo = _git_repo(tmp_path, content="fastapi==0.139.2\n")  # already at target
 
     rc = decompose.run(
         revision="rev-1",
@@ -312,3 +310,39 @@ def test_run_fails_closed_on_no_diff(tmp_path, portable_pip):
         api=_api_returning_intake(),
     )
     assert rc == 1
+    # Pin the failure to the dry-run, not the (newer) checkout-currency guard.
+    assert "no diff" in capsys.readouterr().err
+
+
+def test_run_fails_closed_on_stale_checkout(tmp_path, capsys, portable_pip):
+    """A checkout behind origin/main must never reach the dry-run — the guard
+    would otherwise prove the mutator against a tree the runner will not see."""
+    repo = _git_repo(tmp_path)
+    origin = tmp_path / "brain-origin"
+    (origin / "requirements.txt").write_text("fastapi==0.139.1\n", encoding="utf-8")
+    for argv in (
+        ["add", "-A"],
+        ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "advance origin"],
+    ):
+        subprocess.run(["git", *argv], cwd=origin, check=True)
+
+    rc = decompose.run(
+        revision="rev-1",
+        ac="AC-002",
+        target_repo="AlobarQuest/brain",
+        repo_path=str(repo),
+        tooling="pip",
+        package="fastapi",
+        from_version="0.139.0",
+        to_version="0.139.2",
+        unit_key="",
+        rationale="",
+        out="",
+        submit=False,
+        client=_conformance_client(),
+        api=_api_returning_intake(),
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "decompose failed:" in err
+    assert "pull --ff-only origin main" in err
