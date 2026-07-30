@@ -70,6 +70,7 @@ def validate(package: dict) -> list[str]:
 
 DELIVERY_PROFILE = DeliveryProfile(
     name="software-delivery",
+    change_class="software-delivery",
     enrichment=EnrichmentSpec(code_road_slugs=("error-logging",), infra_min_authority="required"),
     profile_fields_schema=PROFILE_FIELDS_SCHEMA,
     tag_to_evidence_type=TAG_TO_EVIDENCE_TYPE,

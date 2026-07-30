@@ -20,7 +20,7 @@
 #   `models`, `decided`, and `rationale`, and bump `version`. Never an inline
 #   override anywhere else.
 
-version = 1
+version = 2
 
 [models]
 fable-5 = "claude-fable-5"
@@ -115,3 +115,9 @@ surface = "runner-implementation"
 models = ["sonnet-5"]
 rationale = "Derived from runner-implementation's Sonnet 5 default; not literally in the 2026-07-08 seed table. Phase-3 WS-P3.2 authoring target."
 decided = "2026-07-29"
+
+[change_class.software-delivery]
+surface = "runner-implementation"
+models = ["sonnet-5"]
+rationale = "runner-implementation row default (Sonnet 5). First execution: the WS-P2.12 context-enrichment demonstration, which is also the first dispatch of this class. Promote to opus-4-8 if it produces repeated revision_required outcomes — never burn attempts on an underpowered model."
+decided = "2026-07-30"

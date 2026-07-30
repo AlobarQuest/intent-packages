@@ -240,7 +240,7 @@ def test_run_end_to_end_submit_posts_the_proposal_dict_directly(tmp_path, capsys
     ]
     written = json.loads(out_file.read_text())
     assert posted["body"] == written
-    assert posted["body"]["rationale"].endswith(" routing: sonnet-5 per routing-policy v1.")
+    assert posted["body"]["rationale"].endswith(" routing: sonnet-5 per routing-policy v2.")
     err = capsys.readouterr().err
     assert "submitted:" in err
     assert "p-42" in err
@@ -269,7 +269,7 @@ def test_routing_note_lands_in_rationale(tmp_path, capsys, portable_pip):
     )
     assert rc == 0
     proposal = json.loads(out_file.read_text())
-    assert proposal["rationale"].endswith(" routing: sonnet-5 per routing-policy v1.")
+    assert proposal["rationale"].endswith(" routing: sonnet-5 per routing-policy v2.")
 
 
 def test_missing_routing_row_fails_closed(tmp_path, capsys, portable_pip):

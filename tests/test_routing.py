@@ -25,10 +25,17 @@ def test_default_path_is_repo_root_file():
 
 
 def test_load_policy_parses_the_seed():
+    """Pins the live policy. The version and the class set move together, deliberately:
+    every tier change is a versioned edit to that file, so a class added without a
+    version bump reds here rather than passing quietly."""
     policy = routing.load_policy()
-    assert policy.version == 1
+    assert policy.version == 2
     assert set(policy.surfaces) == EXPECTED_SURFACE_IDS
-    assert set(policy.change_classes) == {"dependency-update", "maintenance-remediation"}
+    assert set(policy.change_classes) == {
+        "dependency-update",
+        "maintenance-remediation",
+        "software-delivery",
+    }
     assert len(policy.no_llm) == 10
 
 
