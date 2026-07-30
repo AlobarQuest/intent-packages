@@ -9,3 +9,8 @@ against a minimal git repo (README only, file:// origin, current and clean) on
 same way after any schema change — a hand-edited fixture defeats the
 cross-repo contract this consumer exists to honour. The Inc-3 validation pass
 refreshes it from the live brain run.
+
+`brain.v1.json` is the LIVE Inc-3 capture: `portfolio onboard ~/Projects/brain`
+(kit at project-standards fix/ci-executed-quiet-mode, 2026-07-30). Its queue
+(runner.caller @main, profile.declared absent) produced
+`packages/brain-onboarding-remediation` via `factory create --from-readiness`.

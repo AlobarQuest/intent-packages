@@ -72,3 +72,12 @@ def test_explicit_name_overrides_derived(tmp_path):
     rc = scaffolds.create_from_readiness(str(FIXTURE), "my-remediation", str(out))
     assert rc == 0
     assert (out / "my-remediation").is_dir()
+
+
+def test_live_brain_fixture_consumes_cleanly(tmp_path):
+    """The Inc-3 live capture (real repo, real gaps) is a consumable input."""
+    brain = FIXTURE.parent / "brain.v1.json"
+    out = tmp_path / "out"
+    rc = scaffolds.create_from_readiness(str(brain), "", str(out))
+    assert rc == 0
+    assert validate_package(out / "brain-onboarding-remediation") == []
