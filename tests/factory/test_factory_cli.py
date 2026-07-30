@@ -211,9 +211,9 @@ def test_verbose_prints_the_request_line_and_no_token(capsys):
         token_resolver=lambda role: "supersecret",
         verbose=True,
     )
-    api.readiness("u1")
+    api.get_intake("r1")
     out = capsys.readouterr().out
-    assert "GET /api/v1/work-units/u1/readiness -> 200" in out
+    assert "GET /api/v1/package-intakes/r1 -> 200" in out
     assert "supersecret" not in out
 
 

@@ -18,13 +18,15 @@ from collections.abc import Callable
 
 Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
 
+DEFAULT_TIMEOUT_SECONDS = 120
+
 
 class OrchestratorCliError(Exception):
     """Raised when an `orchestrator` CLI call fails or returns an error body."""
 
 
 def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(argv, capture_output=True, text=True, timeout=120)
+    return subprocess.run(argv, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT_SECONDS)
 
 
 class OrchestratorClient:
@@ -40,6 +42,15 @@ class OrchestratorClient:
             # so every caller has exactly one exception type to catch.
             raise OrchestratorCliError(
                 f"could not run `orchestrator {' '.join(argv)}`: {error}"
+            ) from error
+        except subprocess.TimeoutExpired as error:
+            # `TimeoutExpired` is a `SubprocessError`, NOT an `OSError`, so the
+            # clause above cannot see it: a hung subprocess used to traceback
+            # out of both `journey.submit` and `decompose.run`.
+            # `credentials.py::resolve_token` already guarded its own runner
+            # this way; the repo's two subprocess wrappers now agree.
+            raise OrchestratorCliError(
+                f"`orchestrator {' '.join(argv)}` timed out after {DEFAULT_TIMEOUT_SECONDS}s"
             ) from error
         if result.returncode != 0:
             raise OrchestratorCliError(

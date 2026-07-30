@@ -28,14 +28,58 @@ def test_get_sends_bearer_and_key_id():
 
 
 def test_verifier_routes_use_the_verifier_credential():
+    """BOTH VERIFIER-role writes, not just `verify()`.
+
+    This test was named for the plural and exercised only one of the two: a
+    regression sending `named_check` under `Role.SYSTEM` would be a production
+    403 on the FIRST of the two calls `factory verify` makes, with no test
+    failing. Each route is asserted against its own recorded key id, keyed by
+    path, so a swap in either direction fails.
+    """
     seen = {}
 
     def handler(request):
-        seen["key_id"] = request.headers["x-credential-key-id"]
+        seen[request.url.path] = request.headers["x-credential-key-id"]
         return httpx.Response(200, json={"ok": True})
 
-    _api(handler).verify("u1", {"idempotency_key": "k", "expected_version": 1})
-    assert seen["key_id"] == "orchestrator-verifier"
+    api = _api(handler)
+    api.named_check("u1", {"idempotency_key": "k", "expected_version": 1})
+    api.verify("u1", {"idempotency_key": "k", "expected_version": 1})
+    assert seen == {
+        "/api/v1/work-units/u1/verifier-evidence/named-check": "orchestrator-verifier",
+        "/api/v1/work-units/u1/verify": "orchestrator-verifier",
+    }
+
+
+def test_system_routes_use_the_system_credential():
+    """The other side of the same guard: a write that silently moved to the
+    VERIFIER credential would 403 just as hard."""
+    seen = {}
+
+    def handler(request):
+        seen[request.url.path] = request.headers["x-credential-key-id"]
+        return httpx.Response(200, json={"ok": True})
+
+    api = _api(handler)
+    api.dispatch("u1", {"idempotency_key": "k", "runner_attempt": 1, "expected_version": 1})
+    api.command("u1", "ready", {"idempotency_key": "k", "expected_version": 1})
+    assert seen == {
+        "/api/v1/work-units/u1/dispatch": "orchestrator-system",
+        "/api/v1/work-units/u1/commands/ready": "orchestrator-system",
+    }
+
+
+def test_traceability_rejects_a_non_object_body():
+    """A3: `traceability` was the only read route on the bare `_get`, and the one
+    every API verb reaches through `reads.units_for`. A non-object body used to
+    escape as a raw `AttributeError` on `data.get("chains")`."""
+
+    def handler(request):
+        return httpx.Response(200, json=[{"anchor": {}}])
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).traceability(revision_id="r1")
+    assert error.value.code == "invalid_response"
 
 
 def test_error_envelope_is_surfaced_verbatim():
@@ -53,7 +97,7 @@ def test_error_envelope_is_surfaced_verbatim():
         )
 
     with pytest.raises(ApiError) as error:
-        _api(handler).readiness("u1")
+        _api(handler).get_intake("r1")
     assert error.value.code == "version_conflict"
     assert error.value.recovery == "re-read the unit"
     assert error.value.current_version == 7
@@ -67,7 +111,7 @@ def test_401_is_annotated_and_not_retried():
         return httpx.Response(401, json={"error": {"code": "unauthorized", "message": "no"}})
 
     with pytest.raises(ApiError) as error:
-        _api(handler).readiness("u1")
+        _api(handler).get_intake("r1")
     assert len(calls) == 1
     assert "M2M-only" in (error.value.recovery or "")
 
@@ -103,7 +147,7 @@ def test_timeout_is_a_distinct_code():
         raise httpx.ConnectTimeout("slow")
 
     with pytest.raises(ApiError) as error:
-        _api(handler).readiness("u1")
+        _api(handler).get_intake("r1")
     assert error.value.code == "api_timeout"
 
 
@@ -112,7 +156,7 @@ def test_token_never_appears_in_an_error_string():
         return httpx.Response(500, text="boom")
 
     with pytest.raises(ApiError) as error:
-        _api(handler).readiness("u1")
+        _api(handler).get_intake("r1")
     assert "token-for-" not in str(error.value)
 
 
@@ -131,7 +175,7 @@ def test_string_current_version_is_discarded_not_coerced():
         )
 
     with pytest.raises(ApiError) as error:
-        _api(handler).readiness("u1")
+        _api(handler).get_intake("r1")
     assert error.value.current_version is None
 
 
@@ -150,7 +194,7 @@ def test_integer_current_version_still_passes_through():
         )
 
     with pytest.raises(ApiError) as error:
-        _api(handler).readiness("u1")
+        _api(handler).get_intake("r1")
     assert error.value.current_version == 4
 
 
@@ -192,7 +236,7 @@ def test_credential_error_surfaces_as_a_clean_api_error():
         token_resolver=failing_resolver,
     )
     with pytest.raises(ApiError) as error:
-        api.readiness("u1")
+        api.get_intake("r1")
     assert error.value.code == "credential_unavailable"
     assert "ORCHESTRATOR_SYSTEM_TOKEN" in error.value.message
     assert "660d5846-abcb-4751-be86-b483012899eb" in error.value.message

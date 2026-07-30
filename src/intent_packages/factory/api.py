@@ -150,9 +150,6 @@ class OrchestratorApi:
     def _get_list(self, path: str, role: Role = Role.SYSTEM) -> list:
         return self._request_list("GET", path, role)
 
-    def _post(self, path: str, payload: dict, role: Role = Role.SYSTEM) -> Any:
-        return self._request("POST", path, role, payload)
-
     def _post_dict(self, path: str, payload: dict, role: Role = Role.SYSTEM) -> dict:
         return self._request_dict("POST", path, role, payload)
 
@@ -167,7 +164,18 @@ class OrchestratorApi:
         untyped)."""
         return self._get_list(f"/api/v1/package-intakes/{revision_id}/decomposition-proposals")
 
-    def traceability(self, *, revision_id: str | None = None, work_unit_id: str | None = None):
+    def traceability(
+        self, *, revision_id: str | None = None, work_unit_id: str | None = None
+    ) -> dict:
+        """`TraceabilityResponse` is a JSON object (`anchor` + `chains`), so this
+        goes through `_get_dict` like every other object route.
+
+        It used to use the bare `_get` with no return annotation -- the last
+        unguarded read on this client, and the one every API verb reaches via
+        `reads.units_for`. A non-object body escaped as a raw
+        `AttributeError: 'list' object has no attribute 'get'` on
+        `data.get("chains")` instead of a clean `ApiError`.
+        """
         if not revision_id and not work_unit_id:
             raise ApiError(
                 "traceability_anchor_required",
@@ -177,10 +185,7 @@ class OrchestratorApi:
         params = {
             k: v for k, v in (("revision_id", revision_id), ("work_unit_id", work_unit_id)) if v
         }
-        return self._get(f"/api/v1/traceability?{urlencode(params)}")
-
-    def readiness(self, unit_id: str) -> dict:
-        return self._get_dict(f"/api/v1/work-units/{unit_id}/readiness")
+        return self._get_dict(f"/api/v1/traceability?{urlencode(params)}")
 
     def history(self, unit_id: str) -> list[dict]:
         """The route's body is a bare JSON array (`response_model=list[EventResponse]`

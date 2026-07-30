@@ -66,3 +66,46 @@ def test_missing_binary_raises_orchestrator_cli_error_not_a_raw_oserror():
     client = OrchestratorClient(runner=runner)
     with pytest.raises(OrchestratorCliError, match="could not run"):
         client.conformance_claim("/tmp/repo")
+
+
+def test_a_hung_subprocess_raises_orchestrator_cli_error_not_a_traceback():
+    """A4. `subprocess.TimeoutExpired` is a `SubprocessError`, NOT an `OSError`,
+    so the `except OSError` clause could not see it -- a hung `orchestrator`
+    subprocess tracebacked out of both `journey.submit` and `decompose.run`
+    while `credentials.py::resolve_token` guarded its own runner correctly. The
+    repo's two subprocess wrappers now agree."""
+
+    def runner(argv):
+        raise subprocess.TimeoutExpired(argv, 120)
+
+    client = OrchestratorClient(runner=runner)
+    with pytest.raises(OrchestratorCliError, match="timed out"):
+        client.conformance_claim("/tmp/repo")
+
+
+def test_a_hung_emit_intake_payload_is_reported_by_submit_not_raised(tmp_path, capsys):
+    """The same timeout, seen from the verb that suffers it. `journey.submit`
+    catches `OrchestratorCliError` only -- so before A4 this call tracebacked
+    out of `factory submit` entirely."""
+    import yaml
+
+    from intent_packages.factory import journey, scaffolds
+
+    scaffolds.create("software-delivery", "probe", str(tmp_path))
+    for name, key in (("package.yaml", "status"), ("lineage.yaml", "current_state")):
+        path = tmp_path / "probe" / name
+        document = yaml.safe_load(path.read_text())
+        document[key] = "approved"
+        path.write_text(yaml.safe_dump(document, sort_keys=False))
+
+    def runner(argv):
+        raise subprocess.TimeoutExpired(argv, 120)
+
+    rc = journey.submit(
+        str(tmp_path / "probe"),
+        "AlobarQuest/probe",
+        client=OrchestratorClient(runner=runner),
+        clipboard=lambda text: None,
+    )
+    assert rc == 1
+    assert "submit failed:" in capsys.readouterr().err

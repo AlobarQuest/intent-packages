@@ -154,9 +154,6 @@ def _fake_api(**overrides):
                 ],
             }
 
-        def readiness(self, unit_id):
-            return {"status": "ready", "conditions": []}
-
         def history(self, unit_id):
             return []
 
