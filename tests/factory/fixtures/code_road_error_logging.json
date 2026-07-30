@@ -1,0 +1,273 @@
+{
+  "exemplars": [
+    {
+      "applicability": {
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "conflict": null,
+      "id": 1,
+      "label": "Correlation-ID + secret hygiene (closest current instance)",
+      "location": "~/Projects/Contacts/src/api/main.py",
+      "note": "Bespoke trace-id propagation + the \"never capture Authorization headers or bodies\" hygiene. Pre-structlog (migrate per ADR-0006), but the correlation-id + secret-hygiene patterns are the seed to imitate.",
+      "road_slug": "error-logging",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "conflict": null,
+      "id": 2,
+      "label": "Canonical structlog + uvicorn + JSON setup (reference)",
+      "location": "https://gist.github.com/nymous/f138c7f06062b7c43c060bf03759c29e",
+      "note": "The reference structlog + uvicorn + JSON-to-stdout config to adapt into setup_logging(). Pair with asgi-correlation-id for request ids.",
+      "road_slug": "error-logging",
+      "status": "approved"
+    }
+  ],
+  "lessons": [],
+  "road": {
+    "adr_ref": "code-standards/docs/decisions/0006-error-logging.md",
+    "category": "application",
+    "created_at": "2026-06-30T15:03:09.855201+00:00",
+    "decided_approach": "structlog + asgi-correlation-id (Python) / pino (TS). Structured JSON to stdout, a correlation id per request, never swallow exceptions or log secrets, generic errors to clients with detail in the logs. Build on Contacts' secret hygiene + agent-sites' generic-error convention. 9 rules recorded; see ADR-0006.",
+    "home": "ADR-0006 + Code Brain (this road)",
+    "last_validated_at": "2026-06-30T00:00:00+00:00",
+    "name": "Error handling & structured logging",
+    "owner_standard": "code-standards",
+    "slug": "error-logging",
+    "status": "paved",
+    "summary": "How we handle errors and emit structured logs.",
+    "updated_at": "2026-06-30T15:51:37.249848+00:00",
+    "validation_note": "Mechanical survey 2026-06-30 across ~/Projects: no shared logging pattern (all plain-text/ad-hoc; 3+ repos swallow exceptions; only Contacts has a bespoke correlation id). Greenfield decision \u2014 no entrenched standard to dislodge."
+  },
+  "rules": [
+    {
+      "applicability": {
+        "category": "logging",
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "bad_example": null,
+      "category": "logging",
+      "check": {
+        "hint": "structlog JSONRenderer to stdout in prod; ConsoleRenderer in dev",
+        "kind": "judgment"
+      },
+      "conflict": null,
+      "created_at": "2026-06-30T15:50:46.919293+00:00",
+      "good_example": null,
+      "id": 3,
+      "reason": "12-factor: Coolify/Docker capture stdout and the portfolio's log aggregation expects machine-parseable JSON. File logging fragments and is lost on container restart.",
+      "retired_at": null,
+      "road_slug": "error-logging",
+      "rule": "Emit structured JSON logs to stdout (not files) in production; pretty console output in dev.",
+      "severity": "BLOCK",
+      "source": "ADR-0006",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "bad_example": null,
+      "category": "security",
+      "check": {
+        "hint": "no Authorization/token/password/body fields in log calls",
+        "kind": "judgment"
+      },
+      "conflict": null,
+      "created_at": "2026-06-30T15:51:04.623561+00:00",
+      "good_example": null,
+      "id": 5,
+      "reason": "Logs are aggregated and retained; a secret in a log is a leaked secret. Contacts already enforces 'never capture Authorization headers or bodies' \u2014 make it portfolio-wide.",
+      "retired_at": null,
+      "road_slug": "error-logging",
+      "rule": "Never log secrets, credentials, auth headers, tokens, or full request bodies. Redact or omit.",
+      "severity": "BLOCK",
+      "source": "ADR-0006; security-standards",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "error-handling",
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "bad_example": "except Exception:\n    pass",
+      "category": "error-handling",
+      "check": {
+        "kind": "forbidden_pattern",
+        "languages": [
+          "python"
+        ],
+        "note": "also flag empty TS catch blocks",
+        "pattern": "except[^\\n:]*:\\s*pass"
+      },
+      "conflict": null,
+      "created_at": "2026-06-30T15:50:58.473789+00:00",
+      "good_example": "except StripeError as e:\n    logger.exception(\"charge failed\", customer_id=cid)\n    raise",
+      "id": 4,
+      "reason": "Silent swallows hide failures (found in 3+ repos in the survey). An error you can't see is an outage you learn about from users.",
+      "retired_at": null,
+      "road_slug": "error-logging",
+      "rule": "Never silently swallow an exception. A deliberate swallow must carry an inline justification AND log the error; bare `except Exception: pass` (Python) or empty `catch {}` (TS) is forbidden.",
+      "severity": "BLOCK",
+      "source": "ADR-0006",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "logging",
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "bad_example": "print(\"debug\", payload)",
+      "category": "logging",
+      "check": {
+        "exclude": [
+          "tests/",
+          "scripts/",
+          "**/*.test.*"
+        ],
+        "kind": "forbidden_pattern",
+        "pattern": "\\bprint\\(|console\\.log\\("
+      },
+      "conflict": null,
+      "created_at": "2026-06-30T15:51:05.107865+00:00",
+      "good_example": null,
+      "id": 6,
+      "reason": "Bare print/console output isn't structured, leveled, or captured consistently; it bypasses the logging pipeline.",
+      "retired_at": null,
+      "road_slug": "error-logging",
+      "rule": "Use the configured logger; no bare `print()` (Python) or `console.log` (TS) in application (non-test, non-script) code.",
+      "severity": "WARN",
+      "source": "ADR-0006",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "error-handling",
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "bad_example": null,
+      "category": "error-handling",
+      "check": {
+        "kind": "judgment"
+      },
+      "conflict": null,
+      "created_at": "2026-06-30T15:51:07.293890+00:00",
+      "good_example": null,
+      "id": 7,
+      "reason": "A stack trace without the request id and the entity ids is hard to act on. Structured fields are queryable in aggregation.",
+      "retired_at": null,
+      "road_slug": "error-logging",
+      "rule": "Log exceptions with context \u2014 `logger.exception(...)` / bound structured fields, including the correlation id and relevant identifiers \u2014 not a bare string.",
+      "severity": "WARN",
+      "source": "ADR-0006",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "api",
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "bad_example": null,
+      "category": "api",
+      "check": {
+        "kind": "judgment"
+      },
+      "conflict": null,
+      "created_at": "2026-06-30T15:51:10.182710+00:00",
+      "good_example": null,
+      "id": 8,
+      "reason": "Prevents information leakage and gives users a clean message; agent-sites already does this (`{ error: 'Database error' }, 500`).",
+      "retired_at": null,
+      "road_slug": "error-logging",
+      "rule": "Return a generic error message + status to the client; put the diagnostic detail in the logs. Never leak internals/stack traces to clients.",
+      "severity": "WARN",
+      "source": "ADR-0006",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "observability",
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "bad_example": null,
+      "category": "observability",
+      "check": {
+        "dependency": "asgi-correlation-id",
+        "ecosystem": "python",
+        "kind": "manifest_present"
+      },
+      "conflict": null,
+      "created_at": "2026-06-30T15:51:13.057433+00:00",
+      "good_example": null,
+      "id": 9,
+      "reason": "Correlation ids let you trace one request across all its log lines and services; without them, multi-step failures are guesswork.",
+      "retired_at": null,
+      "road_slug": "error-logging",
+      "rule": "Attach a correlation/request id to every request and include it in every log line for that request (Python: `asgi-correlation-id` + structlog contextvars).",
+      "severity": "WARN",
+      "source": "ADR-0006",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "logging",
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "bad_example": null,
+      "category": "logging",
+      "check": {
+        "kind": "manifest_present",
+        "node": "pino",
+        "python": "structlog"
+      },
+      "conflict": null,
+      "created_at": "2026-06-30T15:51:15.321252+00:00",
+      "good_example": null,
+      "id": 10,
+      "reason": "One library per ecosystem keeps logging consistent and portable across the portfolio's many services.",
+      "retired_at": null,
+      "road_slug": "error-logging",
+      "rule": "Structured logging library: Python \u2192 `structlog`; TS server \u2192 `pino`. Don't introduce alternatives (loguru/winston/etc.).",
+      "severity": "INFO",
+      "source": "ADR-0006",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "frontend",
+        "road_slug": "error-logging"
+      },
+      "authority": "informational",
+      "bad_example": null,
+      "category": "frontend",
+      "check": {
+        "kind": "manifest_present",
+        "path": "app/error.tsx"
+      },
+      "conflict": null,
+      "created_at": "2026-06-30T15:51:18.167532+00:00",
+      "good_example": null,
+      "id": 11,
+      "reason": "No TS app currently has an error boundary \u2014 an unhandled render error white-screens the user instead of degrading gracefully.",
+      "retired_at": null,
+      "road_slug": "error-logging",
+      "rule": "Every Next.js app ships an `error.tsx`/`global-error.tsx` and a React error boundary; client errors render a generic message.",
+      "severity": "INFO",
+      "source": "ADR-0006",
+      "status": "approved"
+    }
+  ]
+}
