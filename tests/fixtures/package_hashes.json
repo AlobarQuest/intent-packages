@@ -17,5 +17,6 @@
   "ws-6.4-dependency-update-fanout": "014dfc8782e6898c32a0efbdaf6e4be2fcaa9f044af712f5905fa228b1bd7bad",
   "ws-p2.1-recovery-controls-drills": "135af65785307707484776d74f0691f88a939fff62ae27a274f870d12071f2bd",
   "ws-p2.15-fail-closed-lifecycle-guards": "349e7784133b2ee06054fd6906ada51674baeb3972bfec0ec2bb053a19fabcdc",
-  "wsp28-production-deploy": "1bd9aae5ad83c53da8e2a308be84d18d1eea4f1c8bb89563a14e81b828763553"
+  "wsp28-production-deploy": "1bd9aae5ad83c53da8e2a308be84d18d1eea4f1c8bb89563a14e81b828763553",
+  "wsp29-production-drive": "a50e46dad74ac41ef801a70cd4d01d6c403c7b16b230383a91b59c54238055bb"
 }
