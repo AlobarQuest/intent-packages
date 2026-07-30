@@ -10,7 +10,7 @@ depth."""
 from __future__ import annotations
 
 from intent_packages.profiles._evidence_tags import check_evidence_tags
-from intent_packages.profiles.base import DeliveryProfile
+from intent_packages.profiles.base import DeliveryProfile, EnrichmentSpec
 from intent_packages.schema import ListSpec, MapSpec, OptionalKey, _s, _walk
 
 PROFILE_FIELDS_SCHEMA = MapSpec(
@@ -56,6 +56,16 @@ def validate(package: dict) -> list[str]:
 
 DELIVERY_PROFILE = DeliveryProfile(
     name="non-software-operational",
+    # `enrichment_for_profile` returns None for a profile that declares no spec, on the reasoning
+    # that a profile the factory cannot execute "has no workers to tell". That reasoning does not
+    # hold here: this profile's units are discharged by a human or a local operator who reads the
+    # runner brief, so there IS a worker, and telling them nothing is a choice rather than an
+    # absence. WS-P2.13's rotation package is the proof -- an infra-authority projection returns
+    # `bws.no-token-in-tracked-files`, `bws.no-token-in-git-history`,
+    # `bws.bootstrap-token-not-inline` and `cred.exposure-rotate`, which is precisely the governed
+    # knowledge a credential rotation must honour. No code road applies: the Code Brain's only
+    # substantive road is `error-logging`, and this profile ships no code.
+    enrichment=EnrichmentSpec(code_road_slugs=(), infra_min_authority="required"),
     profile_fields_schema=PROFILE_FIELDS_SCHEMA,
     tag_to_evidence_type=TAG_TO_EVIDENCE_TYPE,
     forbidden_evidence_types=frozenset({"automated_test"}),
