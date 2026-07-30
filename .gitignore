@@ -21,6 +21,11 @@ pytest-out.txt
 *.pem
 *.key
 
+# Env / secrets (scanner-flagged patterns, bws.secret-files-gitignored)
+*.env
+*-migration/
+*.password
+
 # OS
 .DS_Store
 

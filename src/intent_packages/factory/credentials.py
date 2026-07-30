@@ -43,14 +43,22 @@ def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def secret_uuid(role: Role) -> str:
+    """Look up `role`'s BWS UUID from the `[[secret]]` array in MANIFEST.
+
+    Selects by the manifest's `role` field, never by `name` -- BWS secret
+    names are mutable labels, so a by-name lookup would silently break on a
+    rename (secret-handling standard rule 3).
+    """
     try:
         manifest = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))
     except OSError as error:
         raise CredentialError(f"cannot read {MANIFEST}") from error
-    uuid = (manifest.get("secrets") or {}).get(role.value)
-    if not isinstance(uuid, str) or not uuid:
-        raise CredentialError(f"{MANIFEST} has no [secrets].{role.value} entry")
-    return uuid
+    for entry in manifest.get("secret", []):
+        if entry.get("role") == role.value:
+            uuid = entry.get("uuid")
+            if isinstance(uuid, str) and uuid:
+                return uuid
+    raise CredentialError(f"{MANIFEST} has no [[secret]] entry with role = {role.value!r}")
 
 
 def resolve_token(role: Role, *, runner: Runner | None = None) -> str:

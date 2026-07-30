@@ -2,7 +2,8 @@ import subprocess
 
 import pytest
 
-from intent_packages.factory.credentials import CredentialError, Role, resolve_token
+from intent_packages.factory import credentials
+from intent_packages.factory.credentials import CredentialError, Role, resolve_token, secret_uuid
 
 
 def test_env_wins(monkeypatch):
@@ -84,6 +85,34 @@ def test_missing_bws_binary_raises_credential_error(monkeypatch):
     with pytest.raises(CredentialError) as error:
         resolve_token(Role.SYSTEM, runner=runner)
     assert "no such file or directory" not in str(error.value)
+
+
+def test_secret_uuid_selects_by_role_not_name(monkeypatch, tmp_path):
+    manifest = tmp_path / ".bws-secrets.toml"
+    manifest.write_text(
+        "[[secret]]\n"
+        'uuid = "11111111-1111-1111-1111-111111111111"\n'
+        'name = "renamed-in-bws-since"\n'
+        'role = "orchestrator-system"\n'
+    )
+    monkeypatch.setattr(credentials, "MANIFEST", manifest)
+    assert secret_uuid(Role.SYSTEM) == "11111111-1111-1111-1111-111111111111"
+
+
+def test_secret_uuid_missing_role_raises_credential_error(monkeypatch, tmp_path):
+    manifest = tmp_path / ".bws-secrets.toml"
+    manifest.write_text(
+        "[[secret]]\n"
+        'uuid = "11111111-1111-1111-1111-111111111111"\n'
+        'name = "some-other-secret"\n'
+        'role = "orchestrator-verifier"\n'
+    )
+    monkeypatch.setattr(credentials, "MANIFEST", manifest)
+    with pytest.raises(CredentialError) as error:
+        secret_uuid(Role.SYSTEM)
+    message = str(error.value)
+    assert "orchestrator-system" in message
+    assert str(manifest) in message
 
 
 def test_bws_timeout_raises_credential_error(monkeypatch):
