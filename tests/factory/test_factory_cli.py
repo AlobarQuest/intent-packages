@@ -533,3 +533,51 @@ def test_verbose_defaults_to_false(monkeypatch):
     with pytest.raises(_VerboseCaptured):
         main(["status", "--revision", "r1"])
     assert seen == [False]
+
+
+def test_onboard_passthrough_invokes_portfolio_and_passes_exit_code(monkeypatch):
+    import subprocess as sp
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return sp.CompletedProcess(args=cmd, returncode=1)
+
+    monkeypatch.setenv("PROJECT_STANDARDS_DIR", "/tmp/ps")
+    monkeypatch.setattr(sp, "run", fake_run)
+    rc = main(["onboard", "/tmp/some-repo"])
+    assert rc == 1
+    assert captured["cmd"] == [
+        "uv",
+        "run",
+        "--project",
+        "/tmp/ps",
+        "portfolio",
+        "onboard",
+        "/tmp/some-repo",
+    ]
+
+
+def test_create_from_readiness_dispatches(monkeypatch):
+    seen = {}
+
+    def fake(readiness, package_id, out, owner="devon"):
+        seen["args"] = (readiness, package_id, out, owner)
+        return 0
+
+    monkeypatch.setattr("intent_packages.factory.scaffolds.create_from_readiness", fake)
+    rc = main(["create", "--from-readiness", "r.json", "--name", "x", "--out", "o"])
+    assert rc == 0
+    assert seen["args"] == ("r.json", "x", "o", "devon")
+
+
+def test_create_from_readiness_rejects_profile(capsys):
+    rc = main(["create", "--from-readiness", "r.json", "--profile", "software-delivery"])
+    assert rc == 2
+    assert "omit --profile" in capsys.readouterr().err
+
+
+def test_create_without_profile_or_readiness_errors(capsys):
+    rc = main(["create", "--name", "x"])
+    assert rc == 2

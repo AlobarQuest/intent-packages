@@ -1,0 +1,108 @@
+schema_version: 1
+package_id: brain-onboarding-remediation
+title: 'Onboarding remediation: brain'
+revision: 1
+status: draft
+created_by: factory-create
+owner: devon
+created_at: '2026-07-30T16:00:21Z'
+supersedes: null
+profile: maintenance-remediation
+profile_fields:
+  repo: brain
+  remediation_source: portfolio-readiness/v1 result for brain generated 2026-07-30T16:00:10.473495+00:00
+    by `portfolio onboard` (project-standards)
+  rollback_plan: Revert the remediation PR(s); onboarding changes are additive.
+outcome:
+  what: 'brain clears its factory-onboarding remediation queue: runner.caller; profile.declared'
+  why: A repo failing admission cannot be factory-onboarded; the queue names why.
+  beneficiary: devon
+  success_signal: '`portfolio onboard` re-run on brain shows every queued admission
+    check pass'
+scope:
+  included:
+  - 'runner.caller: pin the caller''s uses: to @ec509ae495f8a0eef16dd4986970f7c69a33bf51
+    (factory-runner''s declared pin)'
+  - 'profile.declared: declare `delivery_profile: <name>` in PROJECT.md frontmatter;
+    registered: dependency-update, infrastructure-change, maintenance-remediation,
+    non-software-operational, software-delivery'
+  excluded: []
+  non_goals: []
+  assumptions: []
+  open_questions: []
+sources:
+- location: readiness result brain.v1.json (portfolio-readiness/v1)
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: null
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: 'runner.caller passes in a fresh `portfolio onboard` run of brain: SHA-pin
+    the caller to the declared pin'
+  evidence_type: human_review
+  evidence: 'human: re-run readiness result showing runner.caller pass'
+  approver: devon
+- id: AC-002
+  condition: 'profile.declared passes in a fresh `portfolio onboard` run of brain:
+    declare the repo''s delivery profile in PROJECT.md'
+  evidence_type: human_review
+  evidence: 'human: re-run readiness result showing profile.declared pass'
+  approver: devon
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 4
+deliverables:
+  artifacts:
+  - remediation changes in brain clearing the queued admission checks
+  destination: packages/
+  recipient: devon
+  definition_of_done: a fresh `portfolio onboard` run of brain passes every previously-queued
+    check
+  operator_responsibilities: []
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes: []
+  max_impact: low
+  stop_conditions: []
+  rollback: Describe how to roll back this change if it goes wrong.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'

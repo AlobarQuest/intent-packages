@@ -1,0 +1,132 @@
+{
+  "schema": "portfolio-readiness/v1",
+  "repo": "brain",
+  "generated": "2026-07-30T16:00:10.473495+00:00",
+  "checks": [
+    {
+      "id": "git.current",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "project.manifest",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "code.onboarded",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "ci.executed",
+      "status": "pass",
+      "details": [
+        {
+          "id": "ci.collected",
+          "message": "212 tests evidenced in the log"
+        }
+      ],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "security.clean",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "runner.caller",
+      "status": "violation",
+      "details": [
+        {
+          "id": "runner.unpinned",
+          "message": "caller uses @main \u2014 not a full SHA (GAP-4 class)"
+        }
+      ],
+      "fix": "pin the caller's uses: to @ec509ae495f8a0eef16dd4986970f7c69a33bf51 (factory-runner's declared pin)",
+      "remediation": {
+        "summary": "SHA-pin the caller to the declared pin"
+      }
+    },
+    {
+      "id": "profile.declared",
+      "status": "violation",
+      "details": [
+        {
+          "id": "profile.not-declared",
+          "message": "delivery_profile absent"
+        }
+      ],
+      "fix": "declare `delivery_profile: <name>` in PROJECT.md frontmatter; registered: dependency-update, infrastructure-change, maintenance-remediation, non-software-operational, software-delivery",
+      "remediation": {
+        "summary": "declare the repo's delivery profile in PROJECT.md"
+      }
+    },
+    {
+      "id": "deps.dependabot",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "repo.protection",
+      "status": "violation",
+      "details": [
+        {
+          "id": "repo.unprotected",
+          "message": "main has no branch protection"
+        }
+      ],
+      "fix": "gh api -X PUT repos/AlobarQuest/brain/branches/main/protection -f required_pull_request_reviews.required_approving_review_count=1 (Devon runs this; the kit never writes settings)",
+      "remediation": null
+    },
+    {
+      "id": "backlog.hygiene",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "standards.pinned",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    }
+  ],
+  "admission_passed": false,
+  "certified": false,
+  "certification": {
+    "method": "docs-canary/v1",
+    "evidence": null
+  },
+  "remediation_queue": [
+    {
+      "check": "runner.caller",
+      "repo": "brain",
+      "fix": "pin the caller's uses: to @ec509ae495f8a0eef16dd4986970f7c69a33bf51 (factory-runner's declared pin)",
+      "remediation": {
+        "summary": "SHA-pin the caller to the declared pin"
+      }
+    },
+    {
+      "check": "profile.declared",
+      "repo": "brain",
+      "fix": "declare `delivery_profile: <name>` in PROJECT.md frontmatter; registered: dependency-update, infrastructure-change, maintenance-remediation, non-software-operational, software-delivery",
+      "remediation": {
+        "summary": "declare the repo's delivery profile in PROJECT.md"
+      }
+    }
+  ]
+}
