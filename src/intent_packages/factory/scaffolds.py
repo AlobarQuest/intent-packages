@@ -20,6 +20,7 @@ retryable without a manual `rm -rf`.
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 import tempfile
@@ -396,6 +397,135 @@ def create(
 
     print(f"created {pkg_dir}")
     return 0
+
+
+READINESS_SCHEMA = "portfolio-readiness/v1"
+
+
+def _materialize(profile: DeliveryProfile, package: dict, pkg_dir: Path) -> int:
+    """Stage, validate, and move a rendered package — the same
+    validate-before-commit discipline `create` uses."""
+    lineage_doc = render_lineage(package["package_id"], package["created_at"])
+    lineage_doc["revisions"][0]["hash"] = canonical.package_hash(package)
+    with tempfile.TemporaryDirectory(prefix="factory-create-") as staging:
+        staged = Path(staging) / package["package_id"]
+        staged.mkdir()
+        (staged / "package.yaml").write_text(
+            _render_package_yaml(package, profile), encoding="utf-8"
+        )
+        write_lineage(staged, lineage_doc)
+        errors = validate_package(staged)
+        if errors:
+            print("create: the scaffold failed validation:", file=sys.stderr)
+            for error in errors:
+                print(f"  {error}", file=sys.stderr)
+            print(f"create: nothing was written to {pkg_dir}", file=sys.stderr)
+            return 1
+        pkg_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(staged), str(pkg_dir))
+    print(f"created {pkg_dir}")
+    return 0
+
+
+def create_from_readiness(
+    readiness_path: str,
+    package_id: str,
+    out_dir: str,
+    *,
+    owner: str = "devon",
+) -> int:
+    """Scaffold ONE maintenance-remediation Draft package from a
+    portfolio-readiness/v1 result's remediation queue (WS-P2.11 Q1 shape).
+
+    The readiness document is the kit's output (`portfolio onboard`,
+    project-standards) — its authoritative schema lives THERE
+    (schema/portfolio-readiness.v1.schema.json); this consumer validates the
+    exact version string and fails closed on anything else. All queue items
+    group into one package (one AC per item); the result stops at the human
+    gates like any other Draft.
+    """
+    try:
+        doc = json.loads(Path(readiness_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        print(f"create: cannot read readiness result {readiness_path}: {error}", file=sys.stderr)
+        return 1
+    seen = doc.get("schema") if isinstance(doc, dict) else None
+    if seen != READINESS_SCHEMA:
+        print(
+            f"create: readiness schema mismatch: expected {READINESS_SCHEMA!r}, got {seen!r} "
+            "— bump this consumer together with the kit, never one side alone",
+            file=sys.stderr,
+        )
+        return 1
+    queue = doc.get("remediation_queue") or []
+    if not queue:
+        print(
+            "create: remediation queue is empty — nothing to scaffold "
+            "(admission failures without machine remediation carry fix commands instead)",
+            file=sys.stderr,
+        )
+        return 1
+
+    repo = str(doc.get("repo", "unknown-repo"))
+    resolved_id = package_id or f"{repo}-onboarding-remediation"
+    pkg_dir = Path(out_dir) / resolved_id
+    if pkg_dir.exists():
+        print(f"create: {pkg_dir} already exists; refusing to overwrite", file=sys.stderr)
+        return 1
+
+    profile = PROFILES["maintenance-remediation"]
+    created_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    title = f"Onboarding remediation: {repo}"
+    package = render_package(profile, resolved_id, title, owner, created_at)
+    package["profile_fields"] = {
+        "repo": repo,
+        "remediation_source": (
+            f"portfolio-readiness/v1 result for {repo} generated {doc.get('generated', '?')} "
+            f"by `portfolio onboard` (project-standards)"
+        ),
+        "rollback_plan": "Revert the remediation PR(s); onboarding changes are additive.",
+    }
+    package["outcome"] = {
+        "what": (
+            f"{repo} clears its factory-onboarding remediation queue: "
+            + "; ".join(str(i.get("check")) for i in queue)
+        ),
+        "why": "A repo failing admission cannot be factory-onboarded; the queue names why.",
+        "beneficiary": owner,
+        "success_signal": (
+            f"`portfolio onboard` re-run on {repo} shows every queued admission check pass"
+        ),
+    }
+    package["scope"]["included"] = [f"{item.get('check')}: {item.get('fix')}" for item in queue]
+    package["sources"] = [
+        {
+            "location": f"readiness result {Path(readiness_path).name} (portfolio-readiness/v1)",
+            "authority_level": "authoritative",
+            "required_version": None,
+            "trust": "trusted_instruction",
+            "sensitivity": "internal",
+        }
+    ]
+    package["acceptance"] = [
+        {
+            "id": f"AC-{index:03d}",
+            "condition": (
+                f"{item.get('check')} passes in a fresh `portfolio onboard` run of {repo}: "
+                f"{(item.get('remediation') or {}).get('summary', item.get('fix'))}"
+            ),
+            "evidence_type": "human_review",
+            "evidence": (f"human: re-run readiness result showing {item.get('check')} pass"),
+            "approver": owner,
+        }
+        for index, item in enumerate(queue, start=1)
+    ]
+    package["deliverables"]["artifacts"] = [
+        f"remediation changes in {repo} clearing the queued admission checks"
+    ]
+    package["deliverables"]["definition_of_done"] = (
+        f"a fresh `portfolio onboard` run of {repo} passes every previously-queued check"
+    )
+    return _materialize(profile, package, pkg_dir)
 
 
 def validate(path: str) -> int:

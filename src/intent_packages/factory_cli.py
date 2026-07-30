@@ -1,5 +1,5 @@
 """`factory` CLI front door (WS-P2.9). Subcommands: decompose, route, create,
-validate, submit, status, evidence, ready, dispatch, verify.
+validate, submit, status, evidence, ready, dispatch, verify, onboard.
 
 Mirrors intent_packages.cli: main(argv) -> int, argparse subparsers, lazy
 per-subcommand imports.
@@ -49,11 +49,26 @@ def _build_parser() -> argparse.ArgumentParser:
     r.add_argument("--policy", default="", help="policy file path (default: repo root)")
 
     c = sub.add_parser("create", help="scaffold an intent package from a registered profile")
-    c.add_argument("--profile", required=True, help="registered delivery profile name")
-    c.add_argument("--name", required=True, dest="package_id", help="package_id slug")
+    c.add_argument("--profile", default="", help="registered delivery profile name")
+    c.add_argument("--name", default="", dest="package_id", help="package_id slug")
     c.add_argument("--out", default="packages", help="parent directory (default: packages)")
     c.add_argument("--owner", default="devon")
     c.add_argument("--title", default="", help="package title (default: derived from --name)")
+    c.add_argument(
+        "--from-readiness",
+        dest="from_readiness",
+        default="",
+        help=(
+            "scaffold ONE maintenance-remediation package from a portfolio-readiness/v1 "
+            "result's remediation queue (schema published in project-standards: "
+            "schema/portfolio-readiness.v1.schema.json); --profile must be omitted"
+        ),
+    )
+
+    ob = sub.add_parser(
+        "onboard", help="repo readiness via project-standards' portfolio onboard (passthrough)"
+    )
+    ob.add_argument("repo", help="path to the repo checkout to onboard")
 
     v = sub.add_parser("validate", help="validate an intent package")
     v.add_argument("path", help="path to a package directory or package.yaml")
@@ -168,9 +183,42 @@ def _run_route(args: argparse.Namespace) -> int:
 def _run_create(args: argparse.Namespace) -> int:
     from intent_packages.factory import scaffolds
 
+    if args.from_readiness:
+        if args.profile:
+            print(
+                "create: --from-readiness implies --profile maintenance-remediation; "
+                "omit --profile",
+                file=sys.stderr,
+            )
+            return 2
+        return scaffolds.create_from_readiness(
+            args.from_readiness, args.package_id, args.out, owner=args.owner
+        )
+    if not args.profile or not args.package_id:
+        print(
+            "create: --profile and --name are required (unless --from-readiness)", file=sys.stderr
+        )
+        return 2
     return scaffolds.create(
         args.profile, args.package_id, args.out, owner=args.owner, title=args.title
     )
+
+
+def _run_onboard(args: argparse.Namespace) -> int:
+    """Thin passthrough to project-standards' `portfolio onboard` (WS-P2.11 Q2).
+
+    `uv run --project` resolves the already-declared console script even on a
+    fresh checkout with no venv — no PATH mutation, no global install."""
+    import os
+    import subprocess
+
+    project_dir = os.environ.get(
+        "PROJECT_STANDARDS_DIR", str(Path.home() / "Projects" / "project-standards")
+    )
+    result = subprocess.run(
+        ["uv", "run", "--project", project_dir, "portfolio", "onboard", args.repo]
+    )
+    return result.returncode
 
 
 def _run_validate(args: argparse.Namespace) -> int:
@@ -243,6 +291,7 @@ _HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "ready": _run_ready,
     "dispatch": _run_dispatch,
     "verify": _run_verify,
+    "onboard": _run_onboard,
 }
 
 

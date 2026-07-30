@@ -1,0 +1,176 @@
+{
+  "schema": "portfolio-readiness/v1",
+  "repo": "gap-repo",
+  "generated": "2026-07-30T15:02:40.740079+00:00",
+  "checks": [
+    {
+      "id": "git.current",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "project.manifest",
+      "status": "violation",
+      "details": [
+        {
+          "id": "project.missing_manifest",
+          "message": "gap-repo: no PROJECT.md"
+        }
+      ],
+      "fix": "portfolio lint /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo and fix every FAIL (portfolio init scaffolds a manifest)",
+      "remediation": {
+        "summary": "make PROJECT.md a valid portfolio manifest"
+      }
+    },
+    {
+      "id": "code.onboarded",
+      "status": "violation",
+      "details": [
+        {
+          "id": "code.no-manifest",
+          "message": ".code-standards.toml absent"
+        },
+        {
+          "id": "code.no-quality-workflow",
+          "message": ".github/workflows/quality.yml absent"
+        }
+      ],
+      "fix": "cd /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo && code-standards init; cd /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo && code-standards sync",
+      "remediation": {
+        "summary": "onboard the repo to code-standards (init + sync)"
+      }
+    },
+    {
+      "id": "ci.executed",
+      "status": "unknown",
+      "details": [
+        {
+          "id": "ci.no-origin",
+          "message": "cannot derive GitHub slug from origin"
+        }
+      ],
+      "fix": "add a GitHub origin remote to /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo",
+      "remediation": null
+    },
+    {
+      "id": "security.clean",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "runner.caller",
+      "status": "violation",
+      "details": [
+        {
+          "id": "runner.no-caller",
+          "message": "factory-runner-pilot.yml absent"
+        }
+      ],
+      "fix": "copy /Users/devon/Projects/project-standards/src/portfolio/templates/factory-runner-caller.yml to /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo/.github/workflows/factory-runner-pilot.yml, filling the pin from factory-runner's RECOMMENDED_CALLER_PIN",
+      "remediation": {
+        "summary": "add the factory-runner caller workflow from the template"
+      }
+    },
+    {
+      "id": "profile.declared",
+      "status": "violation",
+      "details": [
+        {
+          "id": "profile.not-declared",
+          "message": "delivery_profile absent"
+        }
+      ],
+      "fix": "declare `delivery_profile: <name>` in PROJECT.md frontmatter; registered: dependency-update, infrastructure-change, maintenance-remediation, non-software-operational, software-delivery",
+      "remediation": {
+        "summary": "declare the repo's delivery profile in PROJECT.md"
+      }
+    },
+    {
+      "id": "deps.dependabot",
+      "status": "violation",
+      "details": [
+        {
+          "id": "deps.no-dependabot",
+          "message": ".github/dependabot.yml absent"
+        }
+      ],
+      "fix": "cd /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo && code-standards sync (vendors a tooling-appropriate dependabot.yml)",
+      "remediation": null
+    },
+    {
+      "id": "repo.protection",
+      "status": "violation",
+      "details": [
+        {
+          "id": "repo.unprotected",
+          "message": "main has no branch protection"
+        }
+      ],
+      "fix": "gh api -X PUT repos/gap-repo/branches/main/protection -f required_pull_request_reviews.required_approving_review_count=1 (Devon runs this; the kit never writes settings)",
+      "remediation": null
+    },
+    {
+      "id": "backlog.hygiene",
+      "status": "pass",
+      "details": [],
+      "fix": null,
+      "remediation": null
+    },
+    {
+      "id": "standards.pinned",
+      "status": "unknown",
+      "details": [
+        {
+          "id": "standards.no-manifest",
+          "message": "no PROJECT.md"
+        }
+      ],
+      "fix": "fix project.manifest first",
+      "remediation": null
+    }
+  ],
+  "admission_passed": false,
+  "certified": false,
+  "certification": {
+    "method": "docs-canary/v1",
+    "evidence": null
+  },
+  "remediation_queue": [
+    {
+      "check": "project.manifest",
+      "repo": "gap-repo",
+      "fix": "portfolio lint /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo and fix every FAIL (portfolio init scaffolds a manifest)",
+      "remediation": {
+        "summary": "make PROJECT.md a valid portfolio manifest"
+      }
+    },
+    {
+      "check": "code.onboarded",
+      "repo": "gap-repo",
+      "fix": "cd /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo && code-standards init; cd /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo && code-standards sync",
+      "remediation": {
+        "summary": "onboard the repo to code-standards (init + sync)"
+      }
+    },
+    {
+      "check": "runner.caller",
+      "repo": "gap-repo",
+      "fix": "copy /Users/devon/Projects/project-standards/src/portfolio/templates/factory-runner-caller.yml to /private/tmp/claude-501/-Users-devon-Projects-orchestrator/9cc04ff3-23e3-4104-8926-48e98807114b/scratchpad/fx1/gap-repo/.github/workflows/factory-runner-pilot.yml, filling the pin from factory-runner's RECOMMENDED_CALLER_PIN",
+      "remediation": {
+        "summary": "add the factory-runner caller workflow from the template"
+      }
+    },
+    {
+      "check": "profile.declared",
+      "repo": "gap-repo",
+      "fix": "declare `delivery_profile: <name>` in PROJECT.md frontmatter; registered: dependency-update, infrastructure-change, maintenance-remediation, non-software-operational, software-delivery",
+      "remediation": {
+        "summary": "declare the repo's delivery profile in PROJECT.md"
+      }
+    }
+  ]
+}
