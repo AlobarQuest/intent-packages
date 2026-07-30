@@ -7,7 +7,16 @@ from intent_packages.factory.api import OrchestratorApi
 def _fake_api(**overrides):
     class FakeApi:
         def get_intake(self, revision_id):
-            return {"id": revision_id, "state": "intaken", "acceptance_criteria": []}
+            # No `state` key: `PackageIntakeResponse` has no such field. Nothing
+            # in execution.py reads this, but leaving the fiction in a fixture is
+            # how it got copied into the code in the first place (A2).
+            return {
+                "id": revision_id,
+                "package_id": "probe",
+                "revision": 1,
+                "status_at_intake": "approved",
+                "acceptance_criteria": [],
+            }
 
         def list_proposals(self, revision_id):
             return []
