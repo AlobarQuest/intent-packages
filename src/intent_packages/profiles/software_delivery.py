@@ -4,7 +4,7 @@ evidence-tag/evidence_type consistency checks layered on the universal envelope.
 from __future__ import annotations
 
 from intent_packages.profiles._evidence_tags import check_evidence_tags
-from intent_packages.profiles.base import DeliveryProfile
+from intent_packages.profiles.base import DeliveryProfile, EnrichmentSpec
 from intent_packages.schema import MapSpec, _l, _s, _walk
 
 PROFILE_FIELDS_SCHEMA = MapSpec(
@@ -70,6 +70,7 @@ def validate(package: dict) -> list[str]:
 
 DELIVERY_PROFILE = DeliveryProfile(
     name="software-delivery",
+    enrichment=EnrichmentSpec(code_road_slugs=("error-logging",), infra_min_authority="required"),
     profile_fields_schema=PROFILE_FIELDS_SCHEMA,
     tag_to_evidence_type=TAG_TO_EVIDENCE_TYPE,
     evidence_expectations="Tag-mapped producers per TAG_TO_EVIDENCE_TYPE; declared per package.",

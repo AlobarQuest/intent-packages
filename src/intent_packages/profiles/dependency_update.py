@@ -16,7 +16,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from intent_packages.profiles._evidence_tags import check_evidence_tags
-from intent_packages.profiles.base import AuthorityDefaults, DeliveryProfile
+from intent_packages.profiles.base import (
+    AuthorityDefaults,
+    DeliveryProfile,
+    EnrichmentSpec,
+)
 from intent_packages.schema import MapSpec, _s, _walk
 
 CAPABILITIES: dict[str, str] = {
@@ -294,6 +298,9 @@ def validate(package: dict) -> list[str]:
 DELIVERY_PROFILE = DeliveryProfile(
     name="dependency-update",
     change_class="dependency-update",
+    # Enriched, but empty of code roads: Code Brain holds no content for this
+    # class yet. Empty by CONTENT is not the same as absent.
+    enrichment=EnrichmentSpec(code_road_slugs=(), infra_min_authority="required"),
     profile_fields_schema=PROFILE_FIELDS_SCHEMA,
     tag_to_evidence_type=TAG_TO_EVIDENCE_TYPE,
     forbidden_evidence_types=frozenset({"automated_test"}),

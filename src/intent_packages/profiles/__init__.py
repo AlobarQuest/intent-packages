@@ -16,13 +16,18 @@ from intent_packages.profiles import (
     non_software_operational,
     software_delivery,
 )
-from intent_packages.profiles.base import AuthorityDefaults, DeliveryProfile
+from intent_packages.profiles.base import (
+    AuthorityDefaults,
+    DeliveryProfile,
+    EnrichmentSpec,
+)
 
 __all__ = [
     "PROFILES",
     "KNOWN_EVIDENCE_PREFIXES",
     "AuthorityDefaults",
     "DeliveryProfile",
+    "EnrichmentSpec",
     "validate_profile",
 ]
 
