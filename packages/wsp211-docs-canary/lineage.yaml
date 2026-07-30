@@ -1,0 +1,23 @@
+package_id: wsp211-docs-canary
+current_state: approved
+revisions:
+- revision: 1
+  hash: a8d26aa1cb52e0a8a329fc1d697737012c5ca1fc0817d2a8a44cafb581e1122b
+  created_at: '2026-07-30T16:28:41Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-30T16:29:44.157026+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-30T16:29:44.157026+00:00'
+  actor: claude-code-interactive
+  event_id: evt-e7bfb4f971db4a149207c8dd09b621ed
+approvals:
+- revision: 1
+  approved_hash: a8d26aa1cb52e0a8a329fc1d697737012c5ca1fc0817d2a8a44cafb581e1122b
+  approver: devon
+  approved_at: '2026-07-30T16:29:44.347978+00:00'
+  commit: 3e67d37d11b8d58d19dd616ecb174761b7664a29
+  event_id: evt-7747e9148470464684b2289bae715770
+grants: []

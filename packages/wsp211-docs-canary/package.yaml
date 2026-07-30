@@ -1,0 +1,112 @@
+schema_version: 1
+package_id: wsp211-docs-canary
+title: WS-P2.11 docs-only certification canary (change-manager)
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-07-30T16:28:41Z'
+supersedes: null
+profile: maintenance-remediation
+profile_fields:
+  repo: AlobarQuest/change-manager
+  remediation_source: 'WS-P2.11 AC-005: certification of an admission-clean repo requires
+    one harmless docs-only change driven through the full factory path (spec section 6,
+    docs-canary/v1). change-manager is the first admission-clean repo (readiness evidence
+    2026-07-30).'
+  rollback_plan: Revert the canary PR; the change is one additive documentation file.
+outcome:
+  what: change-manager receives docs/factory-certification.md via a runner-opened PR
+    that Devon merges, proving caller, secrets, runner, PR and verification WORK on an
+    onboarded repo (checks-pass != certified).
+  why: The wired-but-hollow lesson made executable - existence of onboarding artifacts
+    is not evidence they function; one harmless end-to-end run is.
+  beneficiary: Devon and every future factory run against change-manager.
+  success_signal: The named check passes on the canary PR head; the PR merges; the
+    certification is recorded against the readiness result.
+scope:
+  included:
+  - one docs-only change (docs/factory-certification.md) in change-manager, through
+    intake, decomposition, dispatch, runner PR and verification
+  excluded: []
+  non_goals: []
+  assumptions: []
+  open_questions: []
+sources:
+- location: 'WS-P2.11 spec section 6 (project-standards docs/superpowers/specs/
+    2026-07-30-wsp211-conformance-kit-spec.md) and Devon''s in-session go of 2026-07-30.'
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: null
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: the canary PR's named check passes on the PR head in change-manager
+  evidence_type: automated_check
+  evidence: 'ci: verifier-owned named-check evidence on the canary PR head'
+  approver: policy
+- id: AC-002
+  condition: Devon merges the canary PR and the dispatch config window (change-class
+    flip) is confirmed restored, with the flip and restore noted in the closeout
+  evidence_type: human_review
+  evidence: 'human: merged canary PR link + the config flip/restore closeout note'
+  approver: devon
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 4
+deliverables:
+  artifacts:
+  - docs/factory-certification.md in change-manager via a runner-opened, Devon-merged PR
+  destination: packages/
+  recipient: devon
+  definition_of_done: Named check green on the canary PR head; PR merged by Devon;
+    dispatch config restored; certification recorded against change-manager's
+    readiness result.
+  operator_responsibilities: []
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes: []
+  max_impact: low
+  stop_conditions: []
+  rollback: Revert the canary PR; restore the dispatch change-class config (the
+    window close is part of the run, not an afterthought).
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'
