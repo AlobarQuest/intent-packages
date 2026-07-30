@@ -1,0 +1,847 @@
+{
+  "rules": [
+    {
+      "applicability": {
+        "category": "ci",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "ci",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 5,
+      "reason": "Early trigger causes Coolify to pull the previous stale image instead of the newly built one.",
+      "retired_at": null,
+      "rule": "Coolify webhook redeploy trigger must fire after the GHCR image push completes, not before.",
+      "severity": "BLOCK",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "ci",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "ci",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 11,
+      "reason": "Floating tags (e.g. actions/checkout@main) can be updated by the action author and introduce unexpected behavior.",
+      "retired_at": null,
+      "rule": "Pin SHA or version tags for all third-party GitHub Actions steps.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 12,
+      "reason": "Coolify probes the internal container network. Using the public domain adds unnecessary DNS round-trips and can fail if DNS hasn't propagated.",
+      "retired_at": null,
+      "rule": "Coolify health checks must target 127.0.0.1, not the public domain.",
+      "severity": "INFO",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": "contacts"
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 13,
+      "reason": "Coolify health probes do not send credentials. A protected health endpoint will always return 401 and Coolify will mark the app as unhealthy.",
+      "retired_at": null,
+      "rule": "If an app uses Basic Auth, exempt the health check path (/api/health) from authentication.",
+      "severity": "INFO",
+      "source_app": "contacts",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "general",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "general",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 15,
+      "reason": "The registry only stays current if agents and humans update it. A stale registry is worse than no registry.",
+      "retired_at": null,
+      "rule": "Write back to Infra Brain when a new version is validated or a new lesson is learned.",
+      "severity": "INFO",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "git",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "git",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T20:26:13.603407+00:00",
+      "id": 211,
+      "reason": "8 of 10 apps already use main. Standardized March 2026 audit.",
+      "retired_at": null,
+      "rule": "Default production branch must be 'main'. Preview/staging branch is 'preview'. Never use 'master' for new projects.",
+      "severity": "BLOCK",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "security",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T20:26:13.651786+00:00",
+      "id": 212,
+      "reason": "8 of 10 apps already use HTTPS. Two without it (inframanager, MealPlanning) are flagged for remediation.",
+      "retired_at": null,
+      "rule": "All production apps with a public FQDN must use HTTPS (https:// in domain config). Only internal utilities without a custom domain (e.g. sslip.io auto-domains) are exempt.",
+      "severity": "BLOCK",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T20:26:13.689689+00:00",
+      "id": 213,
+      "reason": "All three compose apps already follow this pattern. Documented March 2026 audit.",
+      "retired_at": null,
+      "rule": "Compose apps must define their domain via Traefik labels in docker-compose.yml, not via the Coolify FQDN field. Single-container apps use the Coolify FQDN field.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T20:26:13.726929+00:00",
+      "id": 214,
+      "reason": "All compose apps already use this consistently.",
+      "retired_at": null,
+      "rule": "Compose services must use restart policy 'unless-stopped'.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "networking",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "networking",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T20:26:13.767200+00:00",
+      "id": 215,
+      "reason": "All compose apps follow this pattern. Documented March 2026 audit.",
+      "retired_at": null,
+      "rule": "Compose apps must use an app-specific Docker network for inter-service communication, with 'coolify' added as an external network for Traefik routing.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": "lifeops-portal"
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 1,
+      "reason": "Host CPU cannot handle npm build. Causes CPU spikes and stalled Coolify deploys. Always pre-build via GitHub Actions and push image to GHCR.",
+      "retired_at": null,
+      "rule": "Never source-build Next.js or any TypeScript/Node app on the VPS via Coolify.",
+      "severity": "BLOCK",
+      "source_app": "lifeops-portal",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "secrets",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "secrets",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 2,
+      "reason": "Security. All secrets go in BWS (Bitwarden Secrets Manager). Coolify injects them as environment variables at deploy time.",
+      "retired_at": null,
+      "rule": "Never commit secrets, .env files, or API keys to git.",
+      "severity": "BLOCK",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "docker",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "docker",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 3,
+      "reason": "Unpredictable upgrades break reproducibility and can introduce breaking changes silently.",
+      "retired_at": null,
+      "rule": "Never use the :latest tag for any Docker image (postgres, redis, node, python, etc.).",
+      "severity": "BLOCK",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": "contacts"
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 4,
+      "reason": "Coolify cron running alongside the scheduler sidecar causes duplicated backups, health probes, and restore drills.",
+      "retired_at": null,
+      "rule": "Disable Coolify scheduled jobs for Flavor C apps that have an in-stack scheduler sidecar.",
+      "severity": "BLOCK",
+      "source_app": "contacts",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "database",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "database",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 6,
+      "reason": "No database connection exists at build time. Migrations must run at container startup in the CMD entrypoint.",
+      "retired_at": null,
+      "rule": "Never run Alembic migrations at Docker build time (in Dockerfile RUN steps).",
+      "severity": "BLOCK",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": "booking-assistant"
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 7,
+      "reason": "Coolify's built-in auto-backup only works for its managed Postgres resources. SQLite backup requires a Coolify cron job calling backup.sh.",
+      "retired_at": null,
+      "rule": "Flavor A apps (SQLite) require a manually configured Coolify scheduled backup job.",
+      "severity": "WARN",
+      "source_app": "booking-assistant",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "database",
+        "source_app": "contacts"
+      },
+      "authority": "informational",
+      "category": "database",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 8,
+      "reason": "Redis is queue and cache only. All durable data must live in Postgres. Redis data loss on restart must be acceptable.",
+      "retired_at": null,
+      "rule": "Do not use Redis as a primary datastore.",
+      "severity": "WARN",
+      "source_app": "contacts",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "docker",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "docker",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 9,
+      "reason": "Alpine lacks glibc. Compiled Python dependencies (asyncpg, psycopg2, etc.) fail or require complex workarounds on Alpine.",
+      "retired_at": null,
+      "rule": "Use python:3.12-slim, not python:3.12-alpine, as the Python base image.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": "booking-assistant"
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 10,
+      "reason": "A mismatch causes silent OAuth failure. Preview deployments need their own callback URI registered in Google Cloud Console.",
+      "retired_at": null,
+      "rule": "Google OAuth redirect URIs must match exactly and must be registered per environment (production and preview separately).",
+      "severity": "WARN",
+      "source_app": "booking-assistant",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "general",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "general",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T14:24:04.566488+00:00",
+      "id": 14,
+      "reason": "Infra Brain is the source of truth. Do not infer standards from existing app code \u2014 that code may predate the standard.",
+      "retired_at": null,
+      "rule": "Query Infra Brain before pinning any dependency version or making any infrastructure decision.",
+      "severity": "INFO",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "ports",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "ports",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T20:26:13.807680+00:00",
+      "id": 216,
+      "reason": "Standardized March 2026 audit. Replaces inconsistent 8080/8765/80 usage across apps.",
+      "retired_at": null,
+      "rule": "Standard exposed ports by stack: Python/FastAPI = 8000 (all flavors). Node/Next.js = 3000. No other ports without documented justification.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "health",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "health",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T20:26:13.847982+00:00",
+      "id": 217,
+      "reason": "Aligns with existing infra-standards skill and observed compose patterns.",
+      "retired_at": null,
+      "rule": "Health check path for single-container apps: /api/health. Compose apps use /health/live (liveness) and /health/ready (readiness).",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "health",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "health",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-19T20:26:13.887994+00:00",
+      "id": 218,
+      "reason": "Standardized from audit. Previous defaults (5s interval, 10 retries) were too aggressive.",
+      "retired_at": null,
+      "rule": "Coolify-level health check settings: enabled=true, host=127.0.0.1, interval=10s, timeout=5s, retries=5, start_period=15s. Port must be explicitly set to match the app's exposed port.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "github",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "github",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-21T19:11:59.990679+00:00",
+      "id": 234,
+      "reason": "Discovered March 2026. Auth is keyring-based (no env vars). Token scopes cover full repo CRUD, Actions management, and secret management. 8+ projects already use GitHub Actions workflows.",
+      "retired_at": null,
+      "rule": "GitHub CLI (gh v2.88+) is installed and authenticated as AlobarQuest via OS keyring with scopes: repo, workflow, gist, read:org. Use `gh` for all GitHub operations: repo creation, secret management, Actions workflows, PRs, and issues. Do not use curl or raw API calls when gh can handle it.",
+      "severity": "INFO",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "github",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "github",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-21T19:12:01.565531+00:00",
+      "id": 235,
+      "reason": "Aligns with existing infra-brain BLOCK rules: default branch must be main, secrets never committed to git. Pipe syntax prevents secrets from appearing in shell history.",
+      "retired_at": null,
+      "rule": "When creating new repos, use `gh repo create alobarquest/<name> --private` and confirm default branch is `main`. Set repo secrets via `gh secret set <NAME> -R alobarquest/<repo>`. Never echo secret values \u2014 pipe them: `echo \"<value>\" | gh secret set <NAME> -R alobarquest/<repo>`.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "secrets",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "secrets",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-21T19:20:08.279164+00:00",
+      "id": 236,
+      "reason": "Discovered March 2026. Enables full automation of secret provisioning during app setup. Pair with openssl/python for value generation.",
+      "retired_at": null,
+      "rule": "BWS CLI (bws v2.0.0) is installed at /usr/local/bin/bws and authenticated via BWS_ACCESS_TOKEN env var. Use `bws secret create <KEY> <VALUE> <PROJECT_ID>` to store secrets, `bws secret list` to enumerate, `bws secret get <ID>` to retrieve. Supports json/yaml/env/table output formats. Use this for all secret management \u2014 do not ask the user to manually create BWS entries.",
+      "severity": "INFO",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": "real-estate-engine"
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-22T12:10:56.273826+00:00",
+      "id": 237,
+      "reason": "Deploy Key is simpler, more secure, and sufficient when Actions handles CI/CD. GitHub App grants broader OAuth access and PR write permissions that are unnecessary when Coolify is just the deployment target. Discovered March 2026 during REDealEngine setup.",
+      "retired_at": null,
+      "rule": "For new apps using GitHub Actions CI/CD (Flavor B/C), use Deploy Key (not GitHub App) as the Coolify Git source type. Deploy Key provides single-repo read-only access \u2014 minimum privilege. GitHub App is only needed when Coolify itself handles builds, PR previews, or commit status updates.",
+      "severity": "WARN",
+      "source_app": "real-estate-engine",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-24T21:23:47.021317+00:00",
+      "id": 238,
+      "reason": "Open Brain migration attempted coolify_create_application_public for a private repo. App was created but could not pull code. Had to delete and recreate via UI with deploy key.",
+      "retired_at": null,
+      "rule": "Do not use coolify_create_application_public for private repos \u2014 it creates a public-source app that cannot access private GitHub repos. Use Coolify UI with deploy key or GitHub App source instead, until infraops MCP adds private repo creation tools.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "deployment",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "deployment",
+      "check": null,
+      "conflict": null,
+      "created_at": "2026-03-24T21:23:53.755433+00:00",
+      "id": 239,
+      "reason": "Both env var tools return Validation failed when targeting a compose app UUID. Discovered during Open Brain deployment. Single-container apps work fine.",
+      "retired_at": null,
+      "rule": "coolify_create_app_env and coolify_bulk_create_app_envs fail with Validation Error on Docker Compose applications \u2014 set env vars via Coolify UI for compose apps until the infraops MCP is fixed.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "coolify",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "coolify",
+      "check": {
+        "assert": {
+          "field": "fqdn",
+          "op": "not_starts_with",
+          "value": "http://"
+        },
+        "kind": "remediation",
+        "remediation_key": "coolify.force_https",
+        "resource": "coolify_application",
+        "schema_version": 1,
+        "when": {
+          "field": "fqdn",
+          "op": "non_empty"
+        }
+      },
+      "conflict": null,
+      "created_at": "2026-06-12T14:13:49.458147+00:00",
+      "id": 571,
+      "reason": "HTTP-only endpoints expose traffic in plaintext. All production apps must enforce HTTPS.",
+      "retired_at": null,
+      "rule": "All Coolify application FQDNs must use HTTPS (not HTTP).",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "security-standards"
+      },
+      "authority": "informational",
+      "category": "security",
+      "check": {
+        "kind": "forbidden_pattern",
+        "pattern": "fetch_bws_secret_by_name",
+        "scope": "tracked"
+      },
+      "conflict": null,
+      "created_at": "2026-06-13T02:37:54.404853+00:00",
+      "id": 595,
+      "reason": "The secret UUID is immutable; the name is a mutable label that will be renamed and break by-name fetches. \u2014 FIX: Reference secrets by stable UUID (bws secret get <uuid>), not by name. The UUID is non-secret, so hardcoding it is fine.",
+      "retired_at": null,
+      "rule": "bws.reference-by-stable-uuid",
+      "severity": "WARN",
+      "source_app": "security-standards",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "security-standards"
+      },
+      "authority": "informational",
+      "category": "security",
+      "check": {
+        "kind": "manifest_present"
+      },
+      "conflict": null,
+      "created_at": "2026-06-13T02:37:56.395864+00:00",
+      "id": 596,
+      "reason": "Repos that consume BWS secrets must declare which UUIDs they use. \u2014 FIX: Add a .bws-secrets.toml declaring the secret UUIDs this repo consumes.",
+      "retired_at": null,
+      "rule": "bws.secret-manifest-present",
+      "severity": "WARN",
+      "source_app": "security-standards",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "security-standards"
+      },
+      "authority": "informational",
+      "category": "security",
+      "check": {
+        "kind": "manifest_matches_usage"
+      },
+      "conflict": null,
+      "created_at": "2026-06-13T02:37:58.098024+00:00",
+      "id": 597,
+      "reason": "The manifest must match reality or it rots into fiction. \u2014 FIX: Add undeclared UUIDs to the manifest; remove stale entries.",
+      "retired_at": null,
+      "rule": "bws.manifest-matches-usage",
+      "severity": "WARN",
+      "source_app": "security-standards",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "security-standards"
+      },
+      "authority": "informational",
+      "category": "security",
+      "check": {
+        "kind": "judgment"
+      },
+      "conflict": null,
+      "created_at": "2026-06-13T02:37:59.841385+00:00",
+      "id": 598,
+      "reason": "A workload's machine-account should be scoped to only the projects its secrets need. \u2014 FIX: Using the manifest's UUIDs, confirm the workload's machine-account is scoped to only the projects those secrets live in.",
+      "retired_at": null,
+      "rule": "bws.least-privilege-scope",
+      "severity": "INFO",
+      "source_app": "security-standards",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "security-standards"
+      },
+      "authority": "informational",
+      "category": "security",
+      "check": {
+        "globs": [
+          "*.env",
+          "*-migration/",
+          "*.password",
+          "*.key"
+        ],
+        "kind": "gitignore_covers"
+      },
+      "conflict": null,
+      "created_at": "2026-06-13T02:37:51.513989+00:00",
+      "id": 594,
+      "reason": "Preventive gitignore pattern-coverage check, not actual-file exposure; committed secret files are still caught by the bws.no-token-* BLOCK rules.",
+      "retired_at": null,
+      "rule": "bws.secret-files-gitignored",
+      "severity": "WARN",
+      "source_app": "security-standards",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "coolify",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "coolify",
+      "check": {
+        "assert": {
+          "field": "backup_covered",
+          "op": "eq",
+          "value": true
+        },
+        "kind": "question",
+        "resource": "coolify_database",
+        "schema_version": 1,
+        "when": {
+          "field": "status",
+          "op": "contains",
+          "value": "running"
+        }
+      },
+      "conflict": null,
+      "created_at": "2026-06-12T14:13:49.458147+00:00",
+      "id": 572,
+      "reason": "Backups run via the vps-backup restic system (NAS + Google Drive offsite + weekly verify), NOT Coolify-native backups, which are unused on this fleet. The infraops audit enriches each coolify_database with a synthetic `backup_covered` field sourced from vps-backup's coverage manifest (~/.infraops/vps-backup-manifest.json: DB UUID -> last successful dump+restic copy). A running DB absent from the manifest has no proven recovery path and is flagged. 'Backup configuration' in the rule text means manifest coverage; the prior check asserted on Coolify's unused native backup_configs field, which was empty on every DB and produced pure noise. See infraops-mcp-server BACKLOG #4 and standards/backup-manifest.ts.",
+      "retired_at": null,
+      "rule": "All running Coolify databases must have backup configurations defined.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "coolify",
+        "source_app": null
+      },
+      "authority": "informational",
+      "category": "coolify",
+      "check": {
+        "assert": {
+          "field": "health_check_enabled",
+          "op": "eq",
+          "value": true
+        },
+        "kind": "remediation",
+        "remediation_key": "coolify.enable_healthcheck",
+        "resource": "coolify_application",
+        "schema_version": 1,
+        "when": {
+          "field": "fqdn",
+          "op": "non_empty"
+        }
+      },
+      "conflict": null,
+      "created_at": "2026-06-12T14:13:49.458147+00:00",
+      "id": 570,
+      "reason": "Health checks are required only on EXPOSED applications \u2014 those with an FQDN / proxy routing \u2014 where Coolify uses the HTTP health check to route traffic and detect unhealthy containers. Non-exposed background workers (no FQDN; e.g. github-to-bitbucket-mirror, a mirror-then-sleep loop that serves no HTTP) cannot pass an HTTP health check, so requiring one produced a permanently-unsatisfiable finding that re-escalated every scan. The guard was changed from 'status contains running' to 'fqdn non_empty' so workers with no domain are correctly out of scope. A worker may still be given a process/command-level check manually, but it is not required by this rule. (Was: asserted health_check_enabled on every running app regardless of exposure.)",
+      "retired_at": null,
+      "rule": "Health checks must be enabled on all running Coolify applications.",
+      "severity": "WARN",
+      "source_app": null,
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "infraops-mcp-server"
+      },
+      "authority": "informational",
+      "category": "security",
+      "check": {
+        "engine": "infraops security-drift (src/security-drift/cred-rotation.ts)",
+        "kind": "cred_rotation_age",
+        "max_age_days": {
+          "brain-mcp-key": 365,
+          "bws-machine-token": 365,
+          "github-pat-classic": 180,
+          "github-pat-fine-grained": 180,
+          "openai-key": 365,
+          "openrouter-key": 365
+        }
+      },
+      "conflict": null,
+      "created_at": "2026-07-02T20:50:30.046823+00:00",
+      "id": 1031,
+      "reason": "Credentials must rotate before their class max age: GitHub PAT (classic or fine-grained) 180d, provider API key (OpenRouter/OpenAI/etc.) 365d, BWS machine token 365d, brain MCP key 365d. Age anchors to created/last_rotated in the repo's .cred-consumers.toml (or the rotation state's lastRotated). Surfaced nightly by the infraops security-drift 3AM scan as a source=security change-manager item (WARN \u2192 NORMAL tier); executor-assisted rotation runs only after Devon approves. \u2014 FIX: rotate via the WS-0.7 lane: Devon mints the replacement at the provider console (create is ALWAYS human), stages it in Keychain item cred-rotation/<cred-id>, approves in change-manager; the 4AM no-LLM executor then stores (quarantine old + edit keeper BWS secret in place), deploys to all mapped consumers, verifies (provider 200 + consumer health), and only retires after the old value probes dead (401). NEVER revoke-first.",
+      "retired_at": null,
+      "rule": "cred.rotation-age",
+      "severity": "WARN",
+      "source_app": "infraops-mcp-server",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "security-standards"
+      },
+      "authority": "required",
+      "category": "security",
+      "check": {
+        "kind": "forbidden_pattern",
+        "pattern": "0\\.[0-9a-f-]{36}\\.[A-Za-z0-9+/=:_-]{20,}",
+        "scope": "tracked"
+      },
+      "conflict": null,
+      "created_at": "2026-06-13T02:37:46.048388+00:00",
+      "id": 591,
+      "reason": "A committed BWS machine-account token is a credential leak. \u2014 FIX: Remove the token; move it to a gitignored env file sourced at runtime; ROTATE the exposed token.",
+      "retired_at": null,
+      "rule": "bws.no-token-in-tracked-files",
+      "severity": "BLOCK",
+      "source_app": "security-standards",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "security-standards"
+      },
+      "authority": "required",
+      "category": "security",
+      "check": {
+        "kind": "forbidden_pattern",
+        "pattern": "0\\.[0-9a-f-]{36}\\.[A-Za-z0-9+/=:_-]{20,}",
+        "scope": "history"
+      },
+      "conflict": null,
+      "created_at": "2026-06-13T02:37:48.270451+00:00",
+      "id": 592,
+      "reason": "Git history retains a token even after it is removed from the working tree. \u2014 FIX: Rotate/revoke the token; optionally scrub history with git filter-repo.",
+      "retired_at": null,
+      "rule": "bws.no-token-in-git-history",
+      "severity": "BLOCK",
+      "source_app": "security-standards",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "security-standards"
+      },
+      "authority": "required",
+      "category": "security",
+      "check": {
+        "kind": "forbidden_pattern",
+        "pattern": "BWS_ACCESS_TOKEN\\s*[=:]\\s*['\"]?0\\.",
+        "scope": "tracked"
+      },
+      "conflict": null,
+      "created_at": "2026-06-13T02:37:49.174639+00:00",
+      "id": 593,
+      "reason": "The bootstrap BWS_ACCESS_TOKEN must never be inline in committed config. \u2014 FIX: Source BWS_ACCESS_TOKEN from a gitignored env file; never inline it in a plist/compose/script.",
+      "retired_at": null,
+      "rule": "bws.bootstrap-token-not-inline",
+      "severity": "BLOCK",
+      "source_app": "security-standards",
+      "status": "approved"
+    },
+    {
+      "applicability": {
+        "category": "security",
+        "source_app": "infraops-mcp-server"
+      },
+      "authority": "required",
+      "category": "security",
+      "check": {
+        "engine": "infraops security-drift (src/security-drift/cred-rotation.ts)",
+        "kind": "cred_exposure_rotate",
+        "registry": ".cred-consumers.toml per repo, listed in ~/.config/infra-drift/cred-consumers.list"
+      },
+      "conflict": null,
+      "created_at": "2026-07-02T20:50:36.120075+00:00",
+      "id": 1032,
+      "reason": "A recorded exposure event (leaked to logs/transcripts/history) makes a credential rotate-NOW regardless of age: declare it as a [[credential.exposure]] entry in the owning repo's .cred-consumers.toml; the 3AM security-drift scan emits a one-shot URGENT source=security finding per open exposure and it clears ONLY when the revoke is confirmed (old value probes 401 and is retired by the executor, or Devon records it via `security-drift-cli resolve-exposure` when no probe-able copy exists). Purging the plaintext never closes an exposure \u2014 revoke/reissue does. FAIL-SAFE: rotation never revokes a credential whose consumer set is not attested (consumers_verified sweep date in .cred-consumers.toml). Seeded 2026-07-02 with the 5 live ~/.codex-leaked creds (2 GitHub classic PATs, 1 fine-grained PAT, 1 OpenRouter generic key, 1 OpenAI project key \u2014 identities in ~/docs/security-audit/2026-07-02-codex-leak-rotation-targets.md).",
+      "retired_at": null,
+      "rule": "cred.exposure-rotate",
+      "severity": "BLOCK",
+      "source_app": "infraops-mcp-server",
+      "status": "approved"
+    }
+  ]
+}

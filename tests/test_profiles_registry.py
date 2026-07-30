@@ -73,3 +73,31 @@ def test_validate_profile_applies_profile_forbid_set(monkeypatch):
     }
     errs = profiles.validate_profile(pkg)
     assert any("forbidden by this profile" in e for e in errs)
+
+
+def test_every_factory_executable_profile_declares_enrichment():
+    """A profile the factory can execute must say what its workers are told.
+
+    An absent spec is indistinguishable from "we forgot", which is the dead-config
+    shape this portfolio has paid for before. Empty content is fine; absent is not.
+    """
+    for profile in profiles.PROFILES.values():
+        if profile.change_class is None:
+            continue
+        assert profile.enrichment is not None, f"{profile.name} declares no EnrichmentSpec"
+        assert isinstance(profile.enrichment, profiles.EnrichmentSpec)
+
+
+def test_software_delivery_pulls_the_error_logging_road():
+    spec = profiles.PROFILES["software-delivery"].enrichment
+    assert spec is not None
+    assert spec.code_road_slugs == ("error-logging",)
+    assert spec.infra_min_authority == "required"
+
+
+def test_dependency_update_is_enriched_but_empty_of_code_roads():
+    """Empty by CONTENT, not absent. Code Brain holds nothing for this class yet."""
+    spec = profiles.PROFILES["dependency-update"].enrichment
+    assert spec is not None
+    assert spec.code_road_slugs == ()
+    assert spec.infra_min_authority == "required"

@@ -35,6 +35,23 @@ class AuthorityDefaults:
 
 
 @dataclass(frozen=True)
+class EnrichmentSpec:
+    """What governed knowledge a change class projects onto its units (WS-P2.12).
+
+    The single definition site. The orchestrator holds no copy of this
+    vocabulary — it receives a resolved document and validates its shape, never
+    its membership — so there is no second list to keep in sync.
+
+    `infra_min_authority` is an AUTHORITY floor, not a severity floor. The two
+    disagree: Infra Brain carries 12 BLOCK-severity rules of which only 4 are
+    `authority: required`, and Code Brain has none at `required` at all.
+    """
+
+    code_road_slugs: tuple[str, ...] = ()
+    infra_min_authority: str = "required"
+
+
+@dataclass(frozen=True)
 class DeliveryProfile:
     name: str
     change_class: str | None = None  # non-None => factory-executable => routing row required
@@ -47,6 +64,7 @@ class DeliveryProfile:
     observation_window: str = ""
     validate: Callable[[dict], list[str]] | None = None
     tooling: Mapping[str, ToolingProfile] | None = None
+    enrichment: EnrichmentSpec | None = None
 
 
 def check_forbidden_evidence_types(package: dict, forbidden: frozenset[str]) -> list[str]:
