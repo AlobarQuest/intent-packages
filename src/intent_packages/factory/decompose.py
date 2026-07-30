@@ -16,6 +16,7 @@ from intent_packages.factory.api import ApiError, OrchestratorApi
 from intent_packages.factory.orchestrator_cli import OrchestratorClient, OrchestratorCliError
 from intent_packages.factory.validations import (
     ValidationError,
+    assert_checkout_current,
     assert_pin_sites_moved,
     assert_runner_honest,
     dry_run_mutation,
@@ -114,6 +115,7 @@ def run(
     try:
         if not local_repo.is_dir():
             raise DecomposeError(f"target checkout not found: {local_repo}")
+        assert_checkout_current(local_repo)
         from intent_packages import profiles
 
         tooling_profiles = profiles.PROFILES["dependency-update"].tooling
