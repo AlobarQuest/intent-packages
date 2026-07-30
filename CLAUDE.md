@@ -20,9 +20,23 @@ PYTHONPATH=src python3 -m intent_packages <cmd>   # validate | hash | transition
   hash-chained factory-events store (a YAML ledger alone is forgeable and not
   sufficient proof).
 - Never merge — PRs wait for Devon.
-- `factory decompose` (WS-P2.9 slice) shells the `orchestrator` CLI and never accepts a
-  hand-typed conformance; the emitted envelope omits `constraints.work_unit_id` (orchestrator
-  stamps it) and `ac_mappings`/`retained_acs` carry criterion DB UUIDs, not the "AC-001" string.
+- The `factory` CLI speaks **HTTP** to the orchestrator API for every API call
+  (`intent_packages/factory/api.py::OrchestratorApi`), and shells out to the `orchestrator` CLI
+  **only** for local computation the orchestrator owns: `emit-intake-payload` and
+  `conformance-claim` (`factory/orchestrator_cli.py`). One transport, one auth path, one error
+  vocabulary. `factory decompose` in particular used to shell out for `show-package-intake` and
+  `propose-decomposition`; both moved to HTTP in WS-P2.9. Consequence for operators: it reads
+  `ORCHESTRATOR_SYSTEM_TOKEN` (or fetches from BWS), **not** the generic
+  `ORCHESTRATOR_API_TOKEN` the orchestrator CLI used — deliberately with no fallback, because
+  that variable can hold any role's token and a wrong-role token fails more confusingly than
+  "not set".
+- `factory decompose` never accepts a hand-typed conformance; the emitted envelope omits
+  `constraints.work_unit_id` (orchestrator stamps it) and `ac_mappings`/`retained_acs` carry
+  criterion DB UUIDs, not the "AC-001" string.
+- Human gates (package intake, decomposition decision, authority approval) are browser-only
+  **permanently**, by ADR-0006. The CLI prepares, deep-links `/review`, and resumes; it never
+  impersonates a human and must not grow a flag that pretends to. A future reviewer finding one
+  should treat it as a defect, not a feature.
 
 ## Spec
 

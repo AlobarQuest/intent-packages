@@ -1786,35 +1786,62 @@ git commit -m "test+docs: entrypoint coverage for every factory verb; README fro
 
 ---
 
-### Task 11: Local end-to-end drive
+### Task 11: Adversarial whole-branch review and the final fix wave
 
-**Files:** none — this is a verification task.
+**Files:** the branch diff, plus whatever the review requires.
 
-- [ ] **Step 1: Start a local orchestrator**
+**Rewritten 2026-07-29.** Two things in the original were wrong or superseded:
 
-Follow the orchestrator repo's local setup (Postgres on 127.0.0.1:5432, `SECURITY_STANDARDS_DIR`, `alembic upgrade head`). Use a runtime database **separate from `orchestrator_test`** — the test fixtures drop and recreate that database and would erase the drive's state.
+1. Its step 3 asked the drive to "note whether `evidence_pack`'s
+   `authority.constraints.target_repository` path held". **That path does not exist.**
+   `EvidencePackResponse` exposes no `constraints` field at all, and `target_repository`
+   appears in exactly one schema on the live document, `DispatchResponse`. `verify` derives
+   `repository` from the latest `dispatch.dispatched` event's payload and makes no
+   `evidence_pack` call, so there is nothing here to confirm.
+2. Devon has **folded the local-orchestrator drive into the production drive** (task 12).
+   Standing up a local orchestrator (Postgres, `SECURITY_STANDARDS_DIR`, `alembic upgrade
+   head`, a runtime database separate from `orchestrator_test`) buys a rehearsal whose
+   seeding routes production does not even expose — `POST /revisions` and
+   `/revisions/{id}/work-units` are unreachable by any actor there — so a green local drive
+   is silent on the parts that matter. One production drive, done carefully, is the
+   demonstration the definition of done actually asks for.
 
-- [ ] **Step 2: Drive every verb**
+- [x] **Step 1: Adversarial whole-branch review**
 
-`create` → edit → `validate` → approve locally → `submit` (confirm it stops) → intake via the local `/review` form → `status` → `decompose` → approve the proposal in `/review` → authority approval in `/review` → `ready` → `status` → `dispatch` → `evidence` → `verify`.
+Run `/code-review` over the full branch diff, not per-task. Per this repo's history, the
+whole-branch review catches what per-task reviews miss — it found nine items the ten
+per-task reviews did not.
 
-- [ ] **Step 3: Record what each verb printed**
+- [x] **Step 2: The single final fix wave**
 
-Capture the output for the closeout. Note in particular whether `evidence_pack`'s `authority.constraints.target_repository` path held — task 9 depends on it.
+One wave, no second pass: correctness fixes, the coverage gaps a mutation proves are real,
+the structural extraction, the two decisions Devon took (`verify`'s exit code, the `--ac`
+pre-check), and the documentation falsehoods. Record it in
+`.superpowers/sdd/2026-07-29-factory-cli-front-door/final-fix-report.md`, with the mutation
+run that proves each new test fails when its guard is removed.
 
-- [ ] **Step 4: Adversarial whole-branch review**
+- [ ] **Step 3: Scoped re-review, then the gate**
 
-Run `/code-review` over the full branch diff, not per-task. Per the repo's history, the whole-branch review catches what per-task reviews miss.
+Re-review scoped to the fix wave. Then `make check` with the **collected count read**, not
+inferred; `.venv/bin/pyright` 0 errors; `git status --porcelain` empty.
 
-- [ ] **Step 5: Commit any fixes and re-run `make check`**
+- [ ] **Step 4: Devon checkpoint**
+
+Nothing touches production before this. Stopping here leaves a mergeable branch.
 
 ---
 
-### Task 12: Production drive
+### Task 12: Production drive (the only drive)
 
 **Files:** none — this is the definition-of-done demonstration.
 
-**Do not start this task until task 11 is complete, `make check` is green, and the branch is in a mergeable state.** Phase boundary: if budget is tight, stopping here leaves a mergeable branch rather than a strand inside an open dispatch window.
+**Do not start this task until task 11 is complete, `make check` is green, and the branch is
+in a mergeable state.** Phase boundary: if budget is tight, stopping here leaves a mergeable
+branch rather than a strand inside an open dispatch window.
+
+This is now the ONLY end-to-end drive (see task 11's rewrite note). Every verb is exercised
+here, against production, and the transcript is the record — there is no earlier local run to
+fall back on, so capture output as you go rather than reconstructing it afterwards.
 
 - [ ] **Step 1: Ask production what it is running**
 
@@ -1823,31 +1850,68 @@ Confirm every route the CLI calls is present. Merged is not deployed.
 
 - [ ] **Step 2: Export credentials**
 
-Either export `ORCHESTRATOR_SYSTEM_TOKEN` / `ORCHESTRATOR_VERIFIER_TOKEN`, or export `BWS_ACCESS_TOKEN` and let the fallback fetch them. Never echo a token, never pass one as a command argument.
+Either export `ORCHESTRATOR_SYSTEM_TOKEN` / `ORCHESTRATOR_VERIFIER_TOKEN`, or export
+`BWS_ACCESS_TOKEN` and let the fallback fetch them. Never echo a token, never pass one as a
+command argument. Note `factory` does NOT read `ORCHESTRATOR_API_TOKEN`.
 
 Set `ORCHESTRATOR_API_URL=https://sds.alobar.net`.
 
-- [ ] **Step 3: Drive intake through the browser gates**
+- [ ] **Step 3: Author, validate, approve**
 
-`factory create` → `validate` → approve → commit → `factory submit --open`. Devon pastes into `/review/intakes/new` and hands back the revision id from the redirect URL.
+`factory create --profile <name> --name <slug>` → edit the emitted placeholders →
+`factory validate` → `intent_packages transition` + `intent_packages approve` → commit (intake
+requires a real git HEAD and exactly one lineage approval matching the canonical hash; both are
+enforced locally inside `emit-intake-payload`, so this fails fast if it is wrong).
 
-- [ ] **Step 4: Decomposition and authority**
+- [ ] **Step 4: Intake through the browser gate**
 
-`factory decompose` (dry first, then `--submit`) → Devon approves the proposal in `/review` → Devon approves the authority envelope with the **"Approve this authority envelope"** form, not the generic approve button → `factory ready`.
+`factory submit --open`. It stages the payload, copies it, deep-links
+`/review/intakes/new` and stops — it cannot post the intake (ADR-0006). Devon pastes; the form
+takes its idempotency key from the FORM FIELD, so a genuinely new registration needs a page
+reload. Hand back the revision id from the redirect URL. Then `factory status --revision <id>`:
+confirm the intake line shows real `package_id`/`revision`/`status_at_intake` values and not
+`None`.
 
-- [ ] **Step 5: The dispatch window**
+- [ ] **Step 5: Decomposition and authority**
 
-Open the bounded window (`ORCHESTRATOR_DISPATCH_ENABLED`, `..._ALLOWED_TARGET_REPOSITORIES`), which restarts the orchestrator. Then `factory dispatch`. **Confirm a NEW record id and a new Actions run** — never the `status` field alone.
+`factory decompose` (dry first, then `--submit`) → Devon approves the proposal in the
+`/review` GUI (the raw `/api` approve route is M2M-only by routing, so a browser `fetch` there
+401s **by design**) → Devon approves the authority envelope with the **"Approve this authority
+envelope"** form, NOT the generic approve button, which records `subject_type="action"` and
+does not satisfy readiness → `factory ready`.
 
-Hold the window open until the run is terminal in all three senses: the Actions run concluded, the unit left `executing`, and cost-actuals exist. Closing it early restarts the orchestrator into the runner's `finalize-run` and strands the unit, spending the attempt. The window is bounded by construction — dispatch admission requires a READY unit with its authority approval — so there is nothing else an open window can dispatch.
+`factory status` distinguishes those two mistakes; use it between each step rather than
+assuming.
 
-- [ ] **Step 6: Evidence and verification**
+- [ ] **Step 6: The dispatch window**
 
-`factory evidence` → `factory verify` with the real check name, run id and run url from the Actions run.
+Open the bounded window (`ORCHESTRATOR_DISPATCH_ENABLED`,
+`..._ALLOWED_TARGET_REPOSITORIES`), which restarts the orchestrator. Then `factory dispatch`.
+**Confirm a NEW record id and a new Actions run** — never the `status` field alone. If the POST
+times out, `factory dispatch` now tells you whether it landed; believe that verdict and do not
+retry blind.
 
-- [ ] **Step 7: Close the window and write the closeout**
+Hold the window open until the run is terminal in all three senses: the Actions run concluded,
+the unit left `executing`, and cost-actuals exist. Closing it early restarts the orchestrator
+into the runner's `finalize-run` and strands the unit, spending the attempt. The window is
+bounded by construction — dispatch admission requires a READY unit with its authority approval
+— so there is nothing else an open window can dispatch.
 
-Close the dispatch gates (second restart). Write closeout evidence to `~/docs/software-delivery-system/2026-07-29-wsp29-closeout-evidence.md`: what shipped, the collected count, the production drive transcript, and — plainly — what remains felt-gap versus closed for deliverable C#1.
+- [ ] **Step 7: Evidence and verification**
+
+`factory evidence` (both the revision pack and the unit pack, and `--markdown`) →
+`factory verify` with the real check name, run id and run url from the Actions run. `--ac` must
+name an `automated_check` criterion; `factory verify` refuses locally otherwise. Read the exit
+code deliberately: `completed` is a pass, `awaiting_review` exits 0 and is NOT one.
+
+- [ ] **Step 8: Close the window and write the closeout**
+
+Close the dispatch gates (second restart). Write closeout evidence to
+`~/docs/software-delivery-system/2026-07-29-wsp29-closeout-evidence.md`: what shipped, the
+collected count, the production drive transcript, and — plainly — what remains felt-gap versus
+closed for deliverable C#1. If any browser gate was driven by automation rather than
+hand-clicked, say so explicitly and record that it was under Devon's per-run authorisation;
+never imply he personally clicked each one.
 
 ---
 
