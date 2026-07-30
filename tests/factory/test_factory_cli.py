@@ -167,6 +167,182 @@ def test_verify_rejects_an_unknown_conclusion():
         )
 
 
+# -- B1: submit through the real parser wiring ---------------------------------
+#
+# `submit` was the ONE verb never driven through `main(argv)`: replacing
+# `_run_submit`'s body with `return 0` kept all 197 factory tests green. Spec §6's
+# first testing requirement is that command functions are reached through the real
+# parser wiring, and `submit` is also the verb carrying the ADR-0006 gate -- so a
+# broken `_run_submit` would silently disable the front door's only human handoff.
+
+
+def _approved_package_dir(tmp_path):
+    """A package `submit` will accept: scaffolded, then flipped to approved in
+    both files (intake requires `status == current_state == approved`)."""
+    import yaml
+
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    for name, key in (("package.yaml", "status"), ("lineage.yaml", "current_state")):
+        path = tmp_path / "probe" / name
+        document = yaml.safe_load(path.read_text())
+        document[key] = "approved"
+        path.write_text(yaml.safe_dump(document, sort_keys=False))
+    return tmp_path / "probe"
+
+
+class _FakeOrchestratorClient:
+    """Stands in for the `OrchestratorClient` `submit` constructs itself.
+
+    Patched at `journey.OrchestratorClient` -- the construction site -- rather
+    than injected, because `_run_submit` passes no `client`: injecting one would
+    test a path the CLI never takes.
+    """
+
+    calls: list[tuple] = []
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def emit_intake_payload(self, package_path, source_repository, idempotency_key):
+        _FakeOrchestratorClient.calls.append((package_path, source_repository, idempotency_key))
+        return {"idempotency_key": idempotency_key, "source_repository": source_repository}
+
+
+def _patch_submit_boundaries(monkeypatch):
+    """Replace the two process boundaries `submit` reaches for by default: the
+    `orchestrator` subprocess and `pbcopy`."""
+    _FakeOrchestratorClient.calls = []
+    copied: list[str] = []
+    monkeypatch.setattr(
+        "intent_packages.factory.journey.OrchestratorClient", _FakeOrchestratorClient
+    )
+    monkeypatch.setattr(
+        "intent_packages.factory.journey._default_clipboard", lambda text: copied.append(text)
+    )
+    return copied
+
+
+def test_submit_through_the_entrypoint(tmp_path, capsys, monkeypatch):
+    """The whole verb, driven by `main(argv)`: parser wiring, package resolution,
+    payload emission, clipboard, deep link, and the resume instruction."""
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    copied = _patch_submit_boundaries(monkeypatch)
+    package = _approved_package_dir(tmp_path)
+    capsys.readouterr()
+
+    rc = main(
+        ["submit", "--package", str(package), "--source-repository", "AlobarQuest/intent-packages"]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "https://sds.example/review/intakes/new" in out
+    assert "waiting on your approval" in out
+    assert "factory status --revision" in out
+    # The parsed flags actually reached `emit_intake_payload`.
+    assert len(_FakeOrchestratorClient.calls) == 1
+    package_path, source_repository, idempotency_key = _FakeOrchestratorClient.calls[0]
+    assert package_path == str(package)
+    assert source_repository == "AlobarQuest/intent-packages"
+    assert idempotency_key.startswith("factory-submit-")
+    # ...and the emitted payload reached the clipboard.
+    assert len(copied) == 1
+    assert "factory-submit-" in copied[0]
+
+
+def test_submit_through_the_entrypoint_refuses_an_unapproved_package(tmp_path, capsys, monkeypatch):
+    """The refusal path through the real wiring: a draft package must not even
+    reach `emit_intake_payload`, and the operator gets the `intent_packages`
+    commands that would fix it."""
+    _patch_submit_boundaries(monkeypatch)
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    capsys.readouterr()
+
+    rc = main(
+        [
+            "submit",
+            "--package",
+            str(tmp_path / "probe"),
+            "--source-repository",
+            "AlobarQuest/probe",
+        ]
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "is not approved" in err
+    assert "intent_packages approve" in err
+    assert _FakeOrchestratorClient.calls == []
+
+
+def test_submit_through_the_entrypoint_cannot_post_an_intake(tmp_path, monkeypatch):
+    """ADR-0006, proven on the path the CLI actually takes.
+
+    `test_journey.py` already forecloses `OrchestratorApi` construction inside
+    `journey.submit`; this does it for `main(["submit", ...])`, so a regression
+    that made `_run_submit` build a client (or route through a different
+    function) is caught too.
+    """
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    _patch_submit_boundaries(monkeypatch)
+
+    def _exploding_init(self, *args, **kwargs):
+        raise AssertionError("submit must not construct an OrchestratorApi")
+
+    from intent_packages.factory.api import OrchestratorApi as _Api
+
+    monkeypatch.setattr(_Api, "__init__", _exploding_init)
+
+    package = _approved_package_dir(tmp_path)
+    assert (
+        main(["submit", "--package", str(package), "--source-repository", "AlobarQuest/probe"]) == 0
+    )
+
+
+def test_submit_open_flag_reaches_the_browser(tmp_path, monkeypatch):
+    """`--open` is the only submit flag with an out-of-process effect; assert it
+    is wired rather than trusting the parser."""
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    _patch_submit_boundaries(monkeypatch)
+    opened: list[str] = []
+    monkeypatch.setattr(
+        "intent_packages.factory.journey.webbrowser.open", lambda url: opened.append(url)
+    )
+
+    package = _approved_package_dir(tmp_path)
+    assert (
+        main(
+            [
+                "submit",
+                "--package",
+                str(package),
+                "--source-repository",
+                "AlobarQuest/probe",
+                "--open",
+            ]
+        )
+        == 0
+    )
+    assert opened == ["https://sds.example/review/intakes/new"]
+
+
+def test_submit_without_open_does_not_touch_the_browser(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    _patch_submit_boundaries(monkeypatch)
+
+    def _explode(url):
+        raise AssertionError("submit must not open a browser without --open")
+
+    monkeypatch.setattr("intent_packages.factory.journey.webbrowser.open", _explode)
+    package = _approved_package_dir(tmp_path)
+    assert (
+        main(["submit", "--package", str(package), "--source-repository", "AlobarQuest/probe"]) == 0
+    )
+
+
+def test_submit_requires_its_flags():
+    with pytest.raises(SystemExit):
+        main(["submit", "--package", "packages/probe"])
+
+
 # -- Task 10: entrypoint coverage for every verb -------------------------------
 
 
