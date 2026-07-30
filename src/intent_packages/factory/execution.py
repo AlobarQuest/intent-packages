@@ -87,10 +87,14 @@ def _unit_id_for_key(units: list[dict], unit_key: str) -> str | None:
     return None
 
 
-def _resolve_unit_id(
-    api: ExecutionApi, revision_id: str, unit_key: str, *, verb: str
-) -> str | None:
-    """Resolve `--unit-key` to a unit id, printing the real keys on a miss."""
+def resolve_unit_id(api: ExecutionApi, revision_id: str, unit_key: str, *, verb: str) -> str | None:
+    """Resolve `--unit-key` to a unit id, printing the real keys on a miss.
+
+    Public: `verify.py` (task 9) imports this cross-module, same reasoning as
+    `next_runner_attempt` -- a fix-round-1/5 review flagged importing this
+    under its old private name (`_resolve_unit_id`) as a smell worth fixing
+    alongside `in_flight_snapshot`'s duplication (see below).
+    """
     units = units_for(api, revision_id)
     unit_id = _unit_id_for_key(units, unit_key)
     if unit_id is None:
@@ -101,10 +105,17 @@ def _resolve_unit_id(
     return unit_id
 
 
-def _in_flight_snapshot(api: ExecutionApi, unit_id: str) -> dict | None:
-    """This unit's `version` + `attempt_count`, or `None` if it is not in flight
-    (DRAFT, FAILED, COMPLETED, CANCELLED -- `dispatch` only ever acts on READY,
-    which is in flight)."""
+def in_flight_snapshot(api: ExecutionApi, unit_id: str) -> dict | None:
+    """This unit's full in-flight row, or `None` if it is not in flight (DRAFT,
+    FAILED, COMPLETED, CANCELLED are all absent from `GET /in-flight-units`).
+
+    Public and shared: `dispatch()` here reads `version`/`attempt_count` off
+    the returned row; `verify()` (task 9, `verify.py`) reads `pr_number`,
+    `head_sha`, `verification_read_head_sha`, `work_package_revision_id`, and
+    `state` off the same row. One place knows in-flight rows key on
+    `work_unit_id` -- a fix-round-1/5 review caught `verify.py` carrying its
+    own byte-identical copy of this function.
+    """
     for entry in api.in_flight_units().get("units", []):
         if str(entry.get("work_unit_id")) == unit_id:
             return entry
@@ -235,7 +246,7 @@ def ready(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None) -
 
     idempotency_key = f"factory-ready-{uuid.uuid4()}"
     try:
-        unit_id = _resolve_unit_id(api, revision_id, unit_key, verb="ready")
+        unit_id = resolve_unit_id(api, revision_id, unit_key, verb="ready")
         if unit_id is None:
             return 1
         version = api.resolve_version(
@@ -280,10 +291,10 @@ def dispatch(revision_id: str, unit_key: str, *, api: ExecutionApi | None = None
         return 2
 
     try:
-        unit_id = _resolve_unit_id(api, revision_id, unit_key, verb="dispatch")
+        unit_id = resolve_unit_id(api, revision_id, unit_key, verb="dispatch")
         if unit_id is None:
             return 1
-        snapshot = _in_flight_snapshot(api, unit_id)
+        snapshot = in_flight_snapshot(api, unit_id)
         if snapshot is None:
             print(
                 f"dispatch failed: unit {unit_id} is not in flight (state must be READY) -- "

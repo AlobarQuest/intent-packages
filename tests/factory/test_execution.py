@@ -183,6 +183,36 @@ def test_scan_dispatch_events_collects_every_record_id_not_just_the_latest():
     assert (latest, ids) == (2, frozenset({"d-1", "d-2"}))
 
 
+# -- latest_dispatched_payload (verify()'s canonical-dispatch lookup) -------
+
+
+def test_latest_dispatched_payload_ignores_a_higher_ordinal_skipped_decision():
+    """Fix round 1/5, Important 4. `latest_dispatched_payload` differs from
+    `_scan_dispatch_events` in exactly two ways: it filters to `dispatched`
+    only, and it selects the highest-`runner_attempt` PAYLOAD among those. A
+    fixture with only one dispatch event can't exercise either difference --
+    this one has two `dispatched` events plus a higher-ordinal `skipped` one
+    (the bounded window closing is the orchestrator's normal resting state),
+    so deleting the status filter would make this fail."""
+
+    def history(unit_id):
+        return [
+            _dispatch_event("dispatch.dispatched", 1, "d-1"),
+            _dispatch_event("dispatch.dispatched", 2, "d-2"),
+            _dispatch_event("dispatch.skipped", 3, "d-3"),
+        ]
+
+    payload = execution.latest_dispatched_payload(_fake_api(history=history), "u1")
+    assert payload == {"runner_attempt": 2, "dispatch_record_id": "d-2"}
+
+
+def test_latest_dispatched_payload_is_none_when_only_non_dispatched_outcomes_exist():
+    def history(unit_id):
+        return [_dispatch_event("dispatch.skipped", 1, "d-1")]
+
+    assert execution.latest_dispatched_payload(_fake_api(history=history), "u1") is None
+
+
 # -- dispatch: the no-op detection -------------------------------------------
 
 

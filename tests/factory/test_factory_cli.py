@@ -109,7 +109,7 @@ def test_verify_delegates_to_verify_module(monkeypatch):
     assert seen["kwargs"]["run_id"] == "99"
     assert seen["kwargs"]["run_url"] == "https://github.com/x/y/actions/runs/99"
     assert seen["kwargs"]["assertions"] == ["collected=295:295", "passed=true:true"]
-    assert seen["kwargs"]["repository"] == ""
+    assert "repository" not in seen["kwargs"]
 
 
 def test_verify_rejects_an_unknown_conclusion():

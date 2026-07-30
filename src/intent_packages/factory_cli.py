@@ -99,7 +99,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     vf.add_argument("--run-id", dest="run_id", required=True)
     vf.add_argument("--run-url", dest="run_url", required=True)
-    vf.add_argument("--repository", default="", help="override the derived target repository")
+    # No --repository override: the ingestion guard requires the payload's
+    # repository to equal both the unit's authority target_repository and the
+    # dispatch record's, so the derived value is the only one that can pass.
     vf.add_argument(
         "--assert",
         dest="assertions",
@@ -204,7 +206,6 @@ def _run_verify(args: argparse.Namespace) -> int:
         run_id=args.run_id,
         run_url=args.run_url,
         assertions=args.assertions,
-        repository=args.repository,
     )
 
 

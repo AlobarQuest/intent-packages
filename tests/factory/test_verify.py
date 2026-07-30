@@ -10,8 +10,8 @@ def _fake_api(**overrides):
     requires (mirrors `test_execution.py`'s `_fake_api`, for the same reason:
     pyright checks a passed argument against the full structural `Protocol`,
     not just the methods a given test happens to exercise) with defaults that
-    represent a SUBMITTED unit that was genuinely dispatched once and is ready
-    to be verified.
+    represent a SUBMITTED unit that was genuinely dispatched once, has an
+    armed PR binding with no divergence, and is ready to be verified.
     """
 
     class FakeApi:
@@ -138,6 +138,23 @@ def test_assertions_are_capped_at_32():
         verify_module.build_assertions([f"n{i}=1:1" for i in range(33)])
 
 
+def test_build_assertions_rejects_an_empty_list():
+    """Fix round 1/5, Important 1. `assertions` has `minItems: 1` on
+    `VerifierNamedCheckEvidenceCommandModel` -- the documented minimum
+    invocation (no `--assert` at all) must refuse locally, not sail through
+    to a 422 after three wasted reads."""
+    with pytest.raises(ValueError, match="at least 1"):
+        verify_module.build_assertions([])
+
+
+def test_build_assertions_rejects_a_duplicate_name():
+    """Fix round 1/5, Minor 9. The server's own evaluator rejects a repeated
+    assertion name (`services/verifier_evaluators.py::_named_check_result`);
+    refusing it locally saves the same round trip."""
+    with pytest.raises(ValueError, match="duplicate"):
+        verify_module.build_assertions(["a=1:1", "a=2:2"])
+
+
 def test_build_assertions_parses_every_value():
     assert verify_module.build_assertions(["a=1:1", "b=x:y"]) == [
         {"name": "a", "expected": "1", "observed": "1"},
@@ -152,10 +169,7 @@ def test_named_check_body_is_fully_derived():
     """`dispatch_id`/`repository` come from the latest `dispatch.dispatched`
     event, NOT from `evidence_pack` (the brief's now-corrected table); `pr_number`
     and `head_sha` come from `in-flight-units`, NOT from `traceability`'s `pr`
-    hop. `head_sha` is specifically `verification_read_head_sha`, not the
-    mutable `head_sha` field -- both happen to agree here, so this alone
-    can't distinguish them, but `test_head_sha_uses_verification_read_head_sha`
-    below can and does."""
+    hop."""
     seen = {}
 
     def named_check(unit_id, payload):
@@ -200,15 +214,39 @@ def test_named_check_body_is_fully_derived():
     assert seen["verify"]["expected_version"] == 5
 
 
-def test_head_sha_uses_verification_read_head_sha_not_the_mutable_field():
+def test_named_check_uses_the_armed_head_sha_when_it_agrees_with_the_current_one():
     """`InFlightUnitModel` carries BOTH `head_sha` (mutable, worker-written)
     and `verification_read_head_sha` (the alarm-arming field, frozen at
-    SUBMIT). `services/verifier_named_check.py::validate_named_check_bindings`
-    checks the payload against both -- but when a rebase has landed since
-    submit, they diverge, and the field the CLI must send is the armed one,
-    not the live one, or the attestation is not what verification is actually
-    adjudicating."""
+    SUBMIT). When the two agree (the common case), the armed one is what
+    flows into the payload."""
     seen = {}
+
+    def named_check(unit_id, payload):
+        seen["named_check"] = payload
+        return {"id": "e1"}
+
+    rc = verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-001",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=["ok=true:true"],
+        api=_fake_api(named_check=named_check),
+    )
+    assert rc == 0
+    assert seen["named_check"]["head_sha"] == "abc1234def"
+
+
+def test_refuses_when_head_has_diverged_since_submit(capsys):
+    """Fix round 1/5, Important 2. When `head_sha` (mutable) and
+    `verification_read_head_sha` (armed) disagree -- a push landed after
+    submit -- no single payload value can satisfy
+    `validate_named_check_bindings`'s check against BOTH fields. Refusing
+    locally, by name, replaces a guaranteed round trip to
+    `named_check_binding_mismatch`."""
 
     def in_flight_units():
         return {
@@ -216,6 +254,7 @@ def test_head_sha_uses_verification_read_head_sha_not_the_mutable_field():
                 {
                     "work_unit_id": "u1",
                     "unit_key": "bump-fastapi",
+                    "state": "submitted",
                     "version": 5,
                     "attempt_count": 1,
                     "work_package_revision_id": "r1",
@@ -227,10 +266,6 @@ def test_head_sha_uses_verification_read_head_sha_not_the_mutable_field():
             "release_bindings": [],
         }
 
-    def named_check(unit_id, payload):
-        seen["named_check"] = payload
-        return {"id": "e1"}
-
     rc = verify_module.verify(
         "r1",
         "bump-fastapi",
@@ -239,36 +274,14 @@ def test_head_sha_uses_verification_read_head_sha_not_the_mutable_field():
         conclusion="success",
         run_id="99",
         run_url="u",
-        assertions=[],
-        api=_fake_api(in_flight_units=in_flight_units, named_check=named_check),
+        assertions=["ok=true:true"],
+        api=_fake_api(in_flight_units=in_flight_units),
     )
-    assert rc == 0
-    assert seen["named_check"]["head_sha"] == "armed-sha-value-7"
-
-
-def test_repository_override_beats_the_derived_value():
-    seen = {}
-
-    def named_check(unit_id, payload):
-        seen["named_check"] = payload
-        return {"id": "e1"}
-
-    rc = verify_module.verify(
-        "r1",
-        "bump-fastapi",
-        ac_id="AC-001",
-        check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=[],
-        repository="AlobarQuest/override-repo",
-        api=_fake_api(named_check=named_check),
-    )
-    assert rc == 0
-    body = seen["named_check"]
-    assert body["repository"] == "AlobarQuest/override-repo"
-    assert body["pr_url"] == "https://github.com/AlobarQuest/override-repo/pull/12"
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "head moved after submit" in err
+    assert "armed-sha-value-7" in err
+    assert "post-rebase-sha-value" in err
 
 
 # -- refusals: named reasons, never a guess ----------------------------------
@@ -286,7 +299,7 @@ def test_refuses_when_never_dispatched(capsys):
         conclusion="success",
         run_id="99",
         run_url="u",
-        assertions=[],
+        assertions=["ok=true:true"],
         api=_fake_api(history=history),
     )
     assert rc == 1
@@ -305,7 +318,7 @@ def test_refuses_a_unit_that_is_not_in_flight(capsys):
         conclusion="success",
         run_id="99",
         run_url="u",
-        assertions=[],
+        assertions=["ok=true:true"],
         api=_fake_api(in_flight_units=in_flight_units),
     )
     assert rc == 1
@@ -323,6 +336,7 @@ def test_missing_pr_binding_is_an_actionable_refusal(capsys):
                 {
                     "work_unit_id": "u1",
                     "unit_key": "bump-fastapi",
+                    "state": "submitted",
                     "version": 5,
                     "attempt_count": 1,
                     "work_package_revision_id": "r1",
@@ -342,11 +356,54 @@ def test_missing_pr_binding_is_an_actionable_refusal(capsys):
         conclusion="success",
         run_id="99",
         run_url="u",
-        assertions=[],
+        assertions=["ok=true:true"],
         api=_fake_api(in_flight_units=in_flight_units),
     )
     assert rc == 1
     assert "pr" in capsys.readouterr().err.lower()
+
+
+def test_refuses_a_unit_in_a_non_verifiable_state(capsys):
+    """Fix round 1/5, Important 5. On the REVISION_REQUIRED -> READY ->
+    EXECUTING loop, a stale `pr_number` and armed head both survive from the
+    prior cycle -- so their mere presence cannot prove the unit is
+    verifiable. Only SUBMITTED/VERIFYING accept named-check evidence
+    (`services/verifier_named_check.py::validate_named_check_bindings`)."""
+
+    def in_flight_units():
+        return {
+            "units": [
+                {
+                    "work_unit_id": "u1",
+                    "unit_key": "bump-fastapi",
+                    "state": "executing",
+                    "version": 5,
+                    "attempt_count": 2,
+                    "work_package_revision_id": "r1",
+                    "pr_number": 12,
+                    "head_sha": "abc1234def",
+                    "verification_read_head_sha": "abc1234def",
+                }
+            ],
+            "release_bindings": [],
+        }
+
+    rc = verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-001",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=["ok=true:true"],
+        api=_fake_api(in_flight_units=in_flight_units),
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "executing" in err
+    assert "SUBMITTED" in err
+    assert "VERIFYING" in err
 
 
 def test_unknown_unit_key_lists_the_real_ones(capsys):
@@ -358,7 +415,7 @@ def test_unknown_unit_key_lists_the_real_ones(capsys):
         conclusion="success",
         run_id="99",
         run_url="u",
-        assertions=[],
+        assertions=["ok=true:true"],
         api=_fake_api(),
     )
     assert rc == 1
@@ -368,6 +425,9 @@ def test_unknown_unit_key_lists_the_real_ones(capsys):
 
 
 def test_requires_a_revision_when_none_given(monkeypatch, capsys):
+    """`assertions=[]` here is fine even though `build_assertions` now refuses
+    an empty list: revision resolution is checked FIRST and returns before
+    `build_assertions` is ever called."""
     monkeypatch.delenv("FACTORY_REVISION", raising=False)
     rc = verify_module.verify(
         "",
@@ -398,7 +458,7 @@ def test_reports_api_errors_cleanly(capsys):
         conclusion="success",
         run_id="99",
         run_url="u",
-        assertions=[],
+        assertions=["ok=true:true"],
         api=_fake_api(named_check=named_check),
     )
     assert rc == 1
@@ -427,6 +487,56 @@ def test_rejects_too_many_assertions_before_any_network_call():
     assert "called" not in seen
 
 
+def test_rejects_empty_assertions_before_any_network_call(capsys):
+    seen = {}
+
+    def named_check(unit_id, payload):
+        seen["called"] = True
+        return {"id": "e1"}
+
+    def history(unit_id):
+        seen["history_called"] = True
+        return []
+
+    rc = verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-001",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=[],
+        api=_fake_api(named_check=named_check, history=history),
+    )
+    assert rc == 1
+    assert "called" not in seen
+    assert "history_called" not in seen
+    assert "at least 1" in capsys.readouterr().err
+
+
+def test_rejects_duplicate_assertion_names_before_any_network_call():
+    seen = {}
+
+    def named_check(unit_id, payload):
+        seen["called"] = True
+        return {"id": "e1"}
+
+    rc = verify_module.verify(
+        "r1",
+        "bump-fastapi",
+        ac_id="AC-001",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=["a=1:1", "a=2:2"],
+        api=_fake_api(named_check=named_check),
+    )
+    assert rc == 1
+    assert "called" not in seen
+
+
 # -- verify: prints the outcomes ---------------------------------------------
 
 
@@ -439,7 +549,7 @@ def test_verify_prints_one_line_per_evaluation(capsys):
         conclusion="success",
         run_id="99",
         run_url="u",
-        assertions=[],
+        assertions=["ok=true:true"],
         api=_fake_api(),
     )
     assert rc == 0
@@ -473,7 +583,7 @@ def test_named_check_is_posted_before_verify():
         conclusion="success",
         run_id="99",
         run_url="u",
-        assertions=[],
+        assertions=["ok=true:true"],
         api=_fake_api(named_check=named_check, verify=verify_call),
     )
     assert rc == 0
@@ -534,6 +644,7 @@ def test_verify_over_the_real_api_with_production_wire_shapes():
                         {
                             "work_unit_id": "u1",
                             "unit_key": "bump-fastapi",
+                            "state": "submitted",
                             "version": 5,
                             "attempt_count": 1,
                             "work_package_revision_id": "r1",
