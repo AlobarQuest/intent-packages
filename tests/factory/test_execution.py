@@ -1,6 +1,6 @@
 import httpx
 
-from intent_packages.factory import execution
+from intent_packages.factory import execution, reads
 from intent_packages.factory.api import OrchestratorApi
 
 
@@ -98,7 +98,7 @@ def _history_with_dispatch(runner_attempt, dispatch_record_id):
 # `next_runner_attempt` (one `history()` fetch) AND a second helper for the
 # no-op guard's record-id set (a second `history()` fetch) -- two reads of
 # the same data, and a real TOCTOU window between them. `next_runner_attempt`
-# is now a pure function over facts `_scan_dispatch_events` already produced
+# is now a pure function over facts `reads.scan_dispatch_events` already produced
 # in ONE scan; `dispatch()` calls that scan once and feeds both outputs
 # onward. It is still the actual function `dispatch()` calls for the
 # ordinal (Important 2, fix round 1/5) -- it just no longer does its own I/O.
@@ -125,7 +125,7 @@ def test_scan_dispatch_events_reads_the_action_field_not_type():
     def history(unit_id):
         return [{"type": "dispatch.dispatched", "payload": {"runner_attempt": 9}}]
 
-    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    latest, ids = reads.scan_dispatch_events(_fake_api(history=history), "u1")
     assert (latest, ids) == (0, frozenset())
 
 
@@ -136,7 +136,7 @@ def test_scan_dispatch_events_ignores_non_dispatch_events():
             {"action": "work_unit.transitioned", "payload": {"version": 3}},
         ]
 
-    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    latest, ids = reads.scan_dispatch_events(_fake_api(history=history), "u1")
     assert (latest, ids) == (0, frozenset())
 
 
@@ -154,7 +154,7 @@ def test_scan_dispatch_events_counts_a_skipped_decision_as_a_consumed_ordinal():
     def history(unit_id):
         return [_dispatch_event("dispatch.skipped", 1, "d-1")]
 
-    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    latest, ids = reads.scan_dispatch_events(_fake_api(history=history), "u1")
     assert (latest, ids) == (1, frozenset({"d-1"}))
 
 
@@ -165,7 +165,7 @@ def test_scan_dispatch_events_counts_blocked_and_failed_too():
             _dispatch_event("dispatch.failed", 2, "d-2"),
         ]
 
-    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    latest, ids = reads.scan_dispatch_events(_fake_api(history=history), "u1")
     assert (latest, ids) == (2, frozenset({"d-1", "d-2"}))
 
 
@@ -179,7 +179,7 @@ def test_scan_dispatch_events_collects_every_record_id_not_just_the_latest():
             _dispatch_event("dispatch.dispatched", 2, "d-2"),
         ]
 
-    latest, ids = execution._scan_dispatch_events(_fake_api(history=history), "u1")
+    latest, ids = reads.scan_dispatch_events(_fake_api(history=history), "u1")
     assert (latest, ids) == (2, frozenset({"d-1", "d-2"}))
 
 
@@ -187,8 +187,8 @@ def test_scan_dispatch_events_collects_every_record_id_not_just_the_latest():
 
 
 def test_latest_dispatched_payload_ignores_a_higher_ordinal_skipped_decision():
-    """Fix round 1/5, Important 4. `latest_dispatched_payload` differs from
-    `_scan_dispatch_events` in exactly two ways: it filters to `dispatched`
+    """Fix round 1/5, Important 4. `reads.latest_dispatched_payload` differs from
+    `reads.scan_dispatch_events` in exactly two ways: it filters to `dispatched`
     only, and it selects the highest-`runner_attempt` PAYLOAD among those. A
     fixture with only one dispatch event can't exercise either difference --
     this one has two `dispatched` events plus a higher-ordinal `skipped` one
@@ -202,7 +202,7 @@ def test_latest_dispatched_payload_ignores_a_higher_ordinal_skipped_decision():
             _dispatch_event("dispatch.skipped", 3, "d-3"),
         ]
 
-    payload = execution.latest_dispatched_payload(_fake_api(history=history), "u1")
+    payload = reads.latest_dispatched_payload(_fake_api(history=history), "u1")
     assert payload == {"runner_attempt": 2, "dispatch_record_id": "d-2"}
 
 
@@ -210,7 +210,7 @@ def test_latest_dispatched_payload_is_none_when_only_non_dispatched_outcomes_exi
     def history(unit_id):
         return [_dispatch_event("dispatch.skipped", 1, "d-1")]
 
-    assert execution.latest_dispatched_payload(_fake_api(history=history), "u1") is None
+    assert reads.latest_dispatched_payload(_fake_api(history=history), "u1") is None
 
 
 # -- dispatch: the no-op detection -------------------------------------------
@@ -325,7 +325,7 @@ def test_dispatch_reads_history_exactly_once_over_the_real_api():
     reads could make them disagree). Counts the actual HTTP requests through
     a mock transport on a REAL `OrchestratorApi`, not the duck-typed fake, so
     a regression that reintroduces a second internal call site is caught
-    even if it doesn't touch `_scan_dispatch_events` itself."""
+    even if it doesn't touch `reads.scan_dispatch_events` itself."""
     seen = []
 
     def handler(request):

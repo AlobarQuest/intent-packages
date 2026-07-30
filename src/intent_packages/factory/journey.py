@@ -1,15 +1,18 @@
-"""The flow verbs: submit, status, evidence, ready, dispatch.
+"""The read/report verbs: submit, status, evidence.
 
 Every human gate here is a stop, not a step. `submit` prepares the intake
 payload, copies it, prints the /review link and exits -- it can never complete
 an intake, because the route requires a HUMAN actor and no HUMAN credential
 exists or ever will (ADR-0006).
+
+The derived reads these verbs run on (`resolve_revision`, `units_for`,
+`resolve_unit_id`, the read Protocol) live in `reads.py`, which `execution.py`
+and `verify.py` import too. Nothing imports this module.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import time
@@ -17,11 +20,12 @@ import uuid
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
-from intent_packages.factory import links
+from intent_packages.factory import links, reads
 from intent_packages.factory.api import ApiError, OrchestratorApi, base_url_from_env
 from intent_packages.factory.orchestrator_cli import OrchestratorClient, OrchestratorCliError
+from intent_packages.factory.reads import RevisionApi, RevisionRequired, resolve_revision
 from intent_packages.loader import LoadError, load_lineage, load_package
 
 Clipboard = Callable[[str], None]
@@ -41,29 +45,6 @@ class IntakeClient(Protocol):
     def emit_intake_payload(
         self, package_path: str, source_repository: str, idempotency_key: str, /
     ) -> dict: ...
-
-
-class RevisionApi(Protocol):
-    """The read surface `status`/`evidence`/`units_for` need.
-
-    A structural protocol, same reasoning as `IntakeClient`: a test double
-    only has to implement these seven methods, not *be* an `OrchestratorApi`.
-    The concrete `OrchestratorApi` satisfies this structurally, so production
-    callers pass it unchanged. `readiness` is deliberately absent: nothing
-    here calls it (fix round 1/5, task 7) -- `_next_action` derives the next
-    step entirely from `unit["state"]`, so fetching readiness per unit was an
-    HTTP round trip for a value nothing ever read.
-    """
-
-    def get_intake(self, revision_id: str) -> dict: ...
-    def list_proposals(self, revision_id: str) -> list[dict]: ...
-    def traceability(
-        self, *, revision_id: str | None = None, work_unit_id: str | None = None
-    ) -> Any: ...
-    def history(self, unit_id: str) -> list[dict]: ...
-    def evidence_pack(self, unit_id: str) -> dict: ...
-    def revision_evidence_pack(self, revision_id: str) -> dict: ...
-    def evidence_pack_markdown(self, unit_id: str) -> str: ...
 
 
 def _default_clipboard(text: str) -> None:
@@ -175,85 +156,122 @@ def submit(
     return 0
 
 
-class RevisionRequired(Exception):
-    """Raised when neither `--revision` nor `$FACTORY_REVISION` is set.
-
-    Public (no leading underscore): `execution.py`'s `ready`/`dispatch` catch
-    this across the module boundary, same reasoning as `resolve_revision`
-    below -- a cross-module helper's raised exception type has to be part of
-    the public surface, or callers outside this module have nothing precise
-    to catch.
-    """
-
-
-def resolve_revision(revision_id: str) -> str:
-    """Fall back to `$FACTORY_REVISION`; raise when neither is set.
-
-    Shared by every verb that operates on a revision -- `status` and
-    `evidence` here, `ready`/`dispatch` in `execution.py`, `verify` later --
-    so the exit-2 behaviour for a missing revision lives in exactly one
-    place. Public (no leading underscore): it is a cross-module helper now,
-    not a private one.
-    """
-    if revision_id:
-        return revision_id
-    from_env = os.environ.get("FACTORY_REVISION", "")
-    if from_env:
-        return from_env
-    raise RevisionRequired("no revision id: pass --revision or set $FACTORY_REVISION")
-
-
 _DECIDED_PROPOSAL_STATES = frozenset({"approved", "rejected", "superseded"})
 
+# Every `WorkUnitState` except `draft`, whose next action depends on whether an
+# authority approval is recorded and so is computed rather than looked up.
+#
+# CROSS-BOUNDARY VOCABULARY. The source of truth is
+# `orchestrator/kernel/states.py::WorkUnitState` (13 members); this table must
+# name all 13. Read from the orchestrator's own tree, not inferred: draft, ready,
+# claimed, executing, blocked, awaiting_approval, submitted, verifying,
+# awaiting_review, revision_required, completed, failed, cancelled.
+# `test_journey.py::test_every_work_unit_state_has_a_next_action` pins the set.
+# Templates are formatted with `rev`, `key` and `link`.
+_STATE_NEXT_ACTIONS: dict[str, str] = {
+    "ready": "ready to dispatch: factory dispatch --revision {rev} --unit-key {key}",
+    "claimed": (
+        "a worker holds the claim -- nothing to do here; wait for it to submit, or for the "
+        "lease to expire and the unit to be reclaimed"
+    ),
+    "executing": (
+        "the runner is executing -- nothing to do here; wait for the Actions run to conclude "
+        "and the unit to reach SUBMITTED"
+    ),
+    "blocked": "blocked -- a human has to inspect why before it can move: {link}",
+    "awaiting_approval": (
+        "needs a HUMAN approval before it can become READY -- this is a browser-only gate "
+        "(ADR-0006), no factory verb can cross it: {link}"
+    ),
+    "submitted": (
+        "ready to verify: factory verify --revision {rev} --unit-key {key} --ac AC-00N "
+        "--check-name <name> --conclusion success --run-id <id> --run-url <url> "
+        "--assert <name>=<expected>:<observed>  (check name, run id and run url come from the "
+        "Actions run; --ac must name an automated_check criterion)"
+    ),
+    "verifying": "verification is in progress -- nothing to do here; re-run status",
+    "awaiting_review": (
+        "verification returned judgment_required for at least one criterion -- a HUMAN must "
+        "adjudicate it in the browser (ADR-0006): {link}"
+    ),
+    "revision_required": (
+        "verification found a failure -- the unit needs another attempt: requeue or let the "
+        "claim expire, then factory dispatch --revision {rev} --unit-key {key}: {link}"
+    ),
+    "completed": (
+        "nothing to do -- this unit is complete; read its record with "
+        "factory evidence --revision {rev} --unit-key {key}"
+    ),
+    "failed": "terminally failed -- nothing to do here; read the record: {link}",
+    "cancelled": "cancelled -- nothing to do here; read the record: {link}",
+}
 
-def units_for(api: RevisionApi, revision_id: str) -> list[dict]:
-    """Derive the per-unit view of a revision from `traceability`.
 
-    This is the single derivation point -- tasks 8 and 9 (`ready`,
-    `dispatch`/`verify`) must call this rather than re-deriving from
-    `traceability` themselves. Each returned dict is the chain's `unit` hop
-    (`id`, `unit_key`, `state`, `authority_fingerprint`, `authority_approved_by`,
-    `authority_decision`) with a `pr` key added when the chain carries one.
+def _draft_next_action(base_url: str, revision_id: str, unit: dict) -> str:
+    """The two DRAFT cases, which are the two failure modes that historically
+    cost the most time.
+
+    An authority approval does NOT move lifecycle state, so an approved unit
+    sits in DRAFT until the SYSTEM `commands/ready` edge is driven. And the
+    generic `/review` approve button records `subject_type="action"`, which
+    satisfies the `AWAITING_APPROVAL -> READY` guard but NOT readiness --
+    readiness wants `subject_type="authority"` bound to this exact fingerprint.
     """
-    data = api.traceability(revision_id=revision_id)
-    units = []
-    for chain in data.get("chains", []):
-        unit = chain["unit"]
-        entry = {
-            "id": unit["id"],
-            "unit_key": unit["unit_key"],
-            "state": unit["state"],
-            "authority_fingerprint": unit.get("authority_fingerprint"),
-            "authority_approved_by": unit.get("authority_approved_by"),
-            "authority_decision": unit.get("authority_decision"),
-        }
-        pr = chain.get("pr")
-        if pr is not None:
-            entry["pr"] = pr
-        units.append(entry)
-    return units
+    if unit.get("authority_decision") == "approved":
+        return (
+            "authority approved but the unit is still DRAFT -- authority approval does not move "
+            f"state. Run: factory ready --revision {revision_id} --unit-key {unit['unit_key']}"
+        )
+    return (
+        "needs a HUMAN authority approval bound to fingerprint "
+        f"{unit['authority_fingerprint']}. Use the 'Approve this authority envelope' form "
+        "(NOT the generic approve button, which records subject_type=action and does not "
+        f"satisfy readiness): {links.unit(base_url, unit['id'])}"
+    )
 
 
-def _next_action(base_url: str, unit: dict) -> str:
-    if unit["state"] == "draft" and unit.get("authority_decision") == "approved":
+def _next_action(base_url: str, revision_id: str, unit: dict) -> str:
+    """One actionable line per unit state -- a real command where one exists, an
+    honest "nothing to do here" where none does.
+
+    A dispatch table rather than a branch chain: enumerating all 13
+    `WorkUnitState` members as `if`s would blow the C901 ceiling, and a table
+    can be asserted complete by a test.
+    """
+    state = unit["state"]
+    if state == "draft":
+        return _draft_next_action(base_url, revision_id, unit)
+    template = _STATE_NEXT_ACTIONS.get(state)
+    if template is None:
         return (
-            f"authority approved but the unit is still DRAFT -- authority approval does not move "
-            f"state. Run: factory ready --revision <rev> --unit-key {unit['unit_key']}"
+            f"state {state!r} is not a known WorkUnitState -- this client's table is behind the "
+            f"orchestrator: {links.unit(base_url, unit['id'])}"
         )
-    if unit["state"] == "draft":
-        return (
-            f"needs a HUMAN authority approval bound to fingerprint "
-            f"{unit['authority_fingerprint']}. Use the 'Approve this authority envelope' form "
-            f"(NOT the generic approve button, which records subject_type=action and does not "
-            f"satisfy readiness): {links.unit(base_url, unit['id'])}"
-        )
-    if unit["state"] == "ready":
-        return f"ready to dispatch: factory dispatch --revision <rev> --unit-key {unit['unit_key']}"
-    return f"state {unit['state']}: {links.unit(base_url, unit['id'])}"
+    return template.format(
+        rev=revision_id, key=unit["unit_key"], link=links.unit(base_url, unit["id"])
+    )
 
 
 def _print_intake(intake: dict) -> None:
-    print(f"intake {intake.get('id')}: {intake.get('state')}")
+    """`PackageIntakeResponse` carries NO lifecycle `state` field.
+
+    This line used to print `intake.get("state")` and therefore printed `None`
+    on every production run -- the flagship screen's first line, wrong from the
+    first commit, because the fixture it was written against invented the field.
+    The real response (confirmed against the live openapi.json) carries
+    `status_at_intake` (the package's own `status` at the moment of intake) and
+    `intake_source`, plus the package identity. There is nothing else to show as
+    a "state": an intake is a registration, not a state machine -- the states
+    that matter belong to the proposals and units printed below.
+    """
+    print(
+        f"intake {intake.get('id')}: package {intake.get('package_id')!r} "
+        f"revision {intake.get('revision')} from {intake.get('source_repository')!r}"
+    )
+    print(
+        f"  status_at_intake={intake.get('status_at_intake')!r} "
+        f"intake_source={intake.get('intake_source')!r} profile={intake.get('profile')!r}"
+    )
 
 
 def _print_proposals(base_url: str, proposals: list[dict]) -> None:
@@ -270,7 +288,16 @@ def _print_proposals(base_url: str, proposals: list[dict]) -> None:
         print(line)
 
 
-def _print_units(base_url: str, api: RevisionApi, units: list[dict]) -> None:
+def _print_units(base_url: str, revision_id: str, api: RevisionApi, units: list[dict]) -> None:
+    """One block per unit: authority-approval provenance, the next action, and
+    the latest dispatch ordinal.
+
+    The ordinal is spec §3's promised field and replaces a bare
+    `history: N event(s) recorded` -- one `history` round trip per unit either
+    way, but now the read is used for the number that decides the next dispatch.
+    A REUSED ordinal makes `dispatch` a silent no-op, so knowing the latest
+    consumed one before dispatching is the point of reading history at all.
+    """
     if not units:
         print("units: none yet")
         return
@@ -284,10 +311,16 @@ def _print_units(base_url: str, api: RevisionApi, units: list[dict]) -> None:
             else "no authority approval recorded"
         )
         print(f"  {unit['unit_key']} [{unit['state']}] -- {approval}")
-        print(f"    next: {_next_action(base_url, unit)}")
-        events = api.history(unit["id"]) or []
-        if events:
-            print(f"    history: {len(events)} event(s) recorded")
+        print(f"    next: {_next_action(base_url, revision_id, unit)}")
+        latest_ordinal, record_ids = reads.scan_dispatch_events(api, unit["id"])
+        if latest_ordinal:
+            print(
+                f"    dispatch: latest ordinal {latest_ordinal} "
+                f"({len(record_ids)} record(s)); the next one offered will be "
+                f"{latest_ordinal + 1} or higher"
+            )
+        else:
+            print("    dispatch: never dispatched")
 
 
 def _unit_states(units: list[dict]) -> dict[str, str]:
@@ -305,7 +338,7 @@ def _wait_for_change(
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         time.sleep(poll_seconds)
-        if _unit_states(units_for(api, revision_id)) != initial:
+        if _unit_states(reads.units_for(api, revision_id)) != initial:
             return True
     return False
 
@@ -338,10 +371,10 @@ def status(
     try:
         intake = api.get_intake(revision_id)
         proposals = api.list_proposals(revision_id)
-        units = units_for(api, revision_id)
+        units = reads.units_for(api, revision_id)
         _print_intake(intake)
         _print_proposals(base_url, proposals)
-        _print_units(base_url, api, units)
+        _print_units(base_url, revision_id, api, units)
         if wait:
             try:
                 changed = _wait_for_change(
@@ -359,13 +392,6 @@ def status(
         print(f"status failed: {error}", file=sys.stderr)
         return 1
     return 0
-
-
-def _unit_id_for_key(units: list[dict], unit_key: str) -> str | None:
-    for unit in units:
-        if unit["unit_key"] == unit_key:
-            return unit["id"]
-    return None
 
 
 def evidence(
@@ -401,14 +427,12 @@ def evidence(
 
     try:
         if unit_key:
-            units = units_for(api, revision_id)
-            unit_id = _unit_id_for_key(units, unit_key)
+            # `reads.resolve_unit_id`, not a local copy: this block used to
+            # reimplement it (and a byte-identical `_unit_id_for_key`) down to a
+            # near-identical refusal string, in the same repo where the function
+            # had been made public specifically to be shared.
+            unit_id = reads.resolve_unit_id(api, revision_id, unit_key, verb="evidence")
             if unit_id is None:
-                keys = ", ".join(sorted(u["unit_key"] for u in units)) or "(none)"
-                print(
-                    f"evidence failed: unknown --unit-key {unit_key!r}; known keys: {keys}",
-                    file=sys.stderr,
-                )
                 return 1
             if markdown:
                 print(api.evidence_pack_markdown(unit_id))

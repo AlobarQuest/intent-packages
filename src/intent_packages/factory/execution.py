@@ -39,8 +39,10 @@ Where `version` and `attempt_count` come from is verb-specific:
 - `dispatch` acts on a READY unit, which IS in flight -- so it reads both
   `version` and `attempt_count` straight off `GET /in-flight-units`. No probe.
 
-No code moved from `journey.py`; this module imports `resolve_revision`,
-`RevisionRequired`, and `units_for` from it.
+Every derived read this module runs on -- `resolve_revision`, `resolve_unit_id`,
+`in_flight_snapshot`, `scan_dispatch_events`, `latest_dispatched_payload` and the
+read Protocol -- lives in `reads.py`, which `journey.py` and `verify.py` import
+too. This module owns only the two writes and the ordinal arithmetic.
 """
 
 from __future__ import annotations
@@ -49,157 +51,34 @@ import sys
 import uuid
 from typing import Protocol
 
+from intent_packages.factory import reads
 from intent_packages.factory.api import ApiError, OrchestratorApi
-from intent_packages.factory.journey import (
+from intent_packages.factory.reads import (
+    InFlightApi,
     RevisionApi,
     RevisionRequired,
     resolve_revision,
-    units_for,
 )
 
-# All four dispatch decisions share one `runner_attempt` under the same
-# `UniqueConstraint("work_unit_id", "runner_attempt")` -- a skipped or
-# blocked decision consumes an ordinal exactly as a dispatched one does.
-_DISPATCH_ACTION_PREFIX = "dispatch."
+# A timeout or connection failure on the dispatch POST is INCONCLUSIVE, not a
+# failure: the request may have been received and acted on. Every other
+# `ApiError` code carries a server verdict and is reported as-is.
+_INCONCLUSIVE_CODES = frozenset({"api_timeout", "api_unavailable"})
 
 
-class ExecutionApi(RevisionApi, Protocol):
-    """`RevisionApi` (needed by `units_for`, to resolve `--unit-key`) plus the
-    four write/version-read methods `ready` and `dispatch` use.
+class ExecutionApi(RevisionApi, InFlightApi, Protocol):
+    """`RevisionApi` + `InFlightApi` (the derived reads these two verbs run on)
+    plus the three writes `ready` and `dispatch` make.
 
-    A structural `Protocol`, same reasoning as `RevisionApi` and `IntakeClient`
-    in `journey.py`: a test double only has to implement these methods, not
-    *be* an `OrchestratorApi`. Extending `RevisionApi` rather than repeating
-    its seven methods here keeps this to one Protocol family, not a third
-    parallel one.
+    A structural `Protocol`, same reasoning as `RevisionApi`: a test double only
+    has to implement these methods, not *be* an `OrchestratorApi`. Extending
+    `RevisionApi` rather than repeating its methods keeps this to one Protocol
+    family, not a parallel one.
     """
 
     def resolve_version(self, unit_id: str, *, probe: dict, command: str = "ready") -> int: ...
     def command(self, unit_id: str, command: str, payload: dict, /) -> dict: ...
-    def in_flight_units(self) -> dict: ...
     def dispatch(self, unit_id: str, payload: dict, /) -> dict: ...
-
-
-def _unit_id_for_key(units: list[dict], unit_key: str) -> str | None:
-    for unit in units:
-        if unit["unit_key"] == unit_key:
-            return unit["id"]
-    return None
-
-
-def resolve_unit_id(api: ExecutionApi, revision_id: str, unit_key: str, *, verb: str) -> str | None:
-    """Resolve `--unit-key` to a unit id, printing the real keys on a miss.
-
-    Public: `verify.py` (task 9) imports this cross-module, same reasoning as
-    `next_runner_attempt` -- a fix-round-1/5 review flagged importing this
-    under its old private name (`_resolve_unit_id`) as a smell worth fixing
-    alongside `in_flight_snapshot`'s duplication (see below).
-    """
-    units = units_for(api, revision_id)
-    unit_id = _unit_id_for_key(units, unit_key)
-    if unit_id is None:
-        keys = ", ".join(sorted(u["unit_key"] for u in units)) or "(none)"
-        print(
-            f"{verb} failed: unknown --unit-key {unit_key!r}; known keys: {keys}", file=sys.stderr
-        )
-    return unit_id
-
-
-def in_flight_snapshot(api: ExecutionApi, unit_id: str) -> dict | None:
-    """This unit's full in-flight row, or `None` if it is not in flight (DRAFT,
-    FAILED, COMPLETED, CANCELLED are all absent from `GET /in-flight-units`).
-
-    Public and shared: `dispatch()` here reads `version`/`attempt_count` off
-    the returned row; `verify()` (task 9, `verify.py`) reads `pr_number`,
-    `head_sha`, `verification_read_head_sha`, `work_package_revision_id`, and
-    `state` off the same row. One place knows in-flight rows key on
-    `work_unit_id` -- a fix-round-1/5 review caught `verify.py` carrying its
-    own byte-identical copy of this function.
-    """
-    for entry in api.in_flight_units().get("units", []):
-        if str(entry.get("work_unit_id")) == unit_id:
-            return entry
-    return None
-
-
-def _dispatch_event_payloads(api: ExecutionApi, unit_id: str) -> list[tuple[str, dict]]:
-    """One `history` read, pre-filtered to `dispatch.*` events, as `(status,
-    payload)` pairs in event order -- `status` is the action suffix
-    (`dispatched`, `skipped`, `blocked`, `failed`).
-
-    This is the ONE place that knows how a dispatch event is shaped on the
-    wire: the event's KIND lives under `action`
-    (`orchestrator.api.schemas.EventResponse.action`), not `type`; the
-    dispatch record's id lives in the event's `payload` under
-    `dispatch_record_id` (`orchestrator.services.dispatch._record_dispatch`),
-    not `dispatch_id`. `history()` itself returns a bare JSON array (fixed in
-    fix round 1/5 -- it used to be typed `-> dict` over a route that was never
-    one), so this iterates the list directly.
-
-    Both `_scan_dispatch_events` (dispatch()'s ordinal + no-op-guard id set,
-    which must count all FOUR outcomes -- `DISPATCH_RECORD_STATUSES` is
-    `(dispatched, skipped, blocked, failed)`, all sharing one `runner_attempt`
-    under the same unique constraint) and `latest_dispatched_payload`
-    (verify()'s canonical-dispatch lookup, task 9, which only a `dispatched`
-    outcome can ever satisfy) consume this single scan -- neither re-walks
-    `history` with its own action-matching predicate.
-    """
-    events: list[tuple[str, dict]] = []
-    for event in api.history(unit_id):
-        action = event.get("action", "")
-        if not action.startswith(_DISPATCH_ACTION_PREFIX):
-            continue
-        events.append((action[len(_DISPATCH_ACTION_PREFIX) :], event.get("payload") or {}))
-    return events
-
-
-def _scan_dispatch_events(api: ExecutionApi, unit_id: str) -> tuple[int, frozenset[str]]:
-    """The highest consumed dispatch ordinal, and EVERY `DispatchRecord` id
-    already recorded for this unit -- not just the one at the highest
-    ordinal. Filtering to only `dispatched` would under-read the highest
-    consumed ordinal (fix round 1/5, Critical 2) -- e.g. a dispatch skipped by
-    a closed window still occupies its ordinal.
-
-    Called exactly ONCE per `dispatch()` invocation -- one `api.history()`
-    request, not two (fix round 2/5). `dispatch()` feeds the returned
-    `latest` into `next_runner_attempt` and the returned record-id set
-    straight into the no-op guard, rather than re-deriving either
-    separately.
-    """
-    latest = 0
-    record_ids: set[str] = set()
-    for _status, payload in _dispatch_event_payloads(api, unit_id):
-        record_id = payload.get("dispatch_record_id")
-        if record_id:
-            record_ids.add(record_id)
-        attempt = int(payload.get("runner_attempt", 0))
-        if attempt > latest:
-            latest = attempt
-    return latest, frozenset(record_ids)
-
-
-def latest_dispatched_payload(api: ExecutionApi, unit_id: str) -> dict | None:
-    """The payload of the highest-`runner_attempt` `dispatch.dispatched`
-    event -- the canonical dispatch a named-check attests to (`verify`, task
-    9's `dispatch_id`/`repository` source).
-
-    Narrower than `_scan_dispatch_events` on purpose: a named-check can only
-    ever validate against a dispatch whose `DispatchRecord.status ==
-    "dispatched"` (`services/verifier_named_check.py::validate_named_check_bindings`
-    checks `dispatch.status != "dispatched"`), so a skipped/blocked/failed
-    ordinal -- even if it is the highest one -- is never a candidate here,
-    unlike the ordinal scan dispatch() itself needs.
-    """
-    latest_attempt = -1
-    latest_payload: dict | None = None
-    for status, payload in _dispatch_event_payloads(api, unit_id):
-        if status != "dispatched":
-            continue
-        attempt = int(payload.get("runner_attempt", 0))
-        if attempt > latest_attempt:
-            latest_attempt = attempt
-            latest_payload = payload
-    return latest_payload
 
 
 def next_runner_attempt(attempt_count: int, latest_runner_attempt: int) -> int:
@@ -211,19 +90,18 @@ def next_runner_attempt(attempt_count: int, latest_runner_attempt: int) -> int:
     a claim is reclaimed, so `attempt_count + 1` is not a safe substitute for
     either.
 
-    Fix round 2/5: this used to take `(api, unit_id, attempt_count)` and do
-    its own `_scan_dispatch_events` call -- so `dispatch()`, which also needs
-    the record-id set from that same scan, called it twice (once here, once
-    via a second helper), issuing two `api.history()` requests for what
-    should be one atomic read. The fix for Important 2 (fix round 1/5) was
+    Fix round 2/5: this used to take `(api, unit_id, attempt_count)` and do its
+    own history scan -- so `dispatch()`, which also needs the record-id set from
+    that same scan, called it twice, issuing two `api.history()` requests for
+    what should be one atomic read. The fix for Important 2 (fix round 1/5) was
     never "this function must do its own I/O" -- only that `dispatch()` must
     call the SAME tested arithmetic it is measured by, not a parallel inline
-    copy. Making this a pure function over the scan's own outputs satisfies
-    that while collapsing the read to one: `dispatch()` (and only
-    `dispatch()`) calls `_scan_dispatch_events`, once, and feeds both
-    resulting facts onward -- `latest_runner_attempt` here, the record-id set
-    into the no-op guard. Two sequential reads could also disagree if a
-    concurrent dispatch landed in between; one read cannot.
+    copy. Making this a pure function over the scan's own outputs satisfies that
+    while collapsing the read to one: `dispatch()` calls
+    `reads.scan_dispatch_events` once and feeds both resulting facts onward --
+    `latest_runner_attempt` here, the record-id set into the no-op guard. Two
+    sequential reads could also disagree if a concurrent dispatch landed in
+    between; one read cannot.
     """
     return max(attempt_count, latest_runner_attempt) + 1
 
@@ -248,7 +126,7 @@ def ready(
 
     idempotency_key = f"factory-ready-{uuid.uuid4()}"
     try:
-        unit_id = resolve_unit_id(api, revision_id, unit_key, verb="ready")
+        unit_id = reads.resolve_unit_id(api, revision_id, unit_key, verb="ready")
         if unit_id is None:
             return 1
         version = api.resolve_version(
@@ -295,10 +173,10 @@ def dispatch(
         return 2
 
     try:
-        unit_id = resolve_unit_id(api, revision_id, unit_key, verb="dispatch")
+        unit_id = reads.resolve_unit_id(api, revision_id, unit_key, verb="dispatch")
         if unit_id is None:
             return 1
-        snapshot = in_flight_snapshot(api, unit_id)
+        snapshot = reads.in_flight_snapshot(api, unit_id)
         if snapshot is None:
             print(
                 f"dispatch failed: unit {unit_id} is not in flight (state must be READY) -- "
@@ -306,7 +184,7 @@ def dispatch(
                 file=sys.stderr,
             )
             return 1
-        latest_runner_attempt, prior_dispatch_ids = _scan_dispatch_events(api, unit_id)
+        latest_runner_attempt, prior_dispatch_ids = reads.scan_dispatch_events(api, unit_id)
         runner_attempt = next_runner_attempt(snapshot["attempt_count"], latest_runner_attempt)
         idempotency_key = f"factory-dispatch-{uuid.uuid4()}"
         response = api.dispatch(

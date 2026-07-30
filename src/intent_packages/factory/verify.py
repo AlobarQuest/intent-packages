@@ -25,7 +25,7 @@ orchestrator's own tree:
 | `ac_id` | `--ac`, the human string (e.g. `AC-001`), never the criterion UUID |
 | `check_name`, `conclusion`, `run_id`, `run_url`, `assertions` | CLI flags |
 
-(1) `execution.latest_dispatched_payload`, reading `dispatch_record_id` and
+(1) `reads.latest_dispatched_payload`, reading `dispatch_record_id` and
 `target_repository` off the event's `payload`.
 (2) `GET /api/v1/in-flight-units` (`InFlightUnitModel`) -- a SUBMITTED or
 VERIFYING unit is in flight.
@@ -62,14 +62,14 @@ import sys
 import uuid
 from typing import Protocol
 
+from intent_packages.factory import reads
 from intent_packages.factory.api import ApiError, OrchestratorApi
-from intent_packages.factory.execution import (
-    ExecutionApi,
-    in_flight_snapshot,
-    latest_dispatched_payload,
-    resolve_unit_id,
+from intent_packages.factory.reads import (
+    InFlightApi,
+    RevisionApi,
+    RevisionRequired,
+    resolve_revision,
 )
-from intent_packages.factory.journey import RevisionRequired, resolve_revision
 
 MAX_ASSERTIONS = 32
 # `services/verifier_named_check.py::validate_named_check_bindings` only accepts
@@ -80,13 +80,14 @@ MAX_ASSERTIONS = 32
 _VERIFIABLE_STATES = frozenset({"submitted", "verifying"})
 
 
-class VerifyApi(ExecutionApi, Protocol):
-    """`ExecutionApi` (needed by `resolve_unit_id`, `history`, and
-    `in_flight_units`) plus the two VERIFIER-role writes `verify` makes.
+class VerifyApi(RevisionApi, InFlightApi, Protocol):
+    """The derived reads `verify` runs on (`resolve_unit_id`, `history`,
+    `in_flight_units`, `get_intake`) plus the two VERIFIER-role writes it makes.
 
-    A structural `Protocol`, same reasoning as `RevisionApi`/`ExecutionApi`: a
-    test double only has to implement the methods actually exercised, not
-    *be* an `OrchestratorApi`.
+    It extends `RevisionApi`/`InFlightApi` rather than `ExecutionApi`: `verify`
+    makes none of `ready`/`dispatch`'s writes (`command`, `dispatch`,
+    `resolve_version`), and demanding them of a double would be a Protocol
+    asserting a dependency this verb does not have.
     """
 
     def named_check(self, unit_id: str, payload: dict, /) -> dict: ...
@@ -147,7 +148,7 @@ def _derive_named_check_payload(
     `named_check_binding_mismatch` (one code covering several distinct causes)
     into a specific, actionable reason before any write is attempted.
     """
-    dispatch_payload = latest_dispatched_payload(api, unit_id)
+    dispatch_payload = reads.latest_dispatched_payload(api, unit_id)
     if dispatch_payload is None:
         print(
             f"verify failed: unit {unit_id} has no dispatch.dispatched event in its "
@@ -165,7 +166,7 @@ def _derive_named_check_payload(
         )
         return None
 
-    snapshot = in_flight_snapshot(api, unit_id)
+    snapshot = reads.in_flight_snapshot(api, unit_id)
     if snapshot is None:
         print(
             f"verify failed: unit {unit_id} is not in flight (state must be SUBMITTED "
@@ -253,7 +254,7 @@ def verify(
         return 1
 
     try:
-        unit_id = resolve_unit_id(api, revision_id, unit_key, verb="verify")
+        unit_id = reads.resolve_unit_id(api, revision_id, unit_key, verb="verify")
         if unit_id is None:
             return 1
 

@@ -1,7 +1,8 @@
 import httpx
+import pytest
 import yaml
 
-from intent_packages.factory import journey
+from intent_packages.factory import journey, reads
 from intent_packages.factory.api import OrchestratorApi
 from intent_packages.factory.orchestrator_cli import OrchestratorCliError
 
@@ -131,7 +132,17 @@ def test_submit_reports_orchestrator_cli_errors_cleanly(tmp_path, capsys):
 def _fake_api(**overrides):
     class FakeApi:
         def get_intake(self, revision_id):
-            return {"id": revision_id, "state": "intaken", "acceptance_criteria": []}
+            # Real `PackageIntakeResponse` field names -- there is no `state`.
+            return {
+                "id": revision_id,
+                "package_id": "probe",
+                "revision": 1,
+                "source_repository": "AlobarQuest/probe",
+                "status_at_intake": "approved",
+                "intake_source": "review_form",
+                "profile": "software-delivery",
+                "acceptance_criteria": [],
+            }
 
         def list_proposals(self, revision_id):
             return [{"id": "p1", "state": "approved"}]
@@ -378,15 +389,20 @@ def test_units_for_derives_flat_unit_dicts_with_pr_when_present():
                         "authority_approved_by": "devon",
                         "authority_decision": "approved",
                     },
-                    "pr": {"number": 7, "state": "open"},
+                    # The REAL `TraceabilityPrHop`: `{pr_number, head_sha}` and
+                    # nothing else. This fixture used to say
+                    # `{"number": 7, "state": "open"}` -- a shape production
+                    # never sends, in the same repo where three defects had
+                    # already come from fixtures calibrated to invented shapes.
+                    "pr": {"pr_number": 7, "head_sha": "abc1234def"},
                 },
             ],
         }
 
-    units = journey.units_for(_fake_api(traceability=traceability), "r1")
+    units = reads.units_for(_fake_api(traceability=traceability), "r1")
     assert [u["unit_key"] for u in units] == ["k1", "k2"]
     assert "pr" not in units[0]
-    assert units[1]["pr"] == {"number": 7, "state": "open"}
+    assert units[1]["pr"] == {"pr_number": 7, "head_sha": "abc1234def"}
 
 
 def test_status_drives_a_real_api_with_the_expected_methods_and_paths(capsys):
@@ -407,14 +423,61 @@ def test_status_drives_a_real_api_with_the_expected_methods_and_paths(capsys):
     fidelity was proving the opposite of what it claimed. Both routes below
     now return bare arrays, non-empty, so `_print_proposals`/`_print_units`
     actually render real content sourced from the real shape -- not just
-    avoid crashing on an empty list either way."""
+    avoid crashing on an empty list either way.
+
+    A2: that fix was applied to the two ARRAY routes and the intake route was
+    left fictional -- `{"id": "r1", "state": "intaken"}`, where
+    `PackageIntakeResponse` has no `state` field at all. The canary therefore
+    kept vouching for the one line that printed `None` on every production run.
+    The intake body below is the real schema's required-field set, taken from
+    the live openapi.json, and the assertions read the fields that exist."""
     seen = []
 
     def handler(request):
         path = request.url.path
         seen.append((request.method, path))
         if path == "/api/v1/package-intakes/r1":
-            return httpx.Response(200, json={"id": "r1", "state": "intaken"})
+            # Every REQUIRED property of `PackageIntakeResponse`, in the real
+            # spelling. `state` is deliberately absent because the schema has
+            # no such field -- adding it back would restore the fiction.
+            return httpx.Response(
+                200,
+                json={
+                    "id": "r1",
+                    "package_id": "wsp29-probe",
+                    "source_repository": "AlobarQuest/intent-packages",
+                    "revision": 1,
+                    "content_hash": "sha256:abc",
+                    "source_path": "packages/wsp29-probe",
+                    "source_commit": "deadbeef",
+                    "approved_by": "devon",
+                    "approved_at": "2026-07-29T00:00:00Z",
+                    "approval_event_id": "ev-1",
+                    "approval_ledger_commit": None,
+                    "profile": "software-delivery",
+                    "status_at_intake": "approved",
+                    "intake_source": "review_form",
+                    "verification_mode": None,
+                    "verification_limitations": None,
+                    "enforcement_snapshot": {},
+                    "authority_fingerprint": "fp-rev",
+                    "authority": None,
+                    "follow_up": None,
+                    "registry_version": 1,
+                    "registered_by": "devon",
+                    "registered_at": "2026-07-29T00:00:00Z",
+                    "acceptance_criteria": [
+                        {
+                            "id": "11111111-1111-1111-1111-111111111111",
+                            "ac_id": "AC-001",
+                            "condition": "the named check passes",
+                            "evidence_type": "automated_check",
+                            "evidence": "a GitHub named check on the PR head",
+                            "approver": "policy",
+                        }
+                    ],
+                },
+            )
         if path == "/api/v1/package-intakes/r1/decomposition-proposals":
             return httpx.Response(200, json=[{"id": "p1", "state": "pending"}])
         if path == "/api/v1/traceability":
@@ -428,6 +491,7 @@ def test_status_drives_a_real_api_with_the_expected_methods_and_paths(capsys):
                             "unit": {
                                 "id": "u1",
                                 "unit_key": "bump-fastapi",
+                                "title": "Update fastapi",
                                 "state": "ready",
                                 "authority_fingerprint": "fp1",
                                 "authority_approved_by": "devon",
@@ -439,7 +503,17 @@ def test_status_drives_a_real_api_with_the_expected_methods_and_paths(capsys):
                 },
             )
         if path == "/api/v1/work-units/u1/history":
-            return httpx.Response(200, json=[{"action": "unit.claimed", "payload": {}, "id": "e1"}])
+            return httpx.Response(
+                200,
+                json=[
+                    {"action": "unit.claimed", "payload": {}, "id": "e1"},
+                    {
+                        "action": "dispatch.dispatched",
+                        "payload": {"runner_attempt": 2, "dispatch_record_id": "d-2"},
+                        "id": "e2",
+                    },
+                ],
+            )
         raise AssertionError(f"unexpected request: {request.method} {path}")
 
     api = OrchestratorApi(
@@ -455,4 +529,193 @@ def test_status_drives_a_real_api_with_the_expected_methods_and_paths(capsys):
     assert ("GET", "/api/v1/work-units/u1/history") in seen
     out = capsys.readouterr().out
     assert "p1: pending" in out
-    assert "history: 1 event(s) recorded" in out
+    # A2: real intake fields, rendered. `None` anywhere on this line would mean
+    # the client is reading a field the schema does not have.
+    assert "intake r1: package 'wsp29-probe' revision 1" in out
+    assert "status_at_intake='approved'" in out
+    assert "intake_source='review_form'" in out
+    assert "None" not in out
+    # C2: spec §3's latest dispatch ordinal, from the same single history read.
+    assert "dispatch: latest ordinal 2" in out
+
+
+def test_status_names_the_real_revision_not_a_placeholder(capsys, monkeypatch):
+    """C3. The two next-action lines that name a command used to emit a literal
+    `<rev>` -- so the "front door" printed a command the operator had to
+    hand-edit, using an id `status` was already holding. Asserted for BOTH of
+    them (draft-with-authority -> `factory ready`, ready -> `factory dispatch`)."""
+    monkeypatch.delenv("FACTORY_REVISION", raising=False)
+
+    def traceability(*, revision_id=None, work_unit_id=None):
+        return {
+            "anchor": {"kind": "revision"},
+            "chains": [
+                {
+                    "unit": {
+                        "id": "u1",
+                        "unit_key": "k1",
+                        "state": "draft",
+                        "authority_fingerprint": "fp1",
+                        "authority_approved_by": "devon",
+                        "authority_decision": "approved",
+                    },
+                    "pr": None,
+                },
+                {
+                    "unit": {
+                        "id": "u2",
+                        "unit_key": "k2",
+                        "state": "ready",
+                        "authority_fingerprint": "fp2",
+                        "authority_approved_by": "devon",
+                        "authority_decision": "approved",
+                    },
+                    "pr": None,
+                },
+            ],
+        }
+
+    rc = journey.status("rev-abc-123", api=_fake_api(traceability=traceability))
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "<rev>" not in out
+    assert "factory ready --revision rev-abc-123 --unit-key k1" in out
+    assert "factory dispatch --revision rev-abc-123 --unit-key k2" in out
+
+
+# `orchestrator/kernel/states.py::WorkUnitState`, read from the orchestrator's
+# own tree. This test's whole job is to fail when that enum grows a member the
+# CLI's table does not name, so it is spelled out rather than derived.
+ALL_WORK_UNIT_STATES = (
+    "draft",
+    "ready",
+    "claimed",
+    "executing",
+    "blocked",
+    "awaiting_approval",
+    "submitted",
+    "verifying",
+    "awaiting_review",
+    "revision_required",
+    "completed",
+    "failed",
+    "cancelled",
+)
+
+
+def test_the_next_action_table_names_every_work_unit_state():
+    """C3. The table used to cover 2 of 13 states -- and `submitted`, the state
+    `factory verify` exists for, was not one of them; everything else fell into
+    a bare `state <x>: <link>`."""
+    assert set(journey._STATE_NEXT_ACTIONS) | {"draft"} == set(ALL_WORK_UNIT_STATES)
+
+
+@pytest.mark.parametrize("state", ALL_WORK_UNIT_STATES)
+def test_every_state_gets_an_actionable_or_honestly_empty_line(state, capsys):
+    """Every state must produce a line that either names a runnable command, a
+    browser link, or says plainly that there is nothing to do -- and none may
+    leak a `{...}` placeholder from the template."""
+
+    def traceability(*, revision_id=None, work_unit_id=None):
+        return {
+            "anchor": {"kind": "revision"},
+            "chains": [
+                {
+                    "unit": {
+                        "id": "u1",
+                        "unit_key": "k1",
+                        "state": state,
+                        "authority_fingerprint": "fp1",
+                        "authority_approved_by": None,
+                        "authority_decision": None,
+                    },
+                    "pr": None,
+                }
+            ],
+        }
+
+    assert journey.status("rev-1", api=_fake_api(traceability=traceability)) == 0
+    line = next(
+        raw.strip()
+        for raw in capsys.readouterr().out.splitlines()
+        if raw.strip().startswith("next:")
+    )
+    assert "{" not in line and "}" not in line
+    assert "<rev>" not in line
+    assert any(
+        marker in line
+        for marker in ("factory ", "/review/units/u1", "nothing to do", "in progress")
+    ), line
+
+
+def test_an_unknown_state_says_the_client_is_behind(capsys):
+    """A state the orchestrator adds later must not silently render as an empty
+    next action -- the line has to say the table is stale and still give a link."""
+
+    def traceability(*, revision_id=None, work_unit_id=None):
+        return {
+            "anchor": {"kind": "revision"},
+            "chains": [
+                {
+                    "unit": {
+                        "id": "u1",
+                        "unit_key": "k1",
+                        "state": "quiesced",
+                        "authority_fingerprint": "fp1",
+                        "authority_approved_by": None,
+                        "authority_decision": None,
+                    },
+                    "pr": None,
+                }
+            ],
+        }
+
+    assert journey.status("rev-1", api=_fake_api(traceability=traceability)) == 0
+    out = capsys.readouterr().out
+    assert "not a known WorkUnitState" in out
+    assert "/review/units/u1" in out
+
+
+# -- the authority-approval line: both branches ------------------------------
+
+
+def test_status_reports_who_recorded_the_authority_approval(capsys):
+    """B3. This line is the ONLY output distinguishing a real authority approval
+    from the generic `/review` action button -- the exact failure mode the
+    next-action logic exists for -- and it could be inverted with no test
+    failing: both branches contain the word "authority", which was all the two
+    existing tests asserted."""
+    rc = journey.status("r1", api=_fake_api())
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "authority approved by devon (fp1)" in out
+    assert "no authority approval recorded" not in out
+
+
+def test_status_reports_a_missing_authority_approval_as_missing(capsys):
+    """The other half of B3: with `authority_decision` absent, the line must say
+    so and must NOT claim an approver."""
+
+    def traceability(*, revision_id=None, work_unit_id=None):
+        return {
+            "anchor": {"kind": "revision"},
+            "chains": [
+                {
+                    "unit": {
+                        "id": "u1",
+                        "unit_key": "k1",
+                        "state": "draft",
+                        "authority_fingerprint": "fp1",
+                        "authority_approved_by": None,
+                        "authority_decision": None,
+                    },
+                    "pr": None,
+                }
+            ],
+        }
+
+    rc = journey.status("r1", api=_fake_api(traceability=traceability))
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "no authority approval recorded" in out
+    assert "authority approved by" not in out
