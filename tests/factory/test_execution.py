@@ -113,7 +113,7 @@ def test_next_runner_attempt_is_one_when_never_dispatched():
     assert execution.next_runner_attempt(0, 0) == 1
 
 
-# -- _scan_dispatch_events (the single history scan) -------------------------
+# -- reads.scan_dispatch_events (the single history scan) -------------------------
 
 
 def test_scan_dispatch_events_reads_the_action_field_not_type():

@@ -260,7 +260,7 @@ def test_history_returns_the_bare_array_body_not_a_wrapped_dict():
 def test_history_rejects_a_non_array_body():
     """Fix round 2/5. Between fix rounds 1 and 2, `history()` was routed
     through the plain `_get`, which let a malformed (non-array) body reach
-    `_scan_dispatch_events` untyped -- it iterates a dict's KEYS, and
+    `scan_dispatch_events` untyped -- it iterates a dict's KEYS, and
     `event.get("action", "")` then raised a raw `AttributeError: 'str' object
     has no attribute 'get'`. `_get_list` must raise a clean `ApiError`
     instead, before that code is ever reached."""

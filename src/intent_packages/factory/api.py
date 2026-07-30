@@ -191,7 +191,7 @@ class OrchestratorApi:
         """The route's body is a bare JSON array (`response_model=list[EventResponse]`
         on the orchestrator side), not `{"events": [...]}` -- routed through
         `_get_list`, which raises a clean `ApiError` on a non-array body (fix
-        round 2/5: a malformed body used to reach `_scan_dispatch_events`
+        round 2/5: a malformed body used to reach `reads.scan_dispatch_events`
         untyped and raise a raw `AttributeError` iterating a dict's keys)."""
         return self._get_list(f"/api/v1/work-units/{unit_id}/history")
 

@@ -11,7 +11,7 @@ and `execution.py`, and `execution` imports `journey` -- so every attempt to
 share one more of them pushed code INTO the read/report module that the
 lifecycle-writing module depends on. Two duplications had already appeared:
 `_unit_id_for_key` existed byte-identically in both files, and
-`journey.evidence` reimplemented `execution.resolve_unit_id` -- the function
+`journey.evidence` reimplemented what is now `resolve_unit_id` here -- the function
 that had been made public specifically to be shared -- down to a near-identical
 error string. `journey.py`, `execution.py` and `verify.py` now all import from
 here and none imports another.
