@@ -373,30 +373,7 @@ def create(
     created_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     resolved_title = title or package_id.replace("-", " ").replace("_", " ").title()
     package = render_package(profile, package_id, resolved_title, owner, created_at)
-    lineage_doc = render_lineage(package_id, created_at)
-    lineage_doc["revisions"][0]["hash"] = canonical.package_hash(package)
-
-    with tempfile.TemporaryDirectory(prefix="factory-create-") as staging:
-        staged = Path(staging) / package_id
-        staged.mkdir()
-        (staged / "package.yaml").write_text(
-            _render_package_yaml(package, profile), encoding="utf-8"
-        )
-        write_lineage(staged, lineage_doc)
-
-        errors = validate_package(staged)
-        if errors:
-            print(f"create: the {profile_name} scaffold failed validation:", file=sys.stderr)
-            for error in errors:
-                print(f"  {error}", file=sys.stderr)
-            print(f"create: nothing was written to {pkg_dir}", file=sys.stderr)
-            return 1
-
-        pkg_dir.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(staged), str(pkg_dir))
-
-    print(f"created {pkg_dir}")
-    return 0
+    return _materialize(profile, package, pkg_dir)
 
 
 READINESS_SCHEMA = "portfolio-readiness/v1"
