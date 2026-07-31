@@ -1,0 +1,23 @@
+package_id: wsp221-orchestrator-certification
+current_state: approved
+revisions:
+- revision: 1
+  hash: 6838eaf2eb9f44ffdeeb298f093584974757d09b420c0b3ddf37355259f8b13f
+  created_at: '2026-07-31T22:12:06Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-07-31T22:16:04.542813+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-07-31T22:16:04.542813+00:00'
+  actor: claude-code-interactive
+  event_id: evt-f0d767c333d34decaf5854010195e675
+approvals:
+- revision: 1
+  approved_hash: 6838eaf2eb9f44ffdeeb298f093584974757d09b420c0b3ddf37355259f8b13f
+  approver: devon
+  approved_at: '2026-07-31T22:16:04.734166+00:00'
+  commit: 2f09de2d166fad1ee92ed98876a0df4537690090
+  event_id: evt-331400487cd14846a9677046e0dc3d65
+grants: []

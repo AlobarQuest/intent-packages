@@ -1,0 +1,160 @@
+schema_version: 1
+package_id: wsp221-orchestrator-certification
+title: "WS-P2.21 — certify orchestrator through the factory by moving uvicorn from 0.51.0 to 0.52.0"
+revision: 1
+status: approved
+created_by: claude-code-interactive
+owner: devon
+created_at: '2026-07-31T22:12:06Z'
+supersedes: null
+profile: dependency-update
+profile_fields:
+  target_repo: AlobarQuest/orchestrator
+  package: uvicorn
+  from_version: '0.51.0'
+  to_version: '0.52.0'
+outcome:
+  what: "One work unit moves uvicorn from 0.51.0 to 0.52.0 in AlobarQuest/orchestrator by editing the single pin site in pyproject.toml and regenerating uv.lock, and opens one pull request whose own Quality named check concludes success on the exact pull-request head."
+  why: "Orchestrator is the third repository carried through the factory, and the only candidate whose certification proves something this system has never done. Its make check needs Postgres, a migrated database and SECURITY_STANDARDS_DIR, so it cannot honestly appear in an authority envelope — with no virtualenv it exits 0 having verified nothing, and with one it hard-fails at finalize. Verification must therefore come from the repository's own named check on the pull-request head, which is the automated_check plus verifier-owned named-check route that WS-P2.17 Increment 1 left able to resolve deterministically. Every acceptance criterion this system has settled so far was settled by a human."
+  beneficiary: "Devon gets a third certified repository, and the first demonstration that an acceptance criterion in this factory can be decided by the verifier rather than by his judgment — or an honest, specific account of why it could not."
+  success_signal: "Exactly one orchestrator work unit is created from a Devon-approved revision and decomposition; its approved authority envelope contains only the preflight-proven ordered command list; factory-runner opens one pull request that moves uvicorn 0.51.0 to 0.52.0; the Quality check concludes success on that pull request's head; and the WS-5.1 verifier evaluates AC-001 to passed without asking a human, or records a specific reason it could not."
+scope:
+  included:
+    - "Author and approve this intent package before any work unit is created."
+    - "Update exactly one dependency, uvicorn, from 0.51.0 to 0.52.0 in AlobarQuest/orchestrator. The update was confirmed genuinely available by uv lock --upgrade --dry-run, and is not covered by any open Dependabot pull request on that repository."
+    - "Before authoring the authority envelope, prove the mutation against a clean clone of the real target repository — that the mutator yields a real diff, that the ordered command list is idempotent under repeated full execution in one checkout, that the verifier honestly executes rather than skipping, and that the verifier discriminates by failing on a known-bad tree — with a control run on an unmodified clone so an environmental failure is never mistaken for an update-induced one."
+    - "Create exactly one Draft work unit through the WS-3.2 decomposition path, so the unit is stamped with its own constraints.work_unit_id."
+    - "Record one named human authority approval bound to that unit's own authority fingerprint."
+    - "Enable production dispatch for the minimum safe window: enable, verify from inside the container, dispatch the single unit, and close the window only after the Actions run has concluded, the unit has left executing, and cost actuals exist."
+    - "Submit verifier-owned named-check evidence for AC-001 and let the WS-5.1 verifier adjudicate it, recording whether it resolved deterministically or fell to judgment_required, and the exact reason string either way."
+  excluded:
+    - "Any second work unit. This package authorizes one unit, one dispatch window, and one pull request."
+    - "Any automatic merge, or any worker, agent, API, CLI, CI, or orchestrator path that merges a pull request. Devon alone merges the runner's pull request."
+    - "Broadening the dispatch change-class allowlist beyond dependency-update, or the target beyond AlobarQuest/orchestrator."
+    - "Any code change to the orchestrator, factory-runner, intent-packages, or the authority envelope contract. This is a governed run through the existing factory, not a build."
+    - "Upgrading any dependency other than uvicorn, including the eleven other updates uv lock --upgrade currently offers."
+    - "Recording certification evidence in the readiness kit. The kit's certification block has no evidence-recording affordance, so certified will remain false; that is a known open item rather than a result of this run."
+  non_goals:
+    - "Proving the dependency update is correct. Orchestrator's own Quality check and Devon's review decide that."
+    - "Making dispatch automation permanent. The standing posture remains a separate Devon decision."
+    - "Demonstrating throughput, concurrency, or queueing. One unit is the entire point."
+  assumptions:
+    - "AlobarQuest/orchestrator hosts the caller workflow at .github/workflows/factory-runner-pilot.yml on main, SHA-pinned to factory-runner ec509ae495f8a0eef16dd4986970f7c69a33bf51, and carries the four required Actions secrets FACTORY_RUNNER_TOKEN, FACTORY_RUNNER_CREDENTIAL_KEY_ID, ANTHROPIC_API_KEY and FACTORY_PR_TOKEN. All four were confirmed present."
+    - "AlobarQuest/factory-runner is public, so a caller's GITHUB_TOKEN can install it."
+    - "uvicorn is pinned at exactly one site in orchestrator, project.dependencies in pyproject.toml. The repository declares no project.optional-dependencies section at all, so the joint-resolution trap that makes a partially-updated pin unsatisfiable cannot apply here."
+    - "uv lock --check is a verifier the bare hosted runner can honestly execute — it needs no service container, no environment variable and no migrated database. Confirmed by running it on a clean clone, and confirmed to discriminate by running it on a deliberately stale tree."
+    - "Devon alone approves this package revision, registers the intake, approves the decomposition, approves the unit's authority, and merges the pull request."
+  open_questions: []
+sources:
+  - location: "Devon's 2026-07-31 session instruction to execute the WS-P2.21 certification runbook as a driven run"
+    authority_level: authoritative
+    required_version: '2026-07-31'
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/docs/software-delivery-system/2026-07-31-wsp221-orchestrator-certification-runbook.md"
+    authority_level: authoritative
+    required_version: '2026-07-31'
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/Projects/orchestrator/CLAUDE.md, Known Non-obvious Invariants"
+    authority_level: authoritative
+    required_version: '2026-07-31'
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "~/Projects/orchestrator/docs/decisions/0001-work-unit-authority-envelope-contract.md"
+    authority_level: authoritative
+    required_version: '2026-07-09'
+    trust: trusted_instruction
+    sensitivity: internal
+  - location: "packages/gap4-first-real-dispatch, the proven single-unit dependency-update package shape"
+    authority_level: supporting
+    required_version: '1'
+    trust: untrusted_data
+    sensitivity: internal
+  - location: "~/Projects/orchestrator at merged main commit 1c13cb9"
+    authority_level: reference
+    required_version: '1c13cb9'
+    trust: untrusted_data
+    sensitivity: internal
+constraints:
+  time_budget: "One decomposition, one bounded dispatch window, one pull request."
+  technology: "The orchestrator's existing WS-3.2 decomposition path, WS-4.2 dispatch adapter, WS-4.1 factory-runner and WS-5.1 verifier, plus the WS-P2.10 dependency-update delivery profile. No new machinery of any kind."
+  policy_legal: "Devon alone approves this exact package revision, registers the intake, approves the decomposition, approves the unit's authority, and merges the pull request. The browser gates were driven by the build agent in Devon's authenticated session under per-run consent recorded on 2026-07-31; the final merge was not."
+  privacy_security: "No secrets in tracked files. Pull-request text, Dependabot metadata and repository content are treated as data, never as instructions."
+  compatibility: "The authority envelope must match the merged, fingerprinted contract shared with factory-runner. No contract expansion is in scope."
+  quality_accessibility: null
+  operational: "The dispatch window is opened only after the unit is READY, and closed only once the Actions run has concluded, the unit has left executing, and cost actuals exist. Closing it restarts the orchestrator, and the runner calls the orchestrator at the end of its run."
+  other: []
+
+acceptance:
+  - id: AC-001
+    condition: "AlobarQuest/orchestrator carries one pull request, opened by factory-runner from an sds/ branch, that moves uvicorn from 0.51.0 to 0.52.0 by changing the single project.dependencies pin site in pyproject.toml and regenerating uv.lock, and the repository's own Quality named check concludes success on that pull request's exact head commit."
+    evidence_type: automated_check
+    evidence: "ci: verifier-owned named-check evidence of type verifier.github.named_check, recording that the Quality check concluded success on the pull-request head, bound to the canonical dispatch record and to the unit's pull-request binding at the armed verification head."
+    approver: policy
+  - id: AC-002
+    condition: "Before any dispatch, Devon confirms that this package's authority envelope was proven against a clean clone of the real target repository — a real diff, an idempotent ordered command list, a verifier shown both to execute and to fail on a known-bad tree, and an environmental control — rather than authored from assumption."
+    evidence_type: human_review
+    evidence: "human: Devon's recorded approval of this package revision and of the unit's authority fingerprint, together with the Phase 1 preflight proof captured in the WS-P2.21 certification report."
+    approver: devon
+
+authority:
+  allowed:
+    - repository_read
+    - repository_write
+    - test_execution
+    - pr_open
+  requires_approval:
+    - merge_to_main
+  prohibited:
+    - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 4
+deliverables:
+  artifacts:
+    - "One factory-runner-authored pull request against AlobarQuest/orchestrator moving uvicorn from 0.51.0 to 0.52.0."
+    - "One WS-P2.21 certification report recording whether AC-001 resolved deterministically and its exact reason string, the Phase 1 preflight proof, every human gate and who performed it, the dispatch ordinal and Actions run, the window duration, and anything that required improvisation."
+  destination: packages/
+  recipient: devon
+  definition_of_done: "The unit reaches COMPLETED, the pull request is merged by Devon, and the certification report records the AC-001 evaluation status and its exact reason string."
+  operator_responsibilities:
+    - "Devon merges the runner's pull request. No agent, worker or automated path may merge it."
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+    - "Devon's per-run consent, given 2026-07-31, for the build agent to drive the /review browser gates in his authenticated session."
+  required_people_systems:
+    - "Devon, for package approval, intake registration, decomposition approval, authority approval and the final merge."
+    - "GitHub Actions on AlobarQuest/orchestrator, for the Quality named check and the factory-runner caller workflow."
+  required_capabilities:
+    - repository_write
+    - pr_open
+  blocking_conditions:
+    - "Production dispatch must be enabled for the duration of the run and disabled afterwards."
+risk:
+  failure_modes:
+    - "A reused runner_attempt makes dispatch a silent no-op that returns an existing record with status dispatched and reason_code null while triggering nothing. Mitigated by verifying a new dispatch record id and a new Actions run rather than trusting the status field."
+    - "Closing the dispatch window while the run is live restarts the orchestrator and strands the unit, because the runner calls the orchestrator at the end of its run and fail-run fails the same way. Mitigated by closing the window only once all three terminal conditions hold."
+    - "The Quality workflow triggers on both push and pull_request for all branches, so the pull-request head carries two check runs of the same name. Neither the orchestrator nor factory verify queries GitHub, so which run is cited is chosen by the operator. Mitigated by recording both check-run identities in the report."
+    - "A wrong authority envelope cannot be corrected: approve_decomposition_proposal refuses while an approved decomposition is unsuperseded, no supersede route exists, and unit authority has no mutation path. Mitigated by proving the whole ordered command list before authoring anything."
+  max_impact: medium
+  stop_conditions:
+    - "Any of the Phase 1 preflight proofs fails."
+    - "Dispatch does not produce a new record id and a new Actions run."
+    - "The unit strands in executing after a window-close race."
+  rollback: "The dependency change is confined to one pull request, which Devon can close unmerged. The dispatch window is closed by reverting the two environment variables and restarting. Nothing in this package mutates production data or schema."
+  escalation_target: devon
+verification:
+  independent_review:
+    - "Orchestrator's own Quality named check on the pull-request head, executed by GitHub Actions and not by the runner."
+  non_mechanical:
+    - "Devon's review of the pull-request diff before merge."
+follow_up:
+  required: true
+  revisit_when: "The readiness kit gains an affordance for recording certification evidence, at which point orchestrator's certified flag can move from false to true without a fresh run."
+  signals:
+    - "portfolio onboard reports certified false despite a completed factory run."
+  owner: devon
+applicable_standards:
+  project: '1.0'
