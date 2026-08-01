@@ -40,7 +40,13 @@ from intent_packages import checks_semantic, profiles, registry
 from intent_packages.loader import LoadError, load_package
 from intent_packages.schema import TOP_SCHEMA, _scan_forbidden_types, _walk
 
-RESERVED_TOP_LEVEL = frozenset({"profile", "profile_fields"})
+# Top-level keys the universal TOP_SCHEMA does not describe but a package may still carry.
+# `reach` (WS-P2.18, orchestrator ADR-0009) declares what the work touches when it runs; its
+# MEMBERSHIP is owned by the orchestrator (`reach_vocabulary.py`) and deliberately not enumerated
+# here. Two copies of one vocabulary is the drift the orchestrator has paid for three times, and
+# both failure directions are already loud: a member the orchestrator does not know fails intake
+# with a named error, and a key this repo does not accept fails right here.
+RESERVED_TOP_LEVEL = frozenset({"profile", "profile_fields", "reach"})
 
 TRUST_VALUES = frozenset({"trusted_instruction", "untrusted_data"})
 EVIDENCE_TYPES = frozenset(
@@ -75,6 +81,23 @@ def _check_k_and_j(pkg: object, errors: list[str]) -> None:
         errors.append("profile: expected str")
     if "profile_fields" in pkg and not isinstance(pkg["profile_fields"], dict):
         errors.append("profile_fields: expected a mapping")
+
+
+def _check_reach(pkg: dict, errors: list[str]) -> None:
+    """Check RE: `reach`, when present, must be a non-empty list of non-empty strings.
+
+    SHAPE ONLY. An author gets the mistyped-field answer here, one step before intake; the
+    orchestrator answers "is that a real reach value".
+    """
+    if "reach" not in pkg:
+        return
+    reach = pkg["reach"]
+    if not isinstance(reach, list) or not reach:
+        errors.append("reach: expected a non-empty list of reach values")
+        return
+    for i, item in enumerate(reach):
+        if not isinstance(item, str) or not item.strip():
+            errors.append(f"reach[{i}]: expected a non-empty string")
 
 
 def _check_package_id(pkg: dict, pkg_dir: Path, errors: list[str]) -> None:
@@ -207,6 +230,7 @@ def validate_package(pkg_dir: str | Path) -> list[str]:
     _scan_forbidden_types(pkg, "", errors)
     if isinstance(pkg, dict):
         _check_package_id(pkg, pkg_dir, errors)
+        _check_reach(pkg, errors)
         _check_trust(pkg, errors)
         _check_acceptance(pkg, errors)
         _check_scalar_formats(pkg, errors)

@@ -142,3 +142,34 @@ def test_unregistered_agent_approver_is_rejected(
     )
     errs = validate_package(valid_package)
     assert any("approver" in e and "registered" in e for e in errs)
+
+
+def test_reach_is_an_accepted_top_level_key(valid_package, edit_yaml):
+    # WS-P2.18 / orchestrator ADR-0009. Without this, a package declaring its reach fails
+    # validation as an unknown key and the field is undeclarable -- decoration, not a contract.
+    edit_yaml(valid_package, "package.yaml", set_raw='reach: ["source_repository"]')
+    assert validate_package(valid_package) == []
+
+
+def test_a_membership_error_in_reach_is_left_to_the_orchestrator(valid_package, edit_yaml):
+    # This repo checks SHAPE only. Enumerating the members here would be a second copy of a
+    # vocabulary whose single source of truth is the orchestrator's `reach_vocabulary`.
+    edit_yaml(valid_package, "package.yaml", set_raw='reach: ["nowhere_in_particular"]')
+    assert validate_package(valid_package) == []
+
+
+def test_a_misshapen_reach_is_reported_here(valid_package, edit_yaml):
+    edit_yaml(valid_package, "package.yaml", set_raw="reach: source_repository")
+    assert any("reach:" in e for e in validate_package(valid_package))
+
+
+def test_an_empty_reach_list_is_reported_here(valid_package, edit_yaml):
+    # An empty list would read as "reaches nothing", the most permissive claim available. An
+    # author who means that omits the key.
+    edit_yaml(valid_package, "package.yaml", set_raw="reach: []")
+    assert any("reach:" in e for e in validate_package(valid_package))
+
+
+def test_a_blank_reach_entry_is_reported_here(valid_package, edit_yaml):
+    edit_yaml(valid_package, "package.yaml", set_raw='reach: ["  "]')
+    assert any("reach[0]:" in e for e in validate_package(valid_package))
