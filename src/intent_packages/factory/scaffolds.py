@@ -245,7 +245,20 @@ def render_package(
             "destination": "packages/",
             "recipient": owner,
             "definition_of_done": "Describe what must be true for this package to be done.",
-            "operator_responsibilities": [],
+            # Pre-filled rather than empty: an empty list invites the author to reproduce the
+            # merge language of whatever prior package they last read, and nine existing packages
+            # carry a production-era rule ("Devon alone merges", "no agent may merge it") stated as
+            # operator IDENTITY. Identity is posture and posture is modal, so those sentences went
+            # stale the moment the merge rules were scoped to production. State the constraint on
+            # the RECORD instead, which does not change with mode. Edit or remove this line if it
+            # does not apply; do not restate it as a rule about who acts.
+            "operator_responsibilities": [
+                "A merge into a production system must trace to recorded permission - either "
+                "express permission given at the time of the merge, or a standing "
+                "pre-authorization - recorded as evidence bound to this work unit. A merge that "
+                "cannot be traced to one of those is a defect, whoever performed it. Outside "
+                "production this constraint does not apply."
+            ],
         },
         "dependencies": {
             "predecessor_packages": [],
