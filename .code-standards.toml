@@ -3,3 +3,5 @@ template_set = "v1"
 baseline = []
 
 [tool_versions]
+ruff = "0.15.22"
+pyright = "1.1.411"
