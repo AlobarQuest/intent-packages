@@ -55,7 +55,7 @@ def test_create_through_the_entrypoint(tmp_path):
     from intent_packages.factory_cli import main
 
     rc = main(
-        ["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)]
+        ["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path), "--reach", "source_repository"]
     )
     assert rc == 0
     assert (tmp_path / "probe" / "package.yaml").exists()
@@ -64,7 +64,7 @@ def test_create_through_the_entrypoint(tmp_path):
 def test_validate_through_the_entrypoint(tmp_path):
     from intent_packages.factory_cli import main
 
-    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path), "--reach", "source_repository"])
     assert main(["validate", str(tmp_path / "probe")]) == 0
 
 
@@ -75,7 +75,7 @@ def test_validate_reports_an_invalid_package_as_a_failure(tmp_path, capsys):
     validated. Exit 1, and the validator's own errors on stderr."""
     import yaml
 
-    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path), "--reach", "source_repository"])
     package_path = tmp_path / "probe" / "package.yaml"
     document = yaml.safe_load(package_path.read_text())
     del document["acceptance"]
@@ -92,7 +92,7 @@ def test_validate_reports_an_invalid_package_as_a_failure(tmp_path, capsys):
 def test_validate_accepts_the_package_yaml_path_as_well_as_the_directory(tmp_path, capsys):
     """`validate` takes "a package directory or its package.yaml"; the happy path
     was only ever exercised with the directory."""
-    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path), "--reach", "source_repository"])
     capsys.readouterr()
     assert main(["validate", str(tmp_path / "probe" / "package.yaml")]) == 0
     assert "valid" in capsys.readouterr().out
@@ -181,7 +181,7 @@ def _approved_package_dir(tmp_path):
     both files (intake requires `status == current_state == approved`)."""
     import yaml
 
-    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path), "--reach", "source_repository"])
     for name, key in (("package.yaml", "status"), ("lineage.yaml", "current_state")):
         path = tmp_path / "probe" / name
         document = yaml.safe_load(path.read_text())
@@ -254,7 +254,7 @@ def test_submit_through_the_entrypoint_refuses_an_unapproved_package(tmp_path, c
     reach `emit_intake_payload`, and the operator gets the `intent_packages`
     commands that would fix it."""
     _patch_submit_boundaries(monkeypatch)
-    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path), "--reach", "source_repository"])
     capsys.readouterr()
 
     rc = main(

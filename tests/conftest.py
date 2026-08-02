@@ -14,6 +14,7 @@ package_id: sample-valid-package
 title: "A sample valid intent package"
 revision: 1
 status: draft
+reach: ["source_repository"]
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-03T00:00:00Z"
@@ -98,6 +99,7 @@ package_id: sample-software-delivery-package
 title: "A sample software-delivery profile package"
 revision: 1
 status: draft
+reach: ["source_repository"]
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-03T00:00:00Z"
@@ -188,6 +190,7 @@ package_id: sample-infrastructure-change-package
 title: "A sample infrastructure-change profile package"
 revision: 1
 status: draft
+reach: ["source_repository"]
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-03T00:00:00Z"
@@ -275,6 +278,7 @@ package_id: sample-dependency-update-package
 title: "A sample dependency-update profile package"
 revision: 1
 status: draft
+reach: ["source_repository"]
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-03T00:00:00Z"
@@ -367,6 +371,7 @@ package_id: sample-maintenance-remediation-package
 title: "A sample maintenance-remediation profile package"
 revision: 1
 status: draft
+reach: ["source_repository"]
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-03T00:00:00Z"
@@ -458,6 +463,7 @@ package_id: sample-non-software-operational-package
 title: "A sample non-software-operational profile package"
 revision: 1
 status: draft
+reach: ["source_repository"]
 created_by: claude-code-interactive
 owner: devon
 created_at: "2026-07-03T00:00:00Z"

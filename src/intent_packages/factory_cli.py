@@ -55,6 +55,16 @@ def _build_parser() -> argparse.ArgumentParser:
     c.add_argument("--owner", default="devon")
     c.add_argument("--title", default="", help="package title (default: derived from --name)")
     c.add_argument(
+        "--reach",
+        default="",
+        help=(
+            "comma-separated list of what this work TOUCHES when it runs, e.g. "
+            "source_repository,live_estate. Required: the orchestrator refuses to admit work "
+            "whose reach nobody declared, and it is declared by the author, never inferred. "
+            "The vocabulary is the orchestrator's (reach_vocabulary.py)"
+        ),
+    )
+    c.add_argument(
         "--from-readiness",
         dest="from_readiness",
         default="",
@@ -199,8 +209,23 @@ def _run_create(args: argparse.Namespace) -> int:
             "create: --profile and --name are required (unless --from-readiness)", file=sys.stderr
         )
         return 2
+    reach = tuple(value.strip() for value in args.reach.split(",") if value.strip())
+    if not reach:
+        # Refused here rather than defaulted. A scaffold that picked a reach would be a
+        # declaration made by a tool and attributed to the author, which is the one thing
+        # ADR-0009 says this field must never be.
+        print(
+            "create: --reach is required — declare what this work touches when it runs",
+            file=sys.stderr,
+        )
+        return 2
     return scaffolds.create(
-        args.profile, args.package_id, args.out, owner=args.owner, title=args.title
+        args.profile,
+        args.package_id,
+        args.out,
+        reach=reach,
+        owner=args.owner,
+        title=args.title,
     )
 
 

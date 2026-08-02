@@ -10,7 +10,14 @@ from intent_packages.validate import validate_package
 # existed (verified 2026-07-04, pre-Task-1). If this ever changes, something
 # touched the universal envelope, the hash algorithm, or the fixture — all
 # three are AC-002 violations.
-_LOCKED_VALID_PACKAGE_HASH = "d49794b97c1b930de2150fa7258f0a806df586d9d4c73ed401069d9ba65e7c77"
+#
+# CHANGED ONCE, DELIBERATELY, 2026-08-01 (WS-P2.18 Increment 4): the fixture gained a `reach`
+# declaration, because a package still being authored must now carry one. The old value was
+# d49794b97c1b930de2150fa7258f0a806df586d9d4c73ed401069d9ba65e7c77. That `reach` moves this hash
+# at all is the point rather than a nuisance — it IS the hashed intent core, which is why the
+# twenty-four already-approved packages cannot be backfilled: adding the key to one invalidates
+# the lineage approval bound to its hash.
+_LOCKED_VALID_PACKAGE_HASH = "7df21a22cd1ef11b2e21857feca202078614e5c6e300d122aa7e0efa46d54c42"
 
 
 def test_universal_only_package_is_unaffected_by_check_p(valid_package):

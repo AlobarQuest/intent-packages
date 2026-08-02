@@ -83,13 +83,32 @@ def _check_k_and_j(pkg: object, errors: list[str]) -> None:
         errors.append("profile_fields: expected a mapping")
 
 
+# The states a package passes through before it is approved, and the boundary at which `reach`
+# becomes mandatory (WS-P2.18 Increment 4). Keyed on the lifecycle rather than on a date because a
+# date is a boundary a package authored before it still satisfies afterwards: every package reaches
+# `approved` THROUGH one of these, so requiring it here is a requirement no new package can miss.
+# The twenty-four packages authored before the key existed are all `approved` or later and their
+# YAML is hashed into lineage approvals, so this asks nothing of them -- which is the point. They
+# are exempt because they are finished, not because they are old.
+PRE_APPROVAL_STATES = frozenset({"draft", "needs_clarification", "ready_for_review"})
+
+
 def _check_reach(pkg: dict, errors: list[str]) -> None:
-    """Check RE: `reach`, when present, must be a non-empty list of non-empty strings.
+    """Check RE: `reach` must be declared before approval, and must be a list of strings.
 
     SHAPE ONLY. An author gets the mistyped-field answer here, one step before intake; the
-    orchestrator answers "is that a real reach value".
+    orchestrator answers "is that a real reach value" against the vocabulary it owns.
+
+    The orchestrator refuses to admit work whose reach nobody declared, so a package that reaches
+    approval without one is a package that cannot run. Failing here means the author learns that
+    while the file is still editable -- afterwards it is not, because approval hashes it.
     """
     if "reach" not in pkg:
+        if pkg.get("status") in PRE_APPROVAL_STATES:
+            errors.append(
+                "reach: missing required key — declare what this work touches when it runs "
+                "(the orchestrator refuses to admit work with no declared reach)"
+            )
         return
     reach = pkg["reach"]
     if not isinstance(reach, list) or not reach:
