@@ -2,11 +2,12 @@ import pytest
 import yaml
 
 from intent_packages.factory import scaffolds
-
-# Every scaffold must declare what its work touches; `create` refuses without it (WS-P2.18 Increment 4).
-REACH = ("source_repository",)
 from intent_packages.profiles import PROFILES
 from intent_packages.validate import validate_package
+
+# Every scaffold must declare what its work touches; `create` refuses without it
+# (WS-P2.18 Increment 4).
+REACH = ("source_repository",)
 
 
 @pytest.mark.parametrize("profile_name", sorted(PROFILES))

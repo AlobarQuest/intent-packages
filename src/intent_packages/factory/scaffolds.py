@@ -478,9 +478,7 @@ def create_from_readiness(
     # readiness-derived package is onboarding remediation, whose deliverable is pull requests
     # against one repository. That is a declaration made by the author of the template, not an
     # inference from the input -- the input cannot vary the answer.
-    package = render_package(
-        profile, resolved_id, title, owner, created_at, ("source_repository",)
-    )
+    package = render_package(profile, resolved_id, title, owner, created_at, ("source_repository",))
     package["profile_fields"] = {
         "repo": repo,
         "remediation_source": (
