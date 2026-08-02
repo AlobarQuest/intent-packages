@@ -1,5 +1,4 @@
 import httpx
-import pytest
 
 from intent_packages.factory import verify as verify_module
 from intent_packages.factory.api import ApiError, OrchestratorApi
@@ -146,54 +145,6 @@ def _fake_api(**overrides):
     return api
 
 
-# -- parse_assertion / build_assertions (pure functions) ---------------------
-
-
-def test_parse_assertion():
-    assert verify_module.parse_assertion("collected=295:295") == {
-        "name": "collected",
-        "expected": "295",
-        "observed": "295",
-    }
-
-
-def test_parse_assertion_rejects_a_malformed_value():
-    with pytest.raises(ValueError):
-        verify_module.parse_assertion("collected")
-
-
-def test_assertions_are_capped_at_32():
-    with pytest.raises(ValueError):
-        verify_module.build_assertions([f"n{i}=1:1" for i in range(33)])
-
-
-def test_build_assertions_rejects_an_empty_list():
-    """Fix round 1/5, Important 1. `assertions` has `minItems: 1` on
-    `VerifierNamedCheckEvidenceCommandModel` -- the documented minimum
-    invocation (no `--assert` at all) must refuse locally, not sail through
-    to a 422 after three wasted reads."""
-    with pytest.raises(ValueError, match="at least 1"):
-        verify_module.build_assertions([])
-
-
-def test_build_assertions_rejects_a_duplicate_name():
-    """Fix round 1/5, Minor 9. The server's own evaluator rejects a repeated
-    assertion name (`services/verifier_evaluators.py::_named_check_result`);
-    refusing it locally saves the same round trip."""
-    with pytest.raises(ValueError, match="duplicate"):
-        verify_module.build_assertions(["a=1:1", "a=2:2"])
-
-
-def test_build_assertions_parses_every_value():
-    assert verify_module.build_assertions(["a=1:1", "b=x:y"]) == [
-        {"name": "a", "expected": "1", "observed": "1"},
-        {"name": "b", "expected": "x", "observed": "y"},
-    ]
-
-
-# -- verify: the named-check body is fully derived ---------------------------
-
-
 def test_named_check_body_is_fully_derived():
     """`dispatch_id`/`repository` come from the latest `dispatch.dispatched`
     event, NOT from `evidence_pack` (the brief's now-corrected table); `pr_number`
@@ -220,10 +171,7 @@ def test_named_check_body_is_fully_derived():
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="https://github.com/AlobarQuest/brain/actions/runs/99",
-        assertions=["collected=295:295"],
+        expected_conclusion="success",
         api=_fake_api(named_check=named_check, verify=verify_call),
     )
     assert rc == 0
@@ -237,9 +185,14 @@ def test_named_check_body_is_fully_derived():
     assert body["work_package_revision_id"] == "r1"
     assert body["expected_version"] == 5
     assert body["check_name"] == "Quality"
-    assert body["conclusion"] == "success"
-    assert body["run_id"] == "99"
-    assert body["assertions"] == [{"name": "collected", "expected": "295", "observed": "295"}]
+    assert body["expected_conclusion"] == "success"
+    # WS-P2.20: the body carries CLAIMS only. There is no field for what the check
+    # concluded or which run produced it -- the orchestrator reads both from GitHub
+    # at ingestion, so a caller cannot supply both halves of the comparison.
+    assert "conclusion" not in body
+    assert "run_id" not in body
+    assert "run_url" not in body
+    assert "assertions" not in body
     assert seen["verify"]["expected_version"] == 5
 
 
@@ -259,10 +212,7 @@ def test_named_check_uses_the_armed_head_sha_when_it_agrees_with_the_current_one
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(named_check=named_check),
     )
     assert rc == 0
@@ -300,10 +250,7 @@ def test_refuses_when_head_has_diverged_since_submit(capsys):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(in_flight_units=in_flight_units),
     )
     assert rc == 1
@@ -325,10 +272,7 @@ def test_refuses_when_never_dispatched(capsys):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(history=history),
     )
     assert rc == 1
@@ -344,10 +288,7 @@ def test_refuses_a_unit_that_is_not_in_flight(capsys):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(in_flight_units=in_flight_units),
     )
     assert rc == 1
@@ -382,10 +323,7 @@ def test_missing_pr_binding_is_an_actionable_refusal(capsys):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(in_flight_units=in_flight_units),
     )
     assert rc == 1
@@ -422,10 +360,7 @@ def test_refuses_a_unit_in_a_non_verifiable_state(capsys):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(in_flight_units=in_flight_units),
     )
     assert rc == 1
@@ -441,10 +376,7 @@ def test_unknown_unit_key_lists_the_real_ones(capsys):
         "nope",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(),
     )
     assert rc == 1
@@ -454,19 +386,13 @@ def test_unknown_unit_key_lists_the_real_ones(capsys):
 
 
 def test_requires_a_revision_when_none_given(monkeypatch, capsys):
-    """`assertions=[]` here is fine even though `build_assertions` now refuses
-    an empty list: revision resolution is checked FIRST and returns before
-    `build_assertions` is ever called."""
     monkeypatch.delenv("FACTORY_REVISION", raising=False)
     rc = verify_module.verify(
         "",
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=[],
+        expected_conclusion="success",
         api=_fake_api(),
     )
     assert rc == 2
@@ -484,89 +410,11 @@ def test_reports_api_errors_cleanly(capsys):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(named_check=named_check),
     )
     assert rc == 1
     assert "verify failed: named_check_binding_mismatch" in capsys.readouterr().err
-
-
-def test_rejects_too_many_assertions_before_any_network_call():
-    seen = {}
-
-    def named_check(unit_id, payload):
-        seen["called"] = True
-        return {"id": "e1"}
-
-    rc = verify_module.verify(
-        "r1",
-        "bump-fastapi",
-        ac_id="AC-001",
-        check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=[f"n{i}=1:1" for i in range(33)],
-        api=_fake_api(named_check=named_check),
-    )
-    assert rc == 1
-    assert "called" not in seen
-
-
-def test_rejects_empty_assertions_before_any_network_call(capsys):
-    seen = {}
-
-    def named_check(unit_id, payload):
-        seen["called"] = True
-        return {"id": "e1"}
-
-    def history(unit_id):
-        seen["history_called"] = True
-        return []
-
-    rc = verify_module.verify(
-        "r1",
-        "bump-fastapi",
-        ac_id="AC-001",
-        check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=[],
-        api=_fake_api(named_check=named_check, history=history),
-    )
-    assert rc == 1
-    assert "called" not in seen
-    assert "history_called" not in seen
-    assert "at least 1" in capsys.readouterr().err
-
-
-def test_rejects_duplicate_assertion_names_before_any_network_call():
-    seen = {}
-
-    def named_check(unit_id, payload):
-        seen["called"] = True
-        return {"id": "e1"}
-
-    rc = verify_module.verify(
-        "r1",
-        "bump-fastapi",
-        ac_id="AC-001",
-        check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["a=1:1", "a=2:2"],
-        api=_fake_api(named_check=named_check),
-    )
-    assert rc == 1
-    assert "called" not in seen
-
-
-# -- verify: prints the outcomes ---------------------------------------------
 
 
 def test_verify_prints_one_line_per_evaluation(capsys):
@@ -575,10 +423,7 @@ def test_verify_prints_one_line_per_evaluation(capsys):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(),
     )
     assert rc == 0
@@ -619,10 +464,7 @@ def test_refuses_when_the_dispatch_event_has_no_record_id(capsys):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(history=_history_missing("dispatch_record_id"), named_check=named_check),
     )
     assert rc == 1
@@ -645,10 +487,7 @@ def test_refuses_when_the_dispatch_event_has_no_target_repository(capsys):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(history=_history_missing("target_repository"), named_check=named_check),
     )
     assert rc == 1
@@ -685,10 +524,7 @@ def _run_verify(api, capsys=None):
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=api,
     )
 
@@ -777,10 +613,7 @@ def test_refuses_an_ac_whose_evidence_type_is_not_automated_check(capsys):
         "bump-fastapi",
         ac_id="AC-002",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(named_check=named_check),
     )
     assert rc == 1
@@ -823,10 +656,7 @@ def test_refuses_an_ac_that_is_not_on_the_revision_at_all(capsys):
         "bump-fastapi",
         ac_id="AC-999",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(),
     )
     assert rc == 1
@@ -847,10 +677,7 @@ def test_the_ac_precheck_message_admits_what_it_cannot_see(capsys):
         "bump-fastapi",
         ac_id="AC-002",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(),
     )
     assert rc == 1
@@ -899,10 +726,7 @@ def test_named_check_is_posted_before_verify():
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="u",
-        assertions=["ok=true:true"],
+        expected_conclusion="success",
         api=_fake_api(named_check=named_check, verify=verify_call),
     )
     assert rc == 0
@@ -1017,10 +841,7 @@ def test_verify_over_the_real_api_with_production_wire_shapes():
         "bump-fastapi",
         ac_id="AC-001",
         check_name="Quality",
-        conclusion="success",
-        run_id="99",
-        run_url="https://github.com/AlobarQuest/brain/actions/runs/99",
-        assertions=["collected=295:295"],
+        expected_conclusion="success",
         api=api,
     )
     assert rc == 0

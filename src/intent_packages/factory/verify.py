@@ -23,7 +23,7 @@ orchestrator's own tree:
 | `pr_number`, `head_sha`, `expected_version`, `work_package_revision_id` | `in-flight-units` (2) |
 | `pr_url` | composed: `https://github.com/{repository}/pull/{pr_number}` |
 | `ac_id` | `--ac`, the human string (e.g. `AC-001`), never the criterion UUID |
-| `check_name`, `conclusion`, `run_id`, `run_url`, `assertions` | CLI flags |
+| `check_name`, `expected_conclusion` | CLI flags (a claim, not a report) |
 
 (1) `reads.latest_dispatched_payload`, reading `dispatch_record_id` and
 `target_repository` off the event's `payload`.
@@ -73,8 +73,6 @@ from intent_packages.factory.reads import (
     resolve_revision,
 )
 
-MAX_ASSERTIONS = 32
-
 # The ONLY `evidence_type` for which `evaluate_criterion` routes to the
 # named-check evaluator (`services/verifier_evaluators.py`). Every other type,
 # including the deceptively-named `automated_test`, resolves to
@@ -110,40 +108,6 @@ class VerifyApi(RevisionApi, InFlightApi, Protocol):
     def verify(self, unit_id: str, payload: dict, /) -> dict: ...
 
 
-def parse_assertion(text: str) -> dict:
-    """Parse `name=expected:observed` into a `NamedCheckAssertionModel` body."""
-    name, separator, rest = text.partition("=")
-    expected, colon, observed = rest.partition(":")
-    if not (separator and colon and name and expected and observed):
-        raise ValueError(f"assertion must be name=expected:observed, got {text!r}")
-    return {"name": name, "expected": expected, "observed": observed}
-
-
-def build_assertions(values: list[str]) -> list[dict]:
-    """Parse every `--assert` value.
-
-    Refuses fewer than 1 or more than 32 -- the schema's `minItems`/`maxItems`
-    (`NamedCheckAssertionModel` list on `VerifierNamedCheckEvidenceCommandModel`).
-    The documented minimum invocation is `--assert` at least once; omitting it
-    entirely used to sail through this function, make all three reads, build a
-    payload with an empty `assertions` list, and only then take a 422 from the
-    server -- fixed here instead of at the network boundary. Also refuses a
-    duplicate assertion name: the server's own evaluator rejects a repeated
-    name too (`services/verifier_evaluators.py::_named_check_result`), so this
-    is the same local-refusal-over-round-trip trade as the count checks.
-    """
-    if not values:
-        raise ValueError("at least 1 assertion is required (got 0) -- pass --assert at least once")
-    if len(values) > MAX_ASSERTIONS:
-        raise ValueError(f"at most {MAX_ASSERTIONS} assertions, got {len(values)}")
-    parsed = [parse_assertion(value) for value in values]
-    names = [item["name"] for item in parsed]
-    if len(set(names)) != len(names):
-        duplicates = sorted({name for name in names if names.count(name) > 1})
-        raise ValueError(f"duplicate assertion name(s): {', '.join(duplicates)}")
-    return parsed
-
-
 def _derive_named_check_payload(
     api: VerifyApi,
     unit_id: str,
@@ -151,10 +115,7 @@ def _derive_named_check_payload(
     *,
     ac_id: str,
     check_name: str,
-    conclusion: str,
-    run_id: str,
-    run_url: str,
-    parsed_assertions: list[dict],
+    expected_conclusion: str,
 ) -> dict | None:
     """Derive the named-check body (minus `idempotency_key`), or print a named
     refusal and return `None`.
@@ -229,10 +190,7 @@ def _derive_named_check_payload(
         "pr_url": f"https://github.com/{repository}/pull/{pr_number}",
         "head_sha": armed_head_sha,
         "check_name": check_name,
-        "conclusion": conclusion,
-        "run_id": run_id,
-        "run_url": run_url,
-        "assertions": parsed_assertions,
+        "expected_conclusion": expected_conclusion,
         "expected_version": snapshot.get("version"),
     }
 
@@ -243,10 +201,7 @@ def verify(
     *,
     ac_id: str,
     check_name: str,
-    conclusion: str,
-    run_id: str,
-    run_url: str,
-    assertions: list[str],
+    expected_conclusion: str,
     api: VerifyApi | None = None,
     verbose: bool = False,
 ) -> int:
@@ -269,12 +224,6 @@ def verify(
         return 2
 
     try:
-        parsed_assertions = build_assertions(assertions)
-    except ValueError as error:
-        print(f"verify failed: {error}", file=sys.stderr)
-        return 1
-
-    try:
         refusal = _ac_evidence_type_refusal(api, revision_id, ac_id)
         if refusal is not None:
             print(f"verify failed: {refusal}", file=sys.stderr)
@@ -290,10 +239,7 @@ def verify(
             revision_id,
             ac_id=ac_id,
             check_name=check_name,
-            conclusion=conclusion,
-            run_id=run_id,
-            run_url=run_url,
-            parsed_assertions=parsed_assertions,
+            expected_conclusion=expected_conclusion,
         )
         if payload is None:
             return 1

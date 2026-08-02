@@ -134,26 +134,15 @@ def test_verify_delegates_to_verify_module(monkeypatch):
             "AC-001",
             "--check-name",
             "Quality",
-            "--conclusion",
+            "--expected-conclusion",
             "success",
-            "--run-id",
-            "99",
-            "--run-url",
-            "https://github.com/x/y/actions/runs/99",
-            "--assert",
-            "collected=295:295",
-            "--assert",
-            "passed=true:true",
         ]
     )
     assert rc == 0
     assert seen["args"] == ("r1", "bump-fastapi")
     assert seen["kwargs"]["ac_id"] == "AC-001"
     assert seen["kwargs"]["check_name"] == "Quality"
-    assert seen["kwargs"]["conclusion"] == "success"
-    assert seen["kwargs"]["run_id"] == "99"
-    assert seen["kwargs"]["run_url"] == "https://github.com/x/y/actions/runs/99"
-    assert seen["kwargs"]["assertions"] == ["collected=295:295", "passed=true:true"]
+    assert seen["kwargs"]["expected_conclusion"] == "success"
     assert "repository" not in seen["kwargs"]
 
 
@@ -168,12 +157,8 @@ def test_verify_rejects_an_unknown_conclusion():
                 "AC-001",
                 "--check-name",
                 "Quality",
-                "--conclusion",
+                "--expected-conclusion",
                 "stale",
-                "--run-id",
-                "99",
-                "--run-url",
-                "u",
             ]
         )
 
@@ -388,12 +373,8 @@ def test_revision_falls_back_to_the_environment(command, monkeypatch):
             "AC-001",
             "--check-name",
             "Q",
-            "--conclusion",
+            "--expected-conclusion",
             "success",
-            "--run-id",
-            "1",
-            "--run-url",
-            "u",
         ]
     assert main(argv) == 2
 
@@ -526,12 +507,8 @@ def test_verbose_reaches_verify(monkeypatch):
                 "AC-001",
                 "--check-name",
                 "Q",
-                "--conclusion",
+                "--expected-conclusion",
                 "success",
-                "--run-id",
-                "1",
-                "--run-url",
-                "u",
             ]
         )
     assert seen == [True]

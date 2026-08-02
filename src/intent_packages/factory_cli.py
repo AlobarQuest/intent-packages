@@ -120,12 +120,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     vf.add_argument("--check-name", dest="check_name", required=True)
     vf.add_argument(
-        "--conclusion",
+        # WS-P2.20: a CLAIM, not a report. The orchestrator reads what the check
+        # actually concluded from GitHub at ingestion and refuses (`failed_closed`)
+        # when this diverges from it -- so this value can be wrong, and being wrong
+        # is now detectable. It used to be `--conclusion`, which the caller supplied
+        # alongside a self-agreeing `--assert` pair, and nothing could disagree.
+        "--expected-conclusion",
+        dest="expected_conclusion",
         required=True,
-        # Confirmed against the live openapi.json, not the brief's guess (which
-        # listed an 8th value, "stale", that does not exist on
-        # VerifierNamedCheckEvidenceCommandModel.conclusion):
-        # `curl -s https://sds.alobar.net/openapi.json | python3 -c "...['conclusion']['enum']"`
         choices=(
             "success",
             "failure",
@@ -136,18 +138,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "skipped",
         ),
     )
-    vf.add_argument("--run-id", dest="run_id", required=True)
-    vf.add_argument("--run-url", dest="run_url", required=True)
+    # No --run-id/--run-url: the orchestrator resolves the run that produced the
+    # check itself, so a caller cannot point the evidence at a different run.
     # No --repository override: the ingestion guard requires the payload's
     # repository to equal both the unit's authority target_repository and the
     # dispatch record's, so the derived value is the only one that can pass.
-    vf.add_argument(
-        "--assert",
-        dest="assertions",
-        action="append",
-        default=[],
-        metavar="NAME=EXPECTED:OBSERVED",
-    )
+    # No --assert: the field it fed could not fail. Every one of the 11 rows in
+    # production had expected == observed on every assertion, and the names used
+    # (collected_tests, ruff_pin_both_sites, vitest_pin_moved) are unobservable
+    # from any GitHub API -- so there was nothing a server-side `observed` could
+    # have been filled from.
     return parser
 
 
@@ -292,10 +292,7 @@ def _run_verify(args: argparse.Namespace) -> int:
         args.unit_key,
         ac_id=args.ac_id,
         check_name=args.check_name,
-        conclusion=args.conclusion,
-        run_id=args.run_id,
-        run_url=args.run_url,
-        assertions=args.assertions,
+        expected_conclusion=args.expected_conclusion,
         verbose=args.verbose,
     )
 
