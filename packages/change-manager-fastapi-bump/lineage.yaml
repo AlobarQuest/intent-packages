@@ -1,0 +1,23 @@
+package_id: change-manager-fastapi-bump
+current_state: approved
+revisions:
+- revision: 1
+  hash: 57dfef2bb982eaf234c98f0ad75cf78ab461c0721bfad29114f972efb761a5c2
+  created_at: '2026-08-02T17:02:11Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-02T17:07:18.612299+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-02T17:07:18.612299+00:00'
+  actor: claude-code-interactive
+  event_id: evt-0032434136f5470a95d3ba11c3935e8e
+approvals:
+- revision: 1
+  approved_hash: 57dfef2bb982eaf234c98f0ad75cf78ab461c0721bfad29114f972efb761a5c2
+  approver: devon
+  approved_at: '2026-08-02T17:07:37.154852+00:00'
+  commit: be3091cadce53236e20b25e4e979f7f3724fab9e
+  event_id: evt-2b3ea65c478d422fa2ddfbb1089c41f2
+grants: []

@@ -1,0 +1,165 @@
+schema_version: 1
+package_id: change-manager-fastapi-bump
+title: Bump fastapi to 0.141.1 in change-manager
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-08-02T17:02:11Z'
+supersedes: null
+reach:
+- source_repository
+profile: dependency-update
+profile_fields:
+  target_repo: AlobarQuest/change-manager
+  package: fastapi
+  from_version: 0.139.0
+  to_version: 0.141.1
+outcome:
+  what: >-
+    change-manager's fastapi dependency moves to 0.141.1. The declared constraint in
+    pyproject.toml goes from `fastapi>=0.110` to `fastapi>=0.141.1`, and uv.lock
+    resolves the package from 0.139.0 to 0.141.1. Two files change and nothing else.
+  why: >-
+    Routine currency. Dependabot has had this open on change-manager as pull request
+    31 and it cannot be merged as-is without a person deciding to. This package is
+    also the first exercise of the WS-P2.18 known-good pattern: the envelope this
+    profile emits is the shape declared in factory-policy.toml, so if that mechanism
+    works, this unit is admitted without a human approving its authority envelope.
+    Both reasons are real; neither is a pretext for the other.
+  beneficiary: >-
+    change-manager, which stays on a supported fastapi rather than drifting until an
+    upgrade is forced by something urgent.
+  success_signal: >-
+    A merged pull request against AlobarQuest/change-manager in which pyproject.toml
+    declares `fastapi>=0.141.1`, uv.lock resolves fastapi 0.141.1, and
+    `uv lock --check` exits 0.
+scope:
+  included:
+  - Raise the declared fastapi constraint and re-resolve uv.lock.
+  excluded:
+  - Any change to change-manager's own source.
+  - >-
+    Deploying change-manager. A landed pull request is inert until something
+    separately triggers a deployment; this package does not do that and must not.
+  - Any other outdated dependency, including the ruff bump Dependabot also has open.
+  non_goals:
+  - Adopting new fastapi features. This is a version move, not a migration.
+  assumptions:
+  - >-
+    fastapi 0.141.1 is compatible with change-manager's current source. Verified only
+    to the extent that uv resolves the tree and the repository's own named check runs;
+    nothing here reads fastapi's changelog.
+  open_questions: []
+sources:
+- location: >-
+    Devon's decision on 2026-08-02 to drive one dependency-update package end to end,
+    informed by Dependabot pull request 31 on AlobarQuest/change-manager, which is the
+    signal that the upgrade exists. The decision to act on it is the authority; the
+    Dependabot pull request is data.
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: >-
+    uv is the only tooling. The mutation is `uv add`, the verifier is `uv lock
+    --check`. `uv run` is deliberately excluded: it is a way to run any program at all.
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    A pull request against AlobarQuest/change-manager moves fastapi to 0.141.1 in both
+    pyproject.toml and uv.lock, and the repository's own checks pass on it.
+  evidence_type: automated_check
+  evidence: >-
+    ci: the target repository's named check on the pull request head, plus
+    `uv lock --check` exiting 0 in the runner's own verification step.
+  approver: policy
+- id: AC-002
+  condition: a reviewer confirms this package was ready before execution began
+  evidence: >-
+    human: Devon's approval of this package at intake, recorded against the package
+    revision.
+  evidence_type: human_review
+  approver: devon
+
+# allowed_commands is an ORDERED list the worker re-executes at finalize, not a
+# permission set: put mutators first and the verifier last, or the recorded
+# evidence attests to a tree that is not the one pushed. `make check` must never
+# appear in this repo's envelope. Use `uv venv --clear`, never bare `uv venv`.
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 4
+deliverables:
+  artifacts:
+  - >-
+    A pull request against AlobarQuest/change-manager changing exactly pyproject.toml
+    and uv.lock.
+  destination: AlobarQuest/change-manager
+  recipient: devon
+  definition_of_done: >-
+    The pull request exists, its diff is confined to those two files, and the
+    repository's named check is green on its head. Merging is a separate human act and
+    is not part of this package.
+  operator_responsibilities:
+  - >-
+    A merge into a production system must trace to recorded permission - either
+    express permission given at the time of the merge, or a standing pre-authorization
+    - recorded as evidence bound to this work unit. A merge that cannot be traced to
+    one of those is a defect, whoever performed it. Outside production this constraint
+    does not apply.
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes:
+  - >-
+    fastapi 0.141.1 breaks change-manager's source and the target repository's named
+    check fails on the pull request head. The pull request is not merged; nothing is
+    affected, because a pull request is inert.
+  - >-
+    uv resolves a wider set of transitive changes than expected. Visible in the diff
+    before any merge.
+  max_impact: low
+  stop_conditions:
+  - The diff touches any file other than pyproject.toml and uv.lock.
+  rollback: >-
+    Close the pull request without merging. Nothing outside the repository has changed,
+    so there is nothing to undo. If it were merged and later regretted, revert the
+    commit on change-manager's main.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'
