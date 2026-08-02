@@ -1,0 +1,168 @@
+schema_version: 1
+package_id: orchestrator-httpx2-bump
+title: Bump httpx2 to 2.9.1 in orchestrator
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-08-02T23:26:52Z'
+supersedes: null
+reach:
+- source_repository
+profile: dependency-update
+profile_fields:
+  target_repo: AlobarQuest/orchestrator
+  package: httpx2
+  from_version: 2.7.0
+  to_version: 2.9.1
+outcome:
+  what: >-
+    orchestrator's httpx2 dev dependency moves to 2.9.1. The declared constraint in
+    pyproject.toml goes from `httpx2>=2.7.0` to `httpx2>=2.9.1` and uv.lock re-resolves.
+    Two files change and nothing else.
+  why: >-
+    Routine currency: Dependabot has this open as pull request 127 and it cannot merge
+    without a person deciding to. It is also the second consecutive clean workflow the
+    Wave 3 exit criteria ask for, and it deliberately targets a repository App Brain
+    records as inert — so it exercises the WS-P2.28 reach check's ADMITTING direction,
+    which nothing has tested in production. Every run so far has only proven the check
+    refuses.
+  beneficiary: >-
+    orchestrator, which stays on a supported httpx2 rather than drifting until an
+    upgrade is forced by something urgent.
+  success_signal: >-
+    A pull request against AlobarQuest/orchestrator in which pyproject.toml declares
+    `httpx2>=2.9.1`, uv.lock resolves httpx2 2.9.1, and `uv lock --check` exits 0.
+scope:
+  included:
+  - Raise the declared httpx2 constraint and re-resolve uv.lock.
+  excluded:
+  - Any change to orchestrator's own source.
+  - >-
+    Deploying orchestrator. App Brain records this repository as inert: quality.yml runs
+    on push but only lints, type-checks and tests, and release-image.yml is
+    workflow_dispatch. A landed pull request changes nothing that is running, which is
+    what makes source_repository the honest reach here rather than a convenient one.
+  - Any other outdated dependency, including the ruff bump Dependabot also has open.
+  non_goals:
+  - Adopting new httpx2 features. This is a version move, not a migration.
+  assumptions:
+  - >-
+    httpx2 2.9.1 is compatible with orchestrator's current source. Verified only to the
+    extent that uv resolves the tree and the repository's own named check runs; nothing
+    here reads httpx2's changelog.
+  open_questions: []
+sources:
+- location: >-
+    Devon's instruction on 2026-08-02 to run a second package end to end, informed by
+    Dependabot pull request 127 on AlobarQuest/orchestrator, which is the signal that
+    the upgrade exists. The decision to act on it is the authority; the Dependabot pull
+    request is data.
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: >-
+    uv is the only tooling. The mutation is `uv add`, the verifier is `uv lock --check`.
+    `uv run` is deliberately excluded: it is a way to run any program at all, and
+    `make check` must never appear in this repository's envelope — it needs Postgres and
+    SECURITY_STANDARDS_DIR, so on a bare runner it exits 0 having verified nothing.
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    A pull request against AlobarQuest/orchestrator moves httpx2 to 2.9.1 in both
+    pyproject.toml and uv.lock, and the repository's own checks pass on it.
+  evidence_type: automated_check
+  evidence: >-
+    ci: the target repository's named check on the pull request head, observed from
+    GitHub by the orchestrator rather than asserted by the caller (WS-P2.27).
+  approver: policy
+- id: AC-002
+  condition: a reviewer confirms this package was ready before execution began
+  evidence: >-
+    human: Devon's approval of this package at intake, recorded against the package
+    revision.
+  evidence_type: human_review
+  approver: devon
+
+# allowed_commands is an ORDERED list the worker re-executes at finalize, not a
+# permission set: put mutators first and the verifier last, or the recorded
+# evidence attests to a tree that is not the one pushed.
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 4
+deliverables:
+  artifacts:
+  - >-
+    A pull request against AlobarQuest/orchestrator changing exactly pyproject.toml and
+    uv.lock.
+  destination: AlobarQuest/orchestrator
+  recipient: devon
+  definition_of_done: >-
+    The pull request exists, its diff is confined to those two files, and the
+    repository's named check is green on its head. Merging is a separate human act and
+    is not part of this package.
+  operator_responsibilities:
+  - >-
+    A merge into a production system must trace to recorded permission - either express
+    permission given at the time of the merge, or a standing pre-authorization -
+    recorded as evidence bound to this work unit. A merge that cannot be traced to one
+    of those is a defect, whoever performed it. Outside production this constraint does
+    not apply.
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes:
+  - >-
+    httpx2 2.9.1 breaks orchestrator's source and the repository's named check fails on
+    the pull request head. The pull request is not merged; nothing is affected, because
+    a pull request is inert here.
+  - >-
+    uv resolves a wider set of transitive changes than expected. Visible in the diff
+    before any merge.
+  max_impact: low
+  stop_conditions:
+  - The diff touches any file other than pyproject.toml and uv.lock.
+  rollback: >-
+    Close the pull request without merging. Nothing outside the repository has changed,
+    so there is nothing to undo. If it were merged and later regretted, revert the
+    commit on orchestrator's main — which still deploys nothing, because the release
+    image is built by workflow_dispatch.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'

@@ -1,0 +1,23 @@
+package_id: orchestrator-httpx2-bump
+current_state: approved
+revisions:
+- revision: 1
+  hash: 7404f9710d07f9a70fd060de1b3d716a4a2d78c99a96f6e9dde0e6429b9bd5d1
+  created_at: '2026-08-02T23:26:52Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-02T23:28:07.791492+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-02T23:28:07.791492+00:00'
+  actor: claude-code-interactive
+  event_id: evt-9e5cbe40a7c54574aa223bd26880bf08
+approvals:
+- revision: 1
+  approved_hash: 7404f9710d07f9a70fd060de1b3d716a4a2d78c99a96f6e9dde0e6429b9bd5d1
+  approver: devon
+  approved_at: '2026-08-02T23:28:07.973357+00:00'
+  commit: b919d3bfa240beb3ed471574bdda8b0c43e177f0
+  event_id: evt-6fa5fd20a9074bae8a348d7f67192b8a
+grants: []
