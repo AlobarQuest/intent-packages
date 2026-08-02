@@ -91,7 +91,7 @@ def test_a_hung_emit_intake_payload_is_reported_by_submit_not_raised(tmp_path, c
 
     from intent_packages.factory import journey, scaffolds
 
-    scaffolds.create("software-delivery", "probe", str(tmp_path))
+    scaffolds.create("software-delivery", "probe", str(tmp_path), reach=("source_repository",))
     for name, key in (("package.yaml", "status"), ("lineage.yaml", "current_state")):
         path = tmp_path / "probe" / name
         document = yaml.safe_load(path.read_text())

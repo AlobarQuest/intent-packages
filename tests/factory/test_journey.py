@@ -20,7 +20,7 @@ class FakeClient:
 def _approved_package(tmp_path):
     from intent_packages.factory import scaffolds
 
-    scaffolds.create("software-delivery", "probe", str(tmp_path))
+    scaffolds.create("software-delivery", "probe", str(tmp_path), reach=("source_repository",))
     package_path = tmp_path / "probe" / "package.yaml"
     document = yaml.safe_load(package_path.read_text())
     document["status"] = "approved"
@@ -35,7 +35,7 @@ def _approved_package(tmp_path):
 def test_submit_refuses_an_unapproved_package(tmp_path, capsys):
     from intent_packages.factory import scaffolds
 
-    scaffolds.create("software-delivery", "probe", str(tmp_path))
+    scaffolds.create("software-delivery", "probe", str(tmp_path), reach=("source_repository",))
     rc = journey.submit(str(tmp_path / "probe"), "AlobarQuest/probe", client=FakeClient({}))
     assert rc == 1
     out = capsys.readouterr()

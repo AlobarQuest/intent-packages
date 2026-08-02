@@ -24,6 +24,7 @@ import json
 import shutil
 import sys
 import tempfile
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -178,6 +179,7 @@ def render_package(
     title: str,
     owner: str,
     created_at: str,
+    reach: Sequence[str],
 ) -> dict:
     """Build the complete package.yaml document for one registered profile.
 
@@ -196,6 +198,11 @@ def render_package(
         "owner": owner,
         "created_at": created_at,
         "supersedes": None,
+        # WS-P2.18: what this work touches when it runs. Passed in rather than defaulted, because
+        # the orchestrator refuses to admit work whose reach nobody declared and a scaffold that
+        # guessed would be that declaration -- made by a tool, attributed to the author, and
+        # unread. There is no value this function could pick that is honest for every package.
+        "reach": list(reach),
         "profile": profile.name,
         "profile_fields": _profile_fields(profile),
         "outcome": {
@@ -351,6 +358,7 @@ def create(
     package_id: str,
     out_dir: str,
     *,
+    reach: Sequence[str],
     owner: str = "devon",
     title: str = "",
 ) -> int:
@@ -385,7 +393,7 @@ def create(
 
     created_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     resolved_title = title or package_id.replace("-", " ").replace("_", " ").title()
-    package = render_package(profile, package_id, resolved_title, owner, created_at)
+    package = render_package(profile, package_id, resolved_title, owner, created_at, reach)
     return _materialize(profile, package, pkg_dir)
 
 
@@ -466,7 +474,11 @@ def create_from_readiness(
     profile = PROFILES["maintenance-remediation"]
     created_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     title = f"Onboarding remediation: {repo}"
-    package = render_package(profile, resolved_id, title, owner, created_at)
+    # Declared once here, in code, for a package shape this function fully controls: every
+    # readiness-derived package is onboarding remediation, whose deliverable is pull requests
+    # against one repository. That is a declaration made by the author of the template, not an
+    # inference from the input -- the input cannot vary the answer.
+    package = render_package(profile, resolved_id, title, owner, created_at, ("source_repository",))
     package["profile_fields"] = {
         "repo": repo,
         "remediation_source": (

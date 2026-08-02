@@ -1,4 +1,6 @@
-from intent_packages.validate import validate_package
+import pytest
+
+from intent_packages.validate import PRE_APPROVAL_STATES, validate_package
 
 
 def test_valid_package_has_no_errors(valid_package):
@@ -147,29 +149,65 @@ def test_unregistered_agent_approver_is_rejected(
 def test_reach_is_an_accepted_top_level_key(valid_package, edit_yaml):
     # WS-P2.18 / orchestrator ADR-0009. Without this, a package declaring its reach fails
     # validation as an unknown key and the field is undeclarable -- decoration, not a contract.
-    edit_yaml(valid_package, "package.yaml", set_raw='reach: ["source_repository"]')
+    edit_yaml(valid_package, "package.yaml", set_key=("reach", ["source_repository"]))
     assert validate_package(valid_package) == []
 
 
 def test_a_membership_error_in_reach_is_left_to_the_orchestrator(valid_package, edit_yaml):
     # This repo checks SHAPE only. Enumerating the members here would be a second copy of a
     # vocabulary whose single source of truth is the orchestrator's `reach_vocabulary`.
-    edit_yaml(valid_package, "package.yaml", set_raw='reach: ["nowhere_in_particular"]')
+    edit_yaml(valid_package, "package.yaml", set_key=("reach", ["nowhere_in_particular"]))
     assert validate_package(valid_package) == []
 
 
 def test_a_misshapen_reach_is_reported_here(valid_package, edit_yaml):
-    edit_yaml(valid_package, "package.yaml", set_raw="reach: source_repository")
+    edit_yaml(valid_package, "package.yaml", set_key=("reach", "source_repository"))
     assert any("reach:" in e for e in validate_package(valid_package))
 
 
 def test_an_empty_reach_list_is_reported_here(valid_package, edit_yaml):
-    # An empty list would read as "reaches nothing", the most permissive claim available. An
-    # author who means that omits the key.
-    edit_yaml(valid_package, "package.yaml", set_raw="reach: []")
+    # An empty list would read as "reaches nothing", the most permissive claim available, and it
+    # is a different mistake from omitting the key -- which is now its own error below.
+    edit_yaml(valid_package, "package.yaml", set_key=("reach", []))
     assert any("reach:" in e for e in validate_package(valid_package))
 
 
 def test_a_blank_reach_entry_is_reported_here(valid_package, edit_yaml):
-    edit_yaml(valid_package, "package.yaml", set_raw='reach: ["  "]')
+    edit_yaml(valid_package, "package.yaml", set_key=("reach", ["  "]))
     assert any("reach[0]:" in e for e in validate_package(valid_package))
+
+
+# WS-P2.18 Increment 4: reach stops being optional, at the boundary a package cannot go round.
+
+
+def test_a_package_still_being_authored_must_declare_reach(valid_package, drop_key):
+    # The fixture is `status: draft`, which is where every package starts. Failing here is what
+    # makes the requirement unmissable: the file is still editable, and after approval it is not,
+    # because the lineage approval is hashed over it.
+    drop_key(valid_package, "package.yaml", "reach")
+
+    errors = validate_package(valid_package)
+
+    assert any("reach: missing required key" in e for e in errors)
+
+
+@pytest.mark.parametrize("status", sorted(PRE_APPROVAL_STATES))
+def test_every_pre_approval_state_requires_it(valid_package, edit_yaml, drop_key, status):
+    drop_key(valid_package, "package.yaml", "reach")
+    edit_yaml(valid_package, "package.yaml", set_key=("status", status))
+
+    assert any("reach: missing required key" in e for e in validate_package(valid_package))
+
+
+def test_an_already_approved_package_is_asked_for_nothing(valid_package, edit_yaml, drop_key):
+    """The twenty-four packages authored before the key existed, and why they are not backfilled.
+
+    Their YAML is hashed into a lineage approval, so editing one invalidates the approval bound to
+    it -- conforming the old population would cost twenty-four fresh human approvals to satisfy a
+    rule that will never be applied to it. They are exempt because they are FINISHED, not because
+    they are old: a package cannot reach `approved` without passing through a state above.
+    """
+    drop_key(valid_package, "package.yaml", "reach")
+    edit_yaml(valid_package, "package.yaml", set_key=("status", "closed"))
+
+    assert not any("reach: missing required key" in e for e in validate_package(valid_package))
