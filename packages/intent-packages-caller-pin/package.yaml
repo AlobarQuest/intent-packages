@@ -1,0 +1,205 @@
+schema_version: 1
+package_id: intent-packages-caller-pin
+title: SHA-pin intent-packages' factory-runner caller
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-08-03T16:10:00Z'
+supersedes: null
+reach:
+- source_repository
+profile: maintenance-remediation
+profile_fields:
+  repo: AlobarQuest/intent-packages
+  remediation_source: >-
+    The conformance kit's own remediation queue. `portfolio onboard
+    ~/Projects/intent-packages` (2026-08-03) reports admission check
+    `runner.caller` = violation, detail `runner.unpinned`: "caller uses @main —
+    not a full SHA (GAP-4 class)", with the fix "pin the caller's uses: to
+    @b0305b51dac53df9cb464686173acc0c0cae9507 (factory-runner's declared pin)".
+    The declared pin is the one line of factory-runner's RECOMMENDED_CALLER_PIN
+    file at its main. This package is that queue item, executed - which is what
+    the maintenance-remediation profile exists for.
+  rollback_plan: >-
+    Revert the PR. The change is one line of one workflow file and restores
+    `@main`, which is the state today.
+outcome:
+  what: >-
+    `.github/workflows/factory-runner-pilot.yml` in AlobarQuest/intent-packages
+    changes its reusable-workflow reference from
+    `AlobarQuest/factory-runner/.github/workflows/factory-runner.yml@main` to the
+    same path at `@b0305b51dac53df9cb464686173acc0c0cae9507`. One line in one
+    file changes and nothing else.
+  why: >-
+    A branch ref is mutable, so `@main` pins nothing. WS-P2.23 established that
+    from b0305b5 onward the caller's `uses:` SHA IS the runner CLI revision a run
+    installs, and that a caller's unresolved ref appears verbatim - so a caller on
+    `@main` has no fixed revision to be compatible WITH, and the brief-compatibility
+    gate cannot speak for it. This is the GAP-4 class, and it is the highest-value
+    of the six outstanding `runner.caller` remediations because the other five are
+    pinned to SOMETHING.
+  beneficiary: >-
+    Every future dispatch into intent-packages, which currently installs whatever
+    factory-runner's main happens to be at that moment.
+  success_signal: >-
+    A pull request against AlobarQuest/intent-packages whose diff is exactly one
+    line of `.github/workflows/factory-runner-pilot.yml`, and on whose head the
+    repository's own named check concludes success.
+scope:
+  included:
+  - >-
+    Replace the `uses:` ref in the caller workflow with the full 40-character SHA
+    factory-runner declares.
+  excluded:
+  - >-
+    The other five `runner.caller` remediations (change-manager and brain are
+    behind the pin; project-standards and factory-runner have no caller at all;
+    security-standards is also on `@main`). Each is a separate decision about a
+    separate repository, and two of them raise the unsettled question of whether
+    that repository should be a factory target at all.
+  - >-
+    Advancing factory-runner's declared pin. This package consumes the pin as
+    declared; it does not decide it.
+  - >-
+    Merging. A landed pull request here changes nothing that is running - App Brain
+    records AlobarQuest/intent-packages as `inert` - which is what makes
+    source_repository the honest reach rather than a convenient one.
+  non_goals:
+  - >-
+    Any behaviour change. Verified 2026-08-03: factory-runner's main is two commits
+    ahead of the declared pin and both touch only `PROJECT.md` and
+    `RECOMMENDED_CALLER_PIN`, so the pinned revision and the current main are
+    behaviourally identical. The gain is determinism, not a version move, and the
+    package would be dishonest to claim otherwise.
+  assumptions:
+  - >-
+    factory-runner's `RECOMMENDED_CALLER_PIN` still reads
+    b0305b51dac53df9cb464686173acc0c0cae9507 when the unit runs. If it has advanced,
+    the correct pin is whatever that file then says and this package should be
+    re-authored rather than forced through.
+  open_questions: []
+sources:
+- location: >-
+    Devon's instruction on 2026-08-03 to pilot one package per declared profile,
+    for Wave-3 exit criterion #1, choosing maintenance-remediation first. The
+    subject is the conformance kit's own readiness output for intent-packages; the
+    kit is data, the decision to act on it is Devon's.
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: >-
+    The mutation is a one-line edit to a YAML file, performed by the coding action.
+    The verifier is `make check`, which in THIS repository is a real gate - it needs
+    no database and no external service, and collected 557 tests in under five
+    seconds on 2026-08-03. That is specific to intent-packages; the identical
+    command is forbidden in the orchestrator's envelope for the opposite reason.
+  policy_legal: null
+  privacy_security: null
+  compatibility: >-
+    The run installs the runner via the caller's CURRENT ref, `@main`. That is
+    deliberate and unavoidable: the unit pins the caller away from `@main` using
+    `@main`. It is also safe - main is the newest runner and is the revision
+    production's brief is known to be readable by.
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id wants the criterion's DB UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+acceptance:
+- id: AC-001
+  condition: >-
+    A pull request against AlobarQuest/intent-packages changes the caller's `uses:`
+    ref to the full 40-character SHA b0305b51dac53df9cb464686173acc0c0cae9507, the
+    diff touches only `.github/workflows/factory-runner-pilot.yml`, and the
+    repository's own checks pass on the pull-request head.
+  evidence_type: automated_check
+  evidence: >-
+    ci: the target repository's named check on the pull-request head, observed from
+    GitHub by the orchestrator rather than asserted by the caller (WS-P2.20).
+  approver: policy
+- id: AC-002
+  condition: a reviewer confirms this package was ready before execution began
+  evidence: >-
+    human: Devon's approval of this package at intake, recorded against the package
+    revision.
+  evidence_type: human_review
+  approver: devon
+
+# allowed_commands is an ORDERED list the worker re-executes at finalize, not a
+# permission set: put mutators first and the verifier last, or the recorded
+# evidence attests to a tree that is not the one pushed. Here the mutation is an
+# edit rather than a command, so the list is the verifier alone.
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 6
+deliverables:
+  artifacts:
+  - >-
+    A pull request against AlobarQuest/intent-packages changing exactly one line of
+    `.github/workflows/factory-runner-pilot.yml`.
+  destination: AlobarQuest/intent-packages
+  recipient: devon
+  definition_of_done: >-
+    The pull request exists, its diff is confined to that one file, and the
+    repository's named check is green on its head. Merging is a separate human act
+    and is not part of this package.
+  operator_responsibilities:
+  - >-
+    A merge into a production system must trace to recorded permission - either
+    express permission given at the time of the merge, or a standing
+    pre-authorization. This repository is not a production system: App Brain records
+    it as `inert`, so a landed pull request changes nothing that is running. The
+    constraint is recorded here because the determination, not the outcome, is what
+    makes it inapplicable.
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes:
+  - >-
+    The coding action edits the wrong line, or reformats the workflow. Visible in
+    the diff before any merge, and the stop condition below refuses it.
+  - >-
+    The named check fails on the pull-request head. The pull request is not merged;
+    nothing is affected, because a pull request is inert here.
+  - >-
+    factory-runner's declared pin advanced between authoring and execution, making
+    the pinned SHA stale on arrival. Detectable by reading
+    `RECOMMENDED_CALLER_PIN`; the response is to re-author, not to force through.
+  max_impact: low
+  stop_conditions:
+  - The diff touches any file other than `.github/workflows/factory-runner-pilot.yml`.
+  - The diff changes more than the single `uses:` line.
+  rollback: >-
+    Close the pull request without merging. Nothing outside the repository has
+    changed. If merged and later regretted, revert the commit - which restores
+    `@main`, today's state.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'

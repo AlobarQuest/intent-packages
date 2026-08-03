@@ -1,0 +1,17 @@
+package_id: intent-packages-caller-pin
+current_state: approved
+revisions:
+- revision: 1
+  hash: b5fc984ea87c3a5846572f6273cec190dfa75a11d1e7a1bd1534712cd39ac0f5
+  created_at: '2026-08-03T16:10:00Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-03T16:10:00Z'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-03T16:10:00Z'
+  actor: claude-code-interactive
+  event_id: evt-b5fc984ea87c3a5846572f6273cec190
+approvals: []
+grants: []
