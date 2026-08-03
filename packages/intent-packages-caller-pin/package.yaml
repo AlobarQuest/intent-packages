@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: intent-packages-caller-pin
 title: SHA-pin intent-packages' factory-runner caller
-revision: 1
+revision: 2
 status: approved
 created_by: factory-create
 owner: devon
@@ -93,10 +93,17 @@ constraints:
   time_budget: null
   technology: >-
     The mutation is a one-line edit to a YAML file, performed by the coding action.
-    The verifier is `make check`, which in THIS repository is a real gate - it needs
-    no database and no external service, and collected 557 tests in under five
-    seconds on 2026-08-03. That is specific to intent-packages; the identical
-    command is forbidden in the orchestrator's envelope for the opposite reason.
+    The verifier is `make check`, and the envelope MUST authorize `uv sync` before
+    it. Revision 1 declared `make check` alone and would have failed: the reusable
+    workflow runs `setup-uv` and `uv tool install` for the RUNNER CLI but never
+    syncs the TARGET repository, and this repo's Makefile hard-fails through its
+    `need` macro when a tool is absent. Proven by control on 2026-08-03 - a tree
+    from `git archive HEAD` with no `.venv`, under `env -i PATH=/usr/bin:/bin`,
+    gives `make check: ruff not found - install it with: uv sync`, rc=2. Note
+    `allowed_commands` is advisory to the coding agent and MANDATORY at finalize,
+    which re-executes the ordered list before checking `git status`; so the failure
+    would have landed at finalize even if the agent had improvised the sync itself.
+    `uv sync` is idempotent, which the re-execution requires.
   policy_legal: null
   privacy_security: null
   compatibility: >-
