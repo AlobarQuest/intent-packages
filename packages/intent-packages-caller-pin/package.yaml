@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: intent-packages-caller-pin
 title: SHA-pin intent-packages' factory-runner caller
-revision: 2
+revision: 3
 status: approved
 created_by: factory-create
 owner: devon
@@ -17,7 +17,7 @@ profile_fields:
     ~/Projects/intent-packages` (2026-08-03) reports admission check
     `runner.caller` = violation, detail `runner.unpinned`: "caller uses @main —
     not a full SHA (GAP-4 class)", with the fix "pin the caller's uses: to
-    @b0305b51dac53df9cb464686173acc0c0cae9507 (factory-runner's declared pin)".
+    @0e047df56f42c8d87f432b9547f0f2fdeb0e61ca (factory-runner's declared pin)".
     The declared pin is the one line of factory-runner's RECOMMENDED_CALLER_PIN
     file at its main. This package is that queue item, executed - which is what
     the maintenance-remediation profile exists for.
@@ -29,7 +29,7 @@ outcome:
     `.github/workflows/factory-runner-pilot.yml` in AlobarQuest/intent-packages
     changes its reusable-workflow reference from
     `AlobarQuest/factory-runner/.github/workflows/factory-runner.yml@main` to the
-    same path at `@b0305b51dac53df9cb464686173acc0c0cae9507`. One line in one
+    same path at `@0e047df56f42c8d87f432b9547f0f2fdeb0e61ca`. One line in one
     file changes and nothing else.
   why: >-
     A branch ref is mutable, so `@main` pins nothing. WS-P2.23 established that
@@ -67,15 +67,16 @@ scope:
     source_repository the honest reach rather than a convenient one.
   non_goals:
   - >-
-    Any behaviour change. Verified 2026-08-03: factory-runner's main is two commits
-    ahead of the declared pin and both touch only `PROJECT.md` and
-    `RECOMMENDED_CALLER_PIN`, so the pinned revision and the current main are
-    behaviourally identical. The gain is determinism, not a version move, and the
-    package would be dishonest to claim otherwise.
+    Any behaviour change. Verified 2026-08-03 (revision 3): the declared pin
+    0e047df56f42c8d87f432b9547f0f2fdeb0e61ca is the WS-P2.33 merge and main is one
+    commit ahead of it, that commit touching only `RECOMMENDED_CALLER_PIN` itself
+    (the pin file lags by one commit by design). The pinned revision and the
+    current main are behaviourally identical; the gain is determinism, not a
+    version move, and the package would be dishonest to claim otherwise.
   assumptions:
   - >-
     factory-runner's `RECOMMENDED_CALLER_PIN` still reads
-    b0305b51dac53df9cb464686173acc0c0cae9507 when the unit runs. If it has advanced,
+    0e047df56f42c8d87f432b9547f0f2fdeb0e61ca when the unit runs. If it has advanced,
     the correct pin is whatever that file then says and this package should be
     re-authored rather than forced through.
   open_questions: []
@@ -122,7 +123,7 @@ acceptance:
 - id: AC-001
   condition: >-
     A pull request against AlobarQuest/intent-packages changes the caller's `uses:`
-    ref to the full 40-character SHA b0305b51dac53df9cb464686173acc0c0cae9507, the
+    ref to the full 40-character SHA 0e047df56f42c8d87f432b9547f0f2fdeb0e61ca, the
     diff touches only `.github/workflows/factory-runner-pilot.yml`, and the
     repository's own checks pass on the pull-request head.
   evidence_type: automated_check
@@ -153,7 +154,7 @@ authority:
   - secret_write
   budgets:
     max_attempts: 3
-    max_llm_calls: 6
+    max_llm_calls: 24
 deliverables:
   artifacts:
   - >-
