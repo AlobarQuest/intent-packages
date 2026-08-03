@@ -13,5 +13,11 @@ transitions:
   at: '2026-08-03T16:10:00Z'
   actor: claude-code-interactive
   event_id: evt-b5fc984ea87c3a5846572f6273cec190
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: b5fc984ea87c3a5846572f6273cec190dfa75a11d1e7a1bd1534712cd39ac0f5
+  approver: devon
+  approved_at: '2026-08-03T16:24:00Z'
+  commit: d38ae9f1959b24f6e94dd4d2a0149d08ee8453e3
+  event_id: evt-7351c6343c7d5d7998d5f9551346e42c
 grants: []
