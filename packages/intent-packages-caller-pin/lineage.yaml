@@ -16,6 +16,11 @@ revisions:
   created_at: '2026-08-03T18:21:02.657930+00:00'
   author: claude-code-interactive
   snapshotted_at: '2026-08-03T18:21:53.348281+00:00'
+- revision: 4
+  hash: 70e8c4d7e858559c7b61639b94d749f7e87bf64d7326a5292efba3053275ab81
+  created_at: '2026-08-03T18:49:41.463555+00:00'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-03T18:49:41.712703+00:00'
 transitions:
 - kind: transition
   from: draft
@@ -47,6 +52,18 @@ transitions:
   at: '2026-08-03T18:21:53.348281+00:00'
   actor: claude-code-interactive
   event_id: evt-75785ec6805a4b3197871af64bf5c20c
+- kind: revision
+  from: approved
+  to: draft
+  at: '2026-08-03T18:49:41.463555+00:00'
+  actor: claude-code-interactive
+  event_id: evt-7540c2852bc04714ac26c58c9ffacda5
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-03T18:49:41.712703+00:00'
+  actor: claude-code-interactive
+  event_id: evt-3b11564ea6614e758152b535b3868af0
 approvals:
 - revision: 1
   approved_hash: b5fc984ea87c3a5846572f6273cec190dfa75a11d1e7a1bd1534712cd39ac0f5
@@ -66,4 +83,10 @@ approvals:
   approved_at: '2026-08-03T18:21:53.515679+00:00'
   commit: 499ad2af3abfefe4443463f46d09f8a2fa5a5fc5
   event_id: evt-4019554f5b7a4c4c994e957a5a34f78a
+- revision: 4
+  approved_hash: 70e8c4d7e858559c7b61639b94d749f7e87bf64d7326a5292efba3053275ab81
+  approver: devon
+  approved_at: '2026-08-03T18:49:41.855132+00:00'
+  commit: da6b097ec8f1733b48b63420b1f8d562ce678e62
+  event_id: evt-714cbc92f7a24df38a7228d2d0c9a535
 grants: []

@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: intent-packages-caller-pin
 title: SHA-pin intent-packages' factory-runner caller
-revision: 3
+revision: 4
 status: approved
 created_by: factory-create
 owner: devon
@@ -154,7 +154,7 @@ authority:
   - secret_write
   budgets:
     max_attempts: 3
-    max_llm_calls: 24
+    max_llm_calls: 60
 deliverables:
   artifacts:
   - >-
