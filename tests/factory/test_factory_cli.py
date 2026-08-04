@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -569,3 +571,16 @@ def test_create_from_readiness_rejects_profile(capsys):
 def test_create_without_profile_or_readiness_errors(capsys):
     rc = main(["create", "--name", "x"])
     assert rc == 2
+
+
+def test_module_entrypoint_prints_usage():
+    """`python -m intent_packages.factory_cli --help` must emit usage text, not
+    merely exit 0: an empty stdout with exit 0 is indistinguishable from a
+    `__main__` guard that runs the wrong thing (or nothing at all)."""
+    result = subprocess.run(
+        [sys.executable, "-m", "intent_packages.factory_cli", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "usage" in result.stdout.lower()

@@ -321,3 +321,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     handler = _HANDLERS.get(args.cmd)
     return handler(args) if handler else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
