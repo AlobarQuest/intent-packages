@@ -1,0 +1,47 @@
+# WS-P2.38 (local to this repo -- NOT part of the vendored code-standards `quality.yml`,
+# deliberately: that file is synced from upstream and a job added directly to it would
+# be at risk of a future `code-standards sync` clobbering it before block-level
+# ownership markers exist here).
+#
+# Answers a different question from Quality: does `routing-policy.toml`'s
+# `runner-implementation` surface still agree with the model factory-runner's
+# `claude-code-base-action` step hardcodes, at factory-runner's own
+# RECOMMENDED_CALLER_PIN revision? Needs no dependency install beyond this repo's
+# own (tiny) locked environment, so it reports in seconds. A red here means the
+# policy and the runner have diverged -- see
+# scripts/check_routing_policy_compatibility.py for what to do about it.
+name: Routing policy compatibility
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  routing-policy-compatibility:
+    name: Routing policy compatibility
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.x"
+
+      # The locked environment, not an ad-hoc pin.
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      # Read-only: two GETs of a public repository (factory-runner).
+      - name: Check routing policy against the pinned runner
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: .venv/bin/python scripts/check_routing_policy_compatibility.py

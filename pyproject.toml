@@ -30,7 +30,12 @@ build-backend = "setuptools.build_meta"
 package-dir = {"" = "src"}
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+# "." lets tests import the repo-root `scripts/` package directly (no __init__.py
+# needed -- PEP 420 namespace package), mirroring how orchestrator's tests import
+# its sibling script: tests/__init__.py there makes pytest's rootless-import walk
+# insert the repo root itself; this repo's tests/ has no __init__.py, so the
+# equivalent has to be declared explicitly here instead.
+pythonpath = ["src", "."]
 testpaths = ["tests"]
 
 [tool.ruff]
