@@ -1,0 +1,23 @@
+package_id: evidence-tag-matching-guards
+current_state: approved
+revisions:
+- revision: 1
+  hash: c833f5f26572a2d4c94e8c2fdcb256d04f1ce42b472286f7fd65174be3e509d5
+  created_at: '2026-08-04T16:25:07Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-04T16:27:38.425338+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-04T16:27:38.425338+00:00'
+  actor: claude-code-interactive
+  event_id: evt-2bb4703309d44c6fbd7167b49cbf01bf
+approvals:
+- revision: 1
+  approved_hash: c833f5f26572a2d4c94e8c2fdcb256d04f1ce42b472286f7fd65174be3e509d5
+  approver: devon
+  approved_at: '2026-08-04T16:27:38.635178+00:00'
+  commit: d96ea73b473d128a966d05d8e6f9d7346cc18bd7
+  event_id: evt-dd9c6bae6aaf485fb31618f075ecf59d
+grants: []

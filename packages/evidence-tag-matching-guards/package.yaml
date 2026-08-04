@@ -1,0 +1,165 @@
+schema_version: 1
+package_id: evidence-tag-matching-guards
+title: Lock the evidence-tag matching rules with tests
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-08-04T16:25:07Z'
+supersedes: null
+reach:
+- source_repository
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/intent-packages
+  branch: main
+  deploy_target: null
+  required_checks:
+  - Lint, type-check, and test
+  rollback_plan: The change is additive test code in tests/. Reverting the commit
+    restores the previous state; no package, schema, or profile behaviour is touched,
+    so nothing downstream depends on it.
+outcome:
+  what: Tests that lock how `check_evidence_tags` matches an acceptance item's evidence
+    string against a profile's producer tags - that matching is case-sensitive, that
+    the space after the colon is optional, and that leading whitespace is not tolerated
+    - across every registered profile's tag map rather than one.
+  why: >-
+    The matching rule is a silent contract. `check_evidence_tags` matches with a bare
+    `evidence.startswith(tag)`, so an uppercased tag is rejected as an unrecognized
+    producer tag while both the spaced and unspaced lowercase forms are accepted.
+    Nothing in the suite states any of that, so the behaviour could change under a
+    refactor and no test would notice - and an author who uppercases a tag gets a
+    message about unrecognized tags rather than about case. WS-P2.36 has just changed
+    this module's neighbouring map, which is exactly when untested adjacent behaviour
+    is most at risk.
+  beneficiary: Package authors, who get a stable and documented matching rule instead
+    of one that happens to hold; and any future session changing the tag maps, which
+    can now refactor the matcher against a stated contract.
+  success_signal: The new tests pass on the pull-request head, and each is shown to
+    fail if the matcher is made case-insensitive or whitespace-tolerant.
+scope:
+  included:
+  - Tests locking case-sensitive tag matching (an uppercased or mixed-case tag is
+    rejected as unrecognized).
+  - >-
+    Tests locking that the space after a tag's colon is optional - the tag prefix is
+    matched whether or not a space follows the colon, and both forms are accepted.
+  - Tests locking that leading whitespace before a tag is not tolerated.
+  - Coverage across every registered profile's tag map, not a single profile.
+  excluded:
+  - Any change to `check_evidence_tags` behaviour. The current matching is correct;
+    this package only states it in tests. A diff that alters the matcher is out of
+    scope.
+  - Any change to any profile's TAG_TO_EVIDENCE_TYPE map, including the
+    software-delivery map WS-P2.36 just corrected.
+  - Merging the resulting pull request, which is Devon's own act.
+  non_goals:
+  - Making tag matching case-insensitive or whitespace-tolerant. The strictness is
+    the intended behaviour; a lenient matcher would silently accept typo'd tags.
+  - Centralizing the per-profile tag maps. Per-profile ownership is deliberate.
+  assumptions:
+  - The repository's named check is the job `Lint, type-check, and test`, which runs
+    on pull_request.
+  open_questions: []
+sources:
+- location: >-
+    intent-packages PROJECT.md backlog, P3 added 2026-07-04: "profiles: no test locks
+    evidence-tag case-sensitivity (e.g. an uppercased tag must be rejected as
+    unrecognized) or the optional-space-after-colon convention across tags other than
+    the one already covered".
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: 'The verifier runs `uv sync` before `make check`: a checkout has no
+    .venv, and the Makefile refuses rather than skipping when a tool is missing.
+    Note a tree without a .git HEAD commit fails two tests in tests/test_cli_smoke.py,
+    because cli.py shells `git rev-parse HEAD` on the approve path; actions/checkout
+    always provides one, so this affects local control trees only.'
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: The repository's named check passes on the pull-request head with the
+    new tests present and collected.
+  evidence_type: automated_check
+  evidence: 'ci: the named check "Lint, type-check, and test" concludes success on
+    the pull-request head'
+  approver: policy
+- id: AC-002
+  condition: A reviewer confirms the new tests state the documented matching rules,
+    cover more than one profile's tag map, and change no production behaviour.
+  evidence_type: human_review
+  evidence: 'review: devon confirms the tests lock case-sensitivity, the optional
+    space after the colon, and leading-whitespace rejection across profiles, and that
+    the diff adds tests only'
+  approver: devon
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 60
+deliverables:
+  artifacts:
+  - Tests in tests/ locking the evidence-tag matching rules across every registered
+    profile's tag map.
+  destination: AlobarQuest/intent-packages, as a pull request against main
+  recipient: devon
+  definition_of_done: The new tests are present, the named check concludes success
+    on the pull-request head, and the diff touches test files only.
+  operator_responsibilities:
+  - A merge into a production system must trace to recorded permission - either express
+    permission given at the time of the merge, or a standing pre-authorization - recorded
+    as evidence bound to this work unit. A merge that cannot be traced to one of those
+    is a defect, whoever performed it. Outside production this constraint does not
+    apply.
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes:
+  - The coding agent "helpfully" makes the matcher lenient to satisfy a test it wrote
+    backwards, changing production behaviour this package excludes.
+  - The tests assert against the matcher's implementation rather than the rule, so
+    they would not notice the behaviour changing.
+  max_impact: low
+  stop_conditions:
+  - Any diff outside tests/.
+  rollback: Revert the commit. The change is additive test code; nothing depends on
+    it.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical:
+  - Each new test should be shown to fail if the matcher is made case-insensitive
+    or whitespace-tolerant, rather than merely to pass as written.
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'
