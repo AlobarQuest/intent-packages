@@ -3,6 +3,7 @@ evidence_type consistency checks (WS-2.2 spec §3)."""
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from intent_packages.profiles import software_delivery
@@ -162,8 +163,16 @@ def test_tag_evidence_type_mismatch_is_rejected(software_delivery_package, edit_
 # stay pinned to packages that really exist, and it must never widen to new authoring.
 
 
-def test_ci_and_gate_require_automated_check_for_new_packages(software_delivery_package, edit_yaml):
+@pytest.mark.parametrize("tag", ["ci:", "gate:"])
+def test_ci_and_gate_require_automated_check_for_new_packages(
+    software_delivery_package, edit_yaml, tag
+):
     """The defect this closed: automated_test made the observed-check lane unreachable."""
+    edit_yaml(
+        software_delivery_package,
+        "package.yaml",
+        set_nested=(("acceptance", 0, "evidence"), f"{tag} the named check concludes success"),
+    )
     edit_yaml(
         software_delivery_package,
         "package.yaml",
@@ -171,6 +180,21 @@ def test_ci_and_gate_require_automated_check_for_new_packages(software_delivery_
     )
     errs = validate_package(software_delivery_package)
     assert any("acceptance[0].evidence_type" in e and "automated_check" in e for e in errs), errs
+
+
+@pytest.mark.parametrize("revision", [[1], {"a": 1}, "1", None, True])
+def test_a_malformed_identity_is_never_exempted_and_never_raises(revision):
+    """check J reports a bad `revision`, but validate_package keeps going and reaches this map.
+
+    An unhashable identity used to raise TypeError here, replacing that clean field-path error
+    with a traceback in the CI gate. `True` is included because bool is an int subclass and
+    hash(True) == hash(1), which would otherwise match a revision-1 entry.
+    """
+    package_id, _ = sorted(software_delivery.SUPERSEDED_MAP_REVISIONS)[0]
+    assert (
+        software_delivery._tag_map({"package_id": package_id, "revision": revision})
+        is software_delivery.TAG_TO_EVIDENCE_TYPE
+    )
 
 
 def test_every_superseded_revision_is_a_package_on_disk():
@@ -197,16 +221,10 @@ def test_every_superseded_revision_still_needs_the_exemption():
     assert unnecessary == set(), f"these now pass the canonical map; drop them: {unnecessary}"
 
 
-def test_the_exemption_covers_every_package_that_needs_it():
-    """The complement of the two tests above: nothing on disk is left failing."""
-    failing = set()
-    for d in _package_dirs():
-        pkg = _load(d)
-        if pkg.get("profile") != "software-delivery":
-            continue
-        if software_delivery.validate(pkg):
-            failing.add((pkg.get("package_id"), pkg.get("revision")))
-    assert failing == set(), f"unlisted packages fail the canonical map: {failing}"
+# Completeness -- that no package on disk is left failing -- is already enforced by
+# tests/test_packages_regression.py::test_real_package_validates_clean, which runs the full
+# validate_package (and so check P, and so this profile's validator) over every package
+# directory. A second test here could not fail while that one passes.
 
 
 def test_a_new_revision_of_an_exempted_package_does_not_inherit_the_exemption():

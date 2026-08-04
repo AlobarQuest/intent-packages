@@ -51,11 +51,12 @@ def _check_profile_fields(package: dict) -> list[str]:
 # deployment_observation records; backups are the vps-backup recipes on a schedule. All are
 # non-CI routes that no named check reports.
 #
-# So automated_check here would fail with named_check_not_found -- the unreachable-lane defect
-# WS-P2.36 closed for software-delivery, merely relocated. automated_test is correct: it carries a
-# deterministic-permitted floor, resolving deterministically when a worker records a readable
-# evidence row and asking a human otherwise, which is what operator-run drills and probes produce.
-# Revisit only if a repository starts publishing one of these as a job on the PR head.
+# automated_check resolves ONLY on verifier-owned named-check evidence, so declaring it for a tag
+# no job produces does not merely fail to help -- it forfeits the one producer these tags do have.
+# automated_test dispatches on the arriving evidence row's type, so a worker-recorded drill or
+# probe row resolves it deterministically, and a human decides when none arrives. That is the
+# right lane for operator-run work. Revisit only if a repository starts publishing one of these as
+# a job on the pull-request head.
 TAG_TO_EVIDENCE_TYPE = {
     "health:": "automated_test",
     "backup:": "automated_test",

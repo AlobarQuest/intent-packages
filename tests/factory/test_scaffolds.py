@@ -115,6 +115,29 @@ def test_ac001_is_profile_derived_ac002_is_always_human_review(profile_name, tmp
     assert ac2["evidence_type"] == "human_review"
 
 
+# Pinned to literals, not to `_evidence_type`. The assertion above compares the scaffold against
+# the same function that produced it, so it cannot notice the value changing -- WS-P2.36 moved
+# software-delivery from `human_review` to `automated_check` and every scaffold test stayed green.
+# What a scaffolded package starts life declaring decides which verification lane it can reach, so
+# it is worth stating outright.
+@pytest.mark.parametrize(
+    ("profile_name", "expected"),
+    [
+        ("dependency-update", "automated_check"),
+        ("maintenance-remediation", "automated_check"),
+        ("software-delivery", "automated_check"),
+        ("infrastructure-change", "human_review"),
+        # Not human_review: `_evidence_type` takes the alphabetically first permitted value, and
+        # this profile's map permits external_attestation, human_review and observation.
+        ("non-software-operational", "external_attestation"),
+    ],
+)
+def test_scaffolded_ac001_evidence_type_is_pinned_per_profile(profile_name, expected, tmp_path):
+    scaffolds.create(profile_name, "scaffold-probe", str(tmp_path), reach=REACH)
+    document = yaml.safe_load((tmp_path / "scaffold-probe" / "package.yaml").read_text())
+    assert document["acceptance"][0]["evidence_type"] == expected
+
+
 def test_dependency_update_envelope_comment_precedes_authority_not_acceptance(tmp_path):
     """The envelope-discipline comment is about allowed_commands, a downstream
     work-unit authority-envelope concern that never appears in package.yaml —

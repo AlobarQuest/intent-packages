@@ -19,19 +19,32 @@ PROFILE_FIELDS_SCHEMA = MapSpec(
 
 # A tag's mapping is a claim about where its evidence actually comes from.
 #
-# ci:/gate: -> automated_check, matching dependency-update and maintenance-remediation. In this
-# estate both tags are satisfied by a GitHub Actions JOB on the pull-request head, which is what
-# the verifier observes and what automated_check evaluates deterministically against. They were
-# automated_test, which resolves to judgment_required unless a worker records a readable evidence
-# row -- and, one layer earlier, named-check ingestion refuses any criterion not declared
-# automated_check (orchestrator services/verifier_evidence.py). That made the observed-check lane
-# unreachable for every package on this profile (measured end to end by WS-P2.35).
+# The two types are NOT ordered: automated_check is special-cased ahead of the evaluator lookup
+# and resolves ONLY on verifier-owned verifier.github.named_check evidence, while automated_test
+# dispatches on the arriving evidence row's type and so can resolve off a worker-recorded row.
+# Each is deterministic for exactly one producer, so a tag belongs with whichever producer really
+# supplies it.
+#
+# ci: -> automated_check. Every factory-target repository runs its test job on the pull-request
+# head, which is what the verifier observes. It was automated_test, and named-check ingestion
+# refuses any criterion not declared automated_check (orchestrator services/verifier_evidence.py),
+# so the observed-check lane was unreachable for every package on this profile -- measured end to
+# end by WS-P2.35, which had to complete AC-001 on human adjudication after a 409.
+#
+# gate: -> automated_check too, matching dependency-update and maintenance-remediation. Note this
+# is a consistency choice, not a measurement: the existing corpus uses gate: mostly for LOCAL
+# commands ("full local make check passes", "tests pass on the branch"), which a named check does
+# not publish. It costs nothing today because the runner records nothing deterministic anyway --
+# build_verification_evidence (runner.verification) has no production caller, and runner.pr.opened
+# has no deterministic evaluator, so both types alike land on judgment_required on the dispatched
+# lane. Revisit if the runner ever starts recording verification evidence.
 #
 # scan:/health: stay automated_test, deliberately. Measured 2026-08-04 across the seven
-# factory-target repositories: only security-standards publishes a scan job, and none publishes a
-# health-probe job reachable on a pull-request head (brain's probe is a step inside a deploy job
-# gated to pushes on main). Mapping either to automated_check would trade one unreachable lane for
-# another, failing with named_check_not_found instead.
+# factory-target repositories: only security-standards publishes a scan job (on push and
+# pull_request), and none publishes a health-probe job reachable on a pull-request head (brain's
+# probe is a step inside a deploy job gated to pushes on main). A per-profile map cannot be
+# per-repo, so mapping scan: for that one repository's sake would strand it everywhere else --
+# and automated_check would forfeit the worker-recorded row these tags can actually resolve on.
 #
 # review: is a human verdict; automated_test was plainly wrong.
 TAG_TO_EVIDENCE_TYPE = {
@@ -120,11 +133,26 @@ def _check_profile_fields(package: dict) -> list[str]:
 def _tag_map(package: dict) -> dict[str, str]:
     """The tag map this package is validated against.
 
-    Every package gets the canonical map except the named superseded revisions. An unreadable or
-    absent identity falls through to the canonical map, so a malformed package is never exempted.
+    Every package gets the canonical map except the named superseded revisions. An identity that
+    is absent or of the wrong type falls through to the canonical map, so a malformed package is
+    never exempted.
+
+    The types are checked rather than assumed. `validate_package` accumulates errors instead of
+    returning at the first one, so this runs on packages whose `package_id`/`revision` have
+    already failed check J -- and a list or dict there would make the membership test raise
+    `TypeError`, replacing check J's clean field-path error with a traceback in the CI gate.
+    `bool` is excluded deliberately: it is an `int` subclass and `hash(True) == hash(1)`, so
+    `revision: true` would otherwise match a revision-1 entry.
     """
-    key = (package.get("package_id"), package.get("revision"))
-    if key in SUPERSEDED_MAP_REVISIONS:
+    package_id = package.get("package_id")
+    revision = package.get("revision")
+    if (
+        not isinstance(package_id, str)
+        or not isinstance(revision, int)
+        or isinstance(revision, bool)
+    ):
+        return TAG_TO_EVIDENCE_TYPE
+    if (package_id, revision) in SUPERSEDED_MAP_REVISIONS:
         return SUPERSEDED_TAG_TO_EVIDENCE_TYPE
     return TAG_TO_EVIDENCE_TYPE
 
