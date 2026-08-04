@@ -1,0 +1,23 @@
+package_id: factory-cli-main-guard
+current_state: approved
+revisions:
+- revision: 1
+  hash: 0b48c790e982e5cb57c04f6f221ea6e6c52acd2dd0fe16839ba50b9dc7c6568a
+  created_at: '2026-08-04T12:37:32Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-04T12:44:29.460941+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-04T12:44:29.460941+00:00'
+  actor: claude-code-interactive
+  event_id: evt-73a754b075a24fffac34b10108e28515
+approvals:
+- revision: 1
+  approved_hash: 0b48c790e982e5cb57c04f6f221ea6e6c52acd2dd0fe16839ba50b9dc7c6568a
+  approver: devon
+  approved_at: '2026-08-04T12:44:36.344905+00:00'
+  commit: e533467a240264d642f3da75a32f378fc66ea970
+  event_id: evt-c050e60af79845b39ea57fcf6beaa30e
+grants: []

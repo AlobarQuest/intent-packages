@@ -1,0 +1,229 @@
+schema_version: 1
+package_id: factory-cli-main-guard
+title: Give the factory CLI module a __main__ guard
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-08-04T12:37:32Z'
+supersedes: null
+reach:
+- source_repository
+profile: software-delivery
+profile_fields:
+  repo: AlobarQuest/intent-packages
+  branch: main
+  deploy_target: null
+  required_checks:
+  - Lint, type-check, and test
+  rollback_plan: >-
+    Close the pull request without merging; nothing outside the repository has
+    changed. If merged and later regretted, revert the commit - the module
+    merely loses its entry-point guard again, which is today's state.
+outcome:
+  what: >-
+    `src/intent_packages/factory_cli.py` gains an `if __name__ == "__main__"`
+    block that exits with `main()`'s return code, so
+    `python -m intent_packages.factory_cli <args>` actually runs the CLI - plus
+    one smoke test that invokes the module entry point as a subprocess and
+    asserts on the usage text it emits. Two files change and nothing else.
+  why: >-
+    Today `python -m intent_packages.factory_cli --help` imports the module,
+    runs nothing, and exits 0 with no output - a silent no-op that reads as
+    success. Re-verified 2026-08-04. Two prior production drives had to invoke
+    the CLI via a `python -c "...main(sys.argv[1:])"` shim because of this, and
+    the workaround is documented estate-wide. The other half of the original
+    backlog item - "the console script is not installed" - is stale: as of
+    2026-08-04 `.venv/bin/factory --help` prints usage and exits 0, so
+    `[project.scripts]` needs no change and only the module guard is missing.
+  beneficiary: >-
+    Every operator and session that invokes the factory front door as a module,
+    and the factory itself - this is the factory repairing its own tooling,
+    which is the honest use of the software-delivery profile.
+  success_signal: >-
+    A pull request against AlobarQuest/intent-packages whose diff is the guard
+    plus its smoke test, on whose head the repository's own named check
+    concludes success - which includes the new test proving
+    `python -m intent_packages.factory_cli --help` emits usage text.
+scope:
+  included:
+  - >-
+    Append an `if __name__ == "__main__"` guard to
+    `src/intent_packages/factory_cli.py` that raises `SystemExit(main())`.
+  - >-
+    Add one smoke test that runs `sys.executable -m intent_packages.factory_cli
+    --help` as a subprocess and asserts the emitted output contains usage text.
+    Asserting the exit code alone is forbidden: exit 0 with no output IS the
+    current broken behaviour, so such a test would pass today and prove nothing.
+  excluded:
+  - >-
+    The console-script half of the backlog item. It is already fixed:
+    `[project.scripts]` declares `factory`, the script is installed, and
+    `factory --help` works. There is nothing to do.
+  - >-
+    `src/intent_packages/cli.py`, which lacks the same guard. It is a separate
+    surface with its own console script, nobody has reported it as felt pain,
+    and fixing it here would widen the diff past what this package's acceptance
+    can vouch for. Do not touch it.
+  - >-
+    Any refactor of `factory_cli.py` - its parser, handlers, `main()`
+    signature, or behaviour on any existing path.
+  - >-
+    Merging. A landed pull request here changes nothing that is running - App
+    Brain records AlobarQuest/intent-packages as `inert` (re-read 2026-08-04,
+    determined 2026-08-02 across all three trigger mechanisms) - and merging is
+    a separate human act outside this package.
+  - >-
+    Closing the PROJECT.md backlog line. That follows the merge, not the pull
+    request, and is the operator's act.
+  non_goals:
+  - >-
+    Any behaviour change. The guard adds an entry point to code that already
+    works when called as `main(argv)`; every existing invocation path is
+    untouched.
+  assumptions:
+  - >-
+    The defect is still present when the unit runs: `factory_cli.py` has no
+    `__main__` block at dispatch time (verified 2026-08-04). If a guard has
+    appeared meanwhile, this package should be re-authored rather than forced
+    through.
+  open_questions: []
+sources:
+- location: >-
+    intent-packages PROJECT.md backlog, the P2 item added 2026-07-22 ("factory
+    CLI is not runnable as shipped"), re-verified against the working tree on
+    2026-08-04 and found half-stale (module guard still missing; console script
+    already installed). The item is data; the decision to act on it is Devon's
+    Wave-3 pilot programme - one package per declared profile, of which
+    software-delivery is the open clause (WS-P2.35).
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: >-
+    The mutation is edit-shaped - the coding action writes the guard and the
+    test; no command mutates a tracked file. The verifier is `make check`, and
+    the envelope MUST authorize `uv sync` before it: the reusable workflow
+    syncs the RUNNER CLI, never the target repository, and this repo's
+    Makefile refuses through its `need` macro when a tool is absent. Proven by
+    control 2026-08-04: a tree from `git archive HEAD` with no `.venv` under a
+    scrubbed PATH gives `make check: ruff not found - install it with: uv
+    sync`, rc=2; with `uv sync` first, `make check` collects 559 items and
+    passes, and the ordered list run twice in one checkout passes both times -
+    idempotent, which finalize's re-execution requires. One control nuance,
+    recorded for the next author: the archive tree also needs a `.git` with a
+    HEAD commit or two `test_cli_smoke.py` tests fail (`cli.py` shells `git
+    rev-parse HEAD` on the approve path); the runner's `actions/checkout`
+    always provides that, so the runner environment is unaffected.
+  policy_legal: null
+  privacy_security: null
+  compatibility: >-
+    The new smoke test must spawn `sys.executable -m intent_packages.factory_cli`
+    as a subprocess rather than importing `main` - the entire point is the
+    interpreter-level entry path that importing bypasses.
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    A pull request against AlobarQuest/intent-packages appends an `if __name__
+    == "__main__"` guard to `src/intent_packages/factory_cli.py` and adds one
+    smoke test asserting that `python -m intent_packages.factory_cli --help`
+    emits usage text; the diff touches only those two files; and the
+    repository's own named check concludes success on the pull-request head.
+  evidence_type: automated_test
+  evidence: >-
+    ci: the target repository's named check ("Lint, type-check, and test") on
+    the pull-request head, observed from GitHub by the orchestrator rather than
+    asserted by the caller (WS-P2.20). That check runs the new smoke test, so
+    its success is the defect observably fixed on the PR head.
+  approver: policy
+- id: AC-002
+  condition: a reviewer confirms this package was ready before execution began
+  evidence_type: human_review
+  evidence: >-
+    human: Devon's approval of this package at intake, recorded against the
+    package revision.
+  approver: devon
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 60
+deliverables:
+  artifacts:
+  - >-
+    A pull request against AlobarQuest/intent-packages adding the `__main__`
+    guard to `src/intent_packages/factory_cli.py` and one smoke test for the
+    module entry point.
+  destination: AlobarQuest/intent-packages
+  recipient: devon
+  definition_of_done: >-
+    The pull request exists, its diff is confined to `factory_cli.py` plus one
+    test file, and the repository's named check is green on its head. Merging
+    is a separate human act and is not part of this package.
+  operator_responsibilities:
+  - >-
+    A merge into a production system must trace to recorded permission - either
+    express permission given at the time of the merge, or a standing
+    pre-authorization. This repository is not a production system: App Brain
+    records it as `inert`, so a landed pull request changes nothing that is
+    running. The constraint is recorded because the determination, not the
+    outcome, is what makes it inapplicable.
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes:
+  - >-
+    The coding action refactors the CLI, "fixes" `cli.py` too, or touches files
+    beyond the guard and its test. Visible in the diff before any merge; the
+    stop conditions refuse it.
+  - >-
+    The added test asserts only the exit code, which the broken behaviour
+    already satisfies - a test that proves nothing. The stop conditions refuse
+    it; the acceptance condition requires the output assertion.
+  - >-
+    The named check fails on the pull-request head. The pull request is not
+    merged; nothing is affected, because a pull request is inert here.
+  max_impact: low
+  stop_conditions:
+  - >-
+    The diff touches any file other than `src/intent_packages/factory_cli.py`
+    and one test file under `tests/`.
+  - >-
+    The added test contains no assertion on the text the entry point emits.
+  rollback: >-
+    Close the pull request without merging. Nothing outside the repository has
+    changed. If merged and later regretted, revert the commit - which removes
+    the guard again, today's state.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'
