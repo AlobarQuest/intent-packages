@@ -7,6 +7,7 @@ purpose: Universal intent-package schema, lifecycle, and validate/hash/approve C
 version: 0.1.0
 version_source: pyproject
 updated: '2026-07-04'
+delivery_profile: software-delivery
 foundation: true
 foundation_contract: 1
 applicable_standards:
