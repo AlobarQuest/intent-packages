@@ -85,9 +85,10 @@ def _acceptance_items(profile: DeliveryProfile) -> list[dict]:
     AC-001's evidence type is drawn from the profile (`_evidence_type`) —
     whichever automated producer this profile's tag map permits. AC-002 is
     always `human_review`, hardcoded rather than derived the same way: for
-    software-delivery and infrastructure-change, `_evidence_type` itself
-    already resolves to `human_review` (their tag maps permit nothing else
-    once `automated_test` is excluded), but for the other three profiles
+    infrastructure-change, `_evidence_type` itself already resolves to
+    `human_review` (its tag map permits nothing else once `automated_test` is
+    excluded — software-delivery did too until WS-P2.36 moved its `ci:`/`gate:`
+    tags to `automated_check`), but for the other three profiles
     deriving AC-002 the same way as AC-001 would type a
     "a reviewer confirms..." condition as a machine check
     (`automated_check`/`external_attestation`) — a scaffold that contradicts

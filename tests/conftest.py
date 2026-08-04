@@ -142,7 +142,7 @@ constraints:
 acceptance:
   - id: AC-001
     condition: "CI validates the profile module"
-    evidence_type: automated_test
+    evidence_type: automated_check
     evidence: "ci: validate.yml passes on PR"
     approver: policy
 deliverables:

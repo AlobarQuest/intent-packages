@@ -40,6 +40,23 @@ def _check_profile_fields(package: dict) -> list[str]:
     return errors
 
 
+# Deliberately NOT automated_check, decided 2026-08-04 (WS-P2.36) rather than left silent.
+#
+# software-delivery's ci:/gate: moved to automated_check in the same change, because those tags
+# are satisfied by a GitHub Actions job on the pull-request head, which the verifier can observe.
+# None of this profile's tags is. Measured across the seven factory-target repositories: no
+# repository publishes a health-probe job that runs on a pull-request head (brain's is a step
+# inside a deploy job gated to pushes on main), and there is no backup or change-log job at all.
+# Health in this estate is Coolify health checks, the Dockerfile HEALTHCHECK and post-deploy
+# deployment_observation records; backups are the vps-backup recipes on a schedule. All are
+# non-CI routes that no named check reports.
+#
+# automated_check resolves ONLY on verifier-owned named-check evidence, so declaring it for a tag
+# no job produces does not merely fail to help -- it forfeits the one producer these tags do have.
+# automated_test dispatches on the arriving evidence row's type, so a worker-recorded drill or
+# probe row resolves it deterministically, and a human decides when none arrives. That is the
+# right lane for operator-run work. Revisit only if a repository starts publishing one of these as
+# a job on the pull-request head.
 TAG_TO_EVIDENCE_TYPE = {
     "health:": "automated_test",
     "backup:": "automated_test",
