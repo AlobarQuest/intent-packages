@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: intent-packages-ruff-format
 title: Reformat embedded code blocks for ruff 0.16
-revision: 1
+revision: 2
 status: approved
 created_by: factory-create
 owner: devon
@@ -21,7 +21,15 @@ profile_fields:
     becomes two), and ruff formats Python code blocks embedded in markdown, so
     seven documentation files under docs/superpowers/ are the entire diff. This
     is the first execution of docs/operations/dependency-remediation.md in the
-    orchestrator repo.
+    orchestrator repo. Revision 1 was dispatched on 2026-08-07 and its attempt
+    failed on max_turns without producing a diff: this repository pins ruff
+    0.15.22, so `uv sync` gives the coding agent a formatter that considers the
+    seven files already correct. The agent ran `make fix`, saw no change, ran
+    `make check` seven times, and spent its turns trying to research what 0.16
+    changed. Revision 2 names the mechanism instead of the goal - the reformat
+    is produced by `uvx ruff@0.16.1 format .`, which fetches the proposed
+    version without committing the bump, leaving the bump itself to Dependabot
+    PR #50 as ADR-0016 intends.
   rollback_plan: >-
     Revert the PR. The change is whitespace inside fenced code blocks in seven
     markdown files; nothing imports them and no runtime behaviour depends on
@@ -29,10 +37,13 @@ profile_fields:
   pr_url: 'https://github.com/AlobarQuest/intent-packages/pull/50'
 outcome:
   what: >-
-    The seven markdown files under docs/superpowers/ that ruff 0.16 would
-    reformat are reformatted, so `ruff format --check .` passes under ruff 0.16.x
-    as well as under the currently pinned 0.15.22. Only whitespace inside fenced
-    Python code blocks changes; no source file and no prose changes.
+    `uvx ruff@0.16.1 format .` is run over the tree, which reformats exactly seven
+    markdown files under docs/superpowers/ and leaves 103 files unchanged. Only
+    whitespace inside fenced Python code blocks changes; no source file and no
+    prose changes. Afterwards `ruff format --check .` passes under ruff 0.16.x as
+    well as under the currently pinned 0.15.22. The repository's own `ruff` is
+    0.15.22 and considers those files already correct, so `make fix` is a no-op
+    here and is not the way to produce this change.
   why: >-
     ADR-0016 gives native auto-merge the routine dependency updates and gives the
     factory the ones that FAIL. This is that half, executed for the first time.
@@ -51,7 +62,7 @@ outcome:
 scope:
   included:
   - >-
-    Run the repository's formatter over the tree so the seven affected markdown
+    Run `uvx ruff@0.16.1 format .` over the tree so the seven affected markdown
     files adopt ruff 0.16's inline-comment spacing.
   excluded:
   - >-
@@ -70,6 +81,11 @@ scope:
     `ruff format` remains part of this repository's `make check`. If the gate
     stops running the formatter, this package's premise is gone and it should be
     re-authored rather than forced through.
+  - >-
+    `uvx` is available on the runner. The reusable workflow installs `uv` via
+    setup-uv, and `uvx` ships with it; the coding agent used `uv sync`
+    successfully on the revision-1 attempt, so this is observed rather than
+    assumed.
   open_questions: []
 sources:
 - location: >-
@@ -156,9 +172,12 @@ dependencies:
 risk:
   failure_modes:
   - >-
-    The formatter touches a file beyond the seven, for example if the pinned ruff
-    version in the checkout differs from the one measured. Visible in the diff
-    before any merge, and the stop condition below refuses it.
+    The formatter touches a file beyond the seven. Measured against a clean clone
+    at 1714a8f on 2026-08-07: `uvx ruff@0.16.1 format .` reports "7 files
+    reformatted, 103 files left unchanged", and the ordered command list run twice
+    in one checkout leaves the same seven files and `make check` green at 691
+    collected / 691 passed. Any wider diff is visible before any merge, and the
+    stop condition below refuses it.
   - >-
     The named check fails on the pull-request head. Nothing is affected; App Brain
     records this repository as inert, so an unmerged pull request changes nothing.
