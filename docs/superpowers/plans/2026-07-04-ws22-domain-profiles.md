@@ -73,6 +73,7 @@ Uses monkeypatch.setitem on profiles.PROFILES to inject a fake validator, so thi
 test file has zero dependency on the real software-delivery/infrastructure-change
 profiles built in Tasks 2/3.
 """
+
 from intent_packages import profiles
 from intent_packages.validate import validate_package
 
@@ -137,6 +138,7 @@ A profile extends the universal intent-package envelope (WS-2.1) via the reserve
 `validate_profile()` is called from `validate.validate_package()` as one more check
 (check P) after the universal checks pass.
 """
+
 from __future__ import annotations
 
 from typing import Callable
@@ -235,6 +237,7 @@ Create `tests/test_profile_software_delivery.py`:
 ```python
 """Task 2: the software-delivery profile — profile_fields schema + evidence-tag/
 evidence_type consistency checks (WS-2.2 spec §3)."""
+
 from intent_packages.validate import validate_package
 
 
@@ -265,26 +268,40 @@ def test_profile_fields_missing_repo_is_rejected(software_delivery_package, drop
 
 
 def test_profile_fields_repo_must_be_non_empty(software_delivery_package, edit_yaml):
-    edit_yaml(software_delivery_package, "package.yaml", set_nested=(("profile_fields", "repo"), ""))
+    edit_yaml(
+        software_delivery_package, "package.yaml", set_nested=(("profile_fields", "repo"), "")
+    )
     errs = validate_package(software_delivery_package)
     assert any("profile_fields.repo" in e and "non-empty" in e for e in errs)
 
 
 def test_profile_fields_deploy_target_may_be_null(software_delivery_package, edit_yaml):
     edit_yaml(
-        software_delivery_package, "package.yaml", set_nested=(("profile_fields", "deploy_target"), None)
+        software_delivery_package,
+        "package.yaml",
+        set_nested=(("profile_fields", "deploy_target"), None),
     )
     assert validate_package(software_delivery_package) == []
 
 
-def test_profile_fields_required_checks_must_be_non_empty_list(software_delivery_package, edit_yaml):
-    edit_yaml(software_delivery_package, "package.yaml", set_nested=(("profile_fields", "required_checks"), []))
+def test_profile_fields_required_checks_must_be_non_empty_list(
+    software_delivery_package, edit_yaml
+):
+    edit_yaml(
+        software_delivery_package,
+        "package.yaml",
+        set_nested=(("profile_fields", "required_checks"), []),
+    )
     errs = validate_package(software_delivery_package)
     assert any("profile_fields.required_checks" in e and "non-empty" in e for e in errs)
 
 
 def test_profile_fields_rollback_plan_must_be_non_empty(software_delivery_package, edit_yaml):
-    edit_yaml(software_delivery_package, "package.yaml", set_nested=(("profile_fields", "rollback_plan"), ""))
+    edit_yaml(
+        software_delivery_package,
+        "package.yaml",
+        set_nested=(("profile_fields", "rollback_plan"), ""),
+    )
     errs = validate_package(software_delivery_package)
     assert any("profile_fields.rollback_plan" in e and "non-empty" in e for e in errs)
 
@@ -296,9 +313,7 @@ def test_evidence_without_a_recognized_tag_is_rejected(software_delivery_package
         set_nested=(("acceptance", 0, "evidence"), "no tag here at all"),
     )
     errs = validate_package(software_delivery_package)
-    assert any(
-        "acceptance[0].evidence" in e and "recognized producer tag" in e for e in errs
-    )
+    assert any("acceptance[0].evidence" in e and "recognized producer tag" in e for e in errs)
 
 
 def test_each_valid_tag_is_accepted(software_delivery_package, edit_yaml):
@@ -499,6 +514,7 @@ Each profile owns a fixed `tag -> required evidence_type` mapping. Every
 match the tag's required value. This is deliberately an enum-of-producers
 check, not an evidence-payload framework (see spec §5).
 """
+
 from __future__ import annotations
 
 
@@ -543,6 +559,7 @@ Create `src/intent_packages/profiles/software_delivery.py`:
 ```python
 """Software-delivery domain profile (WS-2.2 spec §3): profile_fields schema +
 evidence-tag/evidence_type consistency checks layered on the universal envelope."""
+
 from __future__ import annotations
 
 from intent_packages.profiles._evidence_tags import check_evidence_tags
@@ -657,6 +674,7 @@ Create `tests/test_profile_infrastructure_change.py`:
 ```python
 """Task 3: the infrastructure-change profile — profile_fields schema + evidence-tag/
 evidence_type consistency checks (WS-2.2 spec §4)."""
+
 from intent_packages.validate import validate_package
 
 
@@ -677,14 +695,14 @@ def test_blast_radius_must_be_a_legal_enum_value(infrastructure_change_package, 
         set_nested=(("profile_fields", "blast_radius"), "the-whole-internet"),
     )
     errs = validate_package(infrastructure_change_package)
-    assert any(
-        "profile_fields.blast_radius" in e and "the-whole-internet" in e for e in errs
-    )
+    assert any("profile_fields.blast_radius" in e and "the-whole-internet" in e for e in errs)
 
 
 def test_change_window_may_be_null(infrastructure_change_package, edit_yaml):
     edit_yaml(
-        infrastructure_change_package, "package.yaml", set_nested=(("profile_fields", "change_window"), None)
+        infrastructure_change_package,
+        "package.yaml",
+        set_nested=(("profile_fields", "change_window"), None),
     )
     assert validate_package(infrastructure_change_package) == []
 
@@ -715,9 +733,7 @@ def test_evidence_without_a_recognized_tag_is_rejected(infrastructure_change_pac
         set_nested=(("acceptance", 0, "evidence"), "no tag here at all"),
     )
     errs = validate_package(infrastructure_change_package)
-    assert any(
-        "acceptance[0].evidence" in e and "recognized producer tag" in e for e in errs
-    )
+    assert any("acceptance[0].evidence" in e and "recognized producer tag" in e for e in errs)
 
 
 def test_each_valid_tag_is_accepted(infrastructure_change_package, edit_yaml):
@@ -900,6 +916,7 @@ Create `src/intent_packages/profiles/infrastructure_change.py`:
 ```python
 """Infrastructure-change domain profile (WS-2.2 spec §4): profile_fields schema +
 evidence-tag/evidence_type consistency checks layered on the universal envelope."""
+
 from __future__ import annotations
 
 from intent_packages.profiles._evidence_tags import check_evidence_tags
@@ -1001,6 +1018,7 @@ Create `tests/test_profiles_compat.py`:
 """Task 4: AC-002 — the universal envelope is provably unchanged by the profiles
 module. A universal-only package (no `profile` key) must validate identically and
 hash identically to how it did before WS-2.2 landed."""
+
 from intent_packages import canonical, loader, profiles
 from intent_packages.validate import validate_package
 

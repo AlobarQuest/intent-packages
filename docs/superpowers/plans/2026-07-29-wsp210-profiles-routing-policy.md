@@ -487,7 +487,7 @@ def test_unknown_model_slug_fails_at_load(tmp_path):
     bad = tmp_path / "p.toml"
     bad.write_text(
         'version = 1\n[models]\nsonnet-5 = "claude-sonnet-5"\n'
-        '[no_llm]\nitems = []\n'
+        "[no_llm]\nitems = []\n"
         '[[surface]]\nid = "s"\nmodels = ["mystery-9"]\nwhere = "w"\n'
         'rationale = "r"\ndecided = "2026-07-29"\n',
         encoding="utf-8",
@@ -500,7 +500,7 @@ def test_change_class_must_reference_known_surface(tmp_path):
     bad = tmp_path / "p.toml"
     bad.write_text(
         'version = 1\n[models]\nsonnet-5 = "claude-sonnet-5"\n'
-        '[no_llm]\nitems = []\n'
+        "[no_llm]\nitems = []\n"
         '[[surface]]\nid = "s"\nmodels = ["sonnet-5"]\nwhere = "w"\n'
         'rationale = "r"\ndecided = "2026-07-29"\n'
         '[change_class.x]\nsurface = "ghost"\nmodels = ["sonnet-5"]\n'
@@ -621,8 +621,7 @@ def load_policy(path: Path | None = None) -> RoutingPolicy:
         surface_ref = _require_str(table, "surface", f"change_class {name}")
         if surface_ref not in surfaces:
             raise RoutingPolicyError(
-                f"change_class {name}: unknown surface {surface_ref!r}; "
-                f"valid: {sorted(surfaces)}"
+                f"change_class {name}: unknown surface {surface_ref!r}; valid: {sorted(surfaces)}"
             )
         change_classes[name] = _build_row(table, name, models, f"change_class {name}")
 
@@ -739,7 +738,7 @@ def test_route_explicit_policy_path(tmp_path, capsys):
     policy = tmp_path / "p.toml"
     policy.write_text(
         'version = 7\n[models]\nsonnet-5 = "claude-sonnet-5"\n'
-        '[no_llm]\nitems = []\n'
+        "[no_llm]\nitems = []\n"
         '[[surface]]\nid = "s"\nmodels = ["sonnet-5"]\nwhere = "w"\n'
         'rationale = "r"\ndecided = "2026-07-29"\n',
         encoding="utf-8",
@@ -758,15 +757,13 @@ Expected: FAIL — argparse `SystemExit: 2` (`invalid choice: 'route'`).
 In `factory_cli.py`, add to module imports: `import sys` and `from pathlib import Path`. In `_build_parser()`, after the `decompose` subparser block:
 
 ```python
-    r = sub.add_parser(
-        "route", help="resolve a model from routing-policy.toml (the sole source of selection)"
-    )
-    selector = r.add_mutually_exclusive_group(required=True)
-    selector.add_argument("--surface", default="", help="surface id, e.g. runner-implementation")
-    selector.add_argument(
-        "--change-class", dest="change_class", default="", help="change-class name"
-    )
-    r.add_argument("--policy", default="", help="policy file path (default: repo root)")
+r = sub.add_parser(
+    "route", help="resolve a model from routing-policy.toml (the sole source of selection)"
+)
+selector = r.add_mutually_exclusive_group(required=True)
+selector.add_argument("--surface", default="", help="surface id, e.g. runner-implementation")
+selector.add_argument("--change-class", dest="change_class", default="", help="change-class name")
+r.add_argument("--policy", default="", help="policy file path (default: repo root)")
 ```
 
 In `main()`, before the final `return 0`:
@@ -1141,7 +1138,11 @@ def test_registered_with_change_class_and_tooling():
 
 
 def _pkg(profile_fields: dict, acceptance: list) -> dict:
-    return {"profile": "dependency-update", "profile_fields": profile_fields, "acceptance": acceptance}
+    return {
+        "profile": "dependency-update",
+        "profile_fields": profile_fields,
+        "acceptance": acceptance,
+    }
 
 
 VALID_FIELDS = {
@@ -1200,7 +1201,13 @@ def test_envelope_key_set_is_the_pinned_contract():
         {"scanner": "real"},
         [PinSite("pyproject.toml", "dependency-groups.dev", "2.8.0")],
     )
-    assert set(envelope) == {"budgets", "capabilities", "change_class", "conformance", "constraints"}
+    assert set(envelope) == {
+        "budgets",
+        "capabilities",
+        "change_class",
+        "conformance",
+        "constraints",
+    }
     assert set(envelope["constraints"]) == {
         "allowed_commands",
         "mutation_commands",
@@ -1363,7 +1370,11 @@ VALID_AC = [
 
 
 def _pkg(fields: dict, acceptance: list) -> dict:
-    return {"profile": "maintenance-remediation", "profile_fields": fields, "acceptance": acceptance}
+    return {
+        "profile": "maintenance-remediation",
+        "profile_fields": fields,
+        "acceptance": acceptance,
+    }
 
 
 def test_registered_factory_executable():
@@ -1681,8 +1692,7 @@ DELIVERY_PROFILE = DeliveryProfile(
         "producers exist for this profile's work."
     ),
     observation_window=(
-        "Declared per package via follow_up (e.g. days-on-market signals for a "
-        "listing launch)."
+        "Declared per package via follow_up (e.g. days-on-market signals for a listing launch)."
     ),
     validate=validate,
 )
@@ -1770,18 +1780,16 @@ Add imports: `from intent_packages import routing` (top-level import is fine; ro
 Extend `run()`'s signature (keyword section, after `submit: bool`):
 
 ```python
-    policy_path: Path | None = None,
+policy_path: Path | None = (None,)
 ```
 
 Inside the `try:` block, immediately after `proposal = build_proposal(...)` and before the `allowed = ...` line:
 
 ```python
-        change_class = proposal["proposed_units"][0]["authority"]["change_class"]
-        policy = routing.load_policy(policy_path)
-        row = routing.resolve_change_class(policy, change_class)
-        proposal["rationale"] += (
-            f" routing: {'/'.join(row.models)} per routing-policy v{policy.version}."
-        )
+change_class = proposal["proposed_units"][0]["authority"]["change_class"]
+policy = routing.load_policy(policy_path)
+row = routing.resolve_change_class(policy, change_class)
+proposal["rationale"] += f" routing: {'/'.join(row.models)} per routing-policy v{policy.version}."
 ```
 
 Add `routing.RoutingPolicyError` to the `except` tuple at the bottom of `run()`:

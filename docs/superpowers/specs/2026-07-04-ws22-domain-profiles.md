@@ -53,6 +53,7 @@ PROFILES: dict[str, Callable[[dict], list[str]]] = {
     "infrastructure-change": infrastructure_change.validate,
 }
 
+
 def validate_profile(package: dict) -> list[str]:
     name = package.get("profile")
     if name is None:

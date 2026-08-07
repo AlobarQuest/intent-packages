@@ -355,16 +355,17 @@ def package_hash(package: dict) -> str:
 
 - [ ] **Step 4: add `hash` subcommand** to `cli.py` — after `parse_args`, dispatch:
 ```python
-    sub = parser.add_subparsers(dest="cmd", required=True)
-    p_hash = sub.add_parser("hash", help="print sha256(JCS(intent_core)) of a package")
-    p_hash.add_argument("path")
-    args = parser.parse_args(argv)
-    if args.cmd == "hash":
-        from intent_packages.canonical import package_hash
-        from intent_packages.loader import load_package
-        print(package_hash(load_package(args.path)))
-        return 0
+sub = parser.add_subparsers(dest="cmd", required=True)
+p_hash = sub.add_parser("hash", help="print sha256(JCS(intent_core)) of a package")
+p_hash.add_argument("path")
+args = parser.parse_args(argv)
+if args.cmd == "hash":
+    from intent_packages.canonical import package_hash
+    from intent_packages.loader import load_package
+
+    print(package_hash(load_package(args.path)))
     return 0
+return 0
 ```
 
 - [ ] **Step 5: CLI test** — `tests/test_cli_hash.py` writes a minimal `package.yaml` to a tmp dir, runs `main(["hash", str(dir)])`, asserts 64-hex on stdout (`capsys`). Run both test files → PASS.
@@ -437,12 +438,14 @@ def test_maps_reference_only_known_states():
 def test_vocab_loaded(fake_registry, monkeypatch):
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
     from intent_packages import registry
+
     assert "merge_to_main" in registry.capability_vocabulary()
 
 
 def test_human_operator(fake_registry, monkeypatch):
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
     from intent_packages import registry
+
     assert registry.is_human_operator("devon")
     assert not registry.is_human_operator("claude-code-interactive")  # profile != human-operator-v1
 
@@ -450,6 +453,7 @@ def test_human_operator(fake_registry, monkeypatch):
 def test_absent_registry_returns_none(monkeypatch, tmp_path):
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(tmp_path / "nope"))
     from intent_packages import registry
+
     assert registry.capability_vocabulary() is None
 ```
 Add the `fake_registry` fixture to `conftest.py` (writes `capabilities.yaml` + `agents/devon.yaml` + `agents/claude-code-interactive.yaml` with `authority_profile: interactive-dev-v1`).
@@ -492,7 +496,7 @@ Add the `fake_registry` fixture to `conftest.py` (writes `capabilities.yaml` + `
 from intent_packages.validate import validate_package
 
 
-def test_valid_package_has_no_errors(valid_package):        # conftest factory -> pkg_dir
+def test_valid_package_has_no_errors(valid_package):  # conftest factory -> pkg_dir
     assert validate_package(valid_package) == []
 
 

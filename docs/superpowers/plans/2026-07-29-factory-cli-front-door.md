@@ -517,7 +517,9 @@ class OrchestratorApi:
         return self._get(f"/api/v1/package-intakes/{revision_id}/decomposition-proposals")
 
     def traceability(self, *, revision_id: str | None = None, work_unit_id: str | None = None):
-        params = {k: v for k, v in (("revision_id", revision_id), ("work_unit_id", work_unit_id)) if v}
+        params = {
+            k: v for k, v in (("revision_id", revision_id), ("work_unit_id", work_unit_id)) if v
+        }
         return self._get(f"/api/v1/traceability?{urlencode(params)}")
 
     def readiness(self, unit_id: str) -> dict:
@@ -892,7 +894,9 @@ def _evidence_type(profile) -> str:
     so it is excluded here regardless of what a profile's tag map contains.
     """
     forbidden = set(profile.forbidden_evidence_types) | {"automated_test"}
-    permitted = [v for v in sorted(set(profile.tag_to_evidence_type.values())) if v not in forbidden]
+    permitted = [
+        v for v in sorted(set(profile.tag_to_evidence_type.values())) if v not in forbidden
+    ]
     return permitted[0] if permitted else "test"
 
 
@@ -967,7 +971,9 @@ and in `main`:
 def test_create_through_the_entrypoint(tmp_path):
     from intent_packages.factory_cli import main
 
-    rc = main(["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)])
+    rc = main(
+        ["create", "--profile", "software-delivery", "--name", "probe", "--out", str(tmp_path)]
+    )
     assert rc == 0
     assert (tmp_path / "probe" / "package.yaml").exists()
 
@@ -1145,12 +1151,10 @@ exists or ever will (ADR-0006).
 ```
 
 ```python
-    if args.cmd == "submit":
-        from intent_packages.factory import journey
+if args.cmd == "submit":
+    from intent_packages.factory import journey
 
-        return journey.submit(
-            args.package, args.source_repository, open_browser=args.open_browser
-        )
+    return journey.submit(args.package, args.source_repository, open_browser=args.open_browser)
 ```
 
 - [ ] **Step 6: Run the tests to verify they pass**
@@ -1260,8 +1264,12 @@ def test_evidence_markdown_uses_the_markdown_route(capsys):
         called["unit"] = unit_id
         return "# pack"
 
-    journey.evidence("r1", unit_key="bump-fastapi", markdown=True,
-                     api=_fake_api(evidence_pack_markdown=evidence_pack_markdown))
+    journey.evidence(
+        "r1",
+        unit_key="bump-fastapi",
+        markdown=True,
+        api=_fake_api(evidence_pack_markdown=evidence_pack_markdown),
+    )
     assert called["unit"] == "u1"
     assert "# pack" in capsys.readouterr().out
 
@@ -1383,8 +1391,10 @@ def test_dispatch_reports_a_reused_record_id_as_failure(capsys):
     def history(unit_id):
         return {
             "events": [
-                {"type": "dispatch.dispatched",
-                 "payload": {"runner_attempt": 2, "dispatch_id": "d-old"}}
+                {
+                    "type": "dispatch.dispatched",
+                    "payload": {"runner_attempt": 2, "dispatch_id": "d-old"},
+                }
             ]
         }
 
@@ -1544,8 +1554,10 @@ def test_named_check_body_is_fully_derived():
         def history(self, unit_id):
             return {
                 "events": [
-                    {"type": "dispatch.dispatched",
-                     "payload": {"runner_attempt": 1, "dispatch_id": "d1"}}
+                    {
+                        "type": "dispatch.dispatched",
+                        "payload": {"runner_attempt": 1, "dispatch_id": "d1"},
+                    }
                 ]
             }
 
@@ -1564,9 +1576,15 @@ def test_named_check_body_is_fully_derived():
             return {"outcomes": [{"ac_id": "AC-001", "outcome": "passed"}]}
 
     rc = verify_module.verify(
-        "r1", "k", ac_id="AC-001", check_name="Quality", conclusion="success",
-        run_id="99", run_url="https://github.com/x/y/actions/runs/99",
-        assertions=["collected=295:295"], api=FakeApi(),
+        "r1",
+        "k",
+        ac_id="AC-001",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="https://github.com/x/y/actions/runs/99",
+        assertions=["collected=295:295"],
+        api=FakeApi(),
     )
     assert rc == 0
     body = seen["named_check"]
@@ -1582,13 +1600,31 @@ def test_named_check_body_is_fully_derived():
 def test_missing_pr_binding_is_an_actionable_refusal(capsys):
     class FakeApi:
         def traceability(self, *, revision_id=None, work_unit_id=None):
-            return {"anchor": {}, "chains": [{"unit": {"id": "u1", "unit_key": "k",
-                                                       "state": "submitted",
-                                                       "authority_fingerprint": "fp"}, "pr": None}]}
+            return {
+                "anchor": {},
+                "chains": [
+                    {
+                        "unit": {
+                            "id": "u1",
+                            "unit_key": "k",
+                            "state": "submitted",
+                            "authority_fingerprint": "fp",
+                        },
+                        "pr": None,
+                    }
+                ],
+            }
 
     rc = verify_module.verify(
-        "r1", "k", ac_id="AC-001", check_name="Quality", conclusion="success",
-        run_id="99", run_url="u", assertions=[], api=FakeApi(),
+        "r1",
+        "k",
+        ac_id="AC-001",
+        check_name="Quality",
+        conclusion="success",
+        run_id="99",
+        run_url="u",
+        assertions=[],
+        api=FakeApi(),
     )
     assert rc == 1
     assert "pr" in capsys.readouterr().err.lower()
@@ -1642,22 +1678,31 @@ def build_assertions(values: list[str]) -> list[dict]:
 - [ ] **Step 4: Wire the subparser**
 
 ```python
-    vf = sub.add_parser("verify", help="VERIFIER: post named-check evidence, then evaluate")
-    vf.add_argument("--revision", default="")
-    vf.add_argument("--unit-key", dest="unit_key", required=True)
-    vf.add_argument("--ac", dest="ac_id", required=True, help="human AC id, e.g. AC-001")
-    vf.add_argument("--check-name", dest="check_name", required=True)
-    vf.add_argument(
-        "--conclusion",
-        required=True,
-        choices=("success", "failure", "cancelled", "timed_out", "action_required",
-                 "neutral", "skipped", "stale"),
-    )
-    vf.add_argument("--run-id", dest="run_id", required=True)
-    vf.add_argument("--run-url", dest="run_url", required=True)
-    vf.add_argument("--repository", default="", help="override the derived target repository")
-    vf.add_argument("--assert", dest="assertions", action="append", default=[],
-                    metavar="NAME=EXPECTED:OBSERVED")
+vf = sub.add_parser("verify", help="VERIFIER: post named-check evidence, then evaluate")
+vf.add_argument("--revision", default="")
+vf.add_argument("--unit-key", dest="unit_key", required=True)
+vf.add_argument("--ac", dest="ac_id", required=True, help="human AC id, e.g. AC-001")
+vf.add_argument("--check-name", dest="check_name", required=True)
+vf.add_argument(
+    "--conclusion",
+    required=True,
+    choices=(
+        "success",
+        "failure",
+        "cancelled",
+        "timed_out",
+        "action_required",
+        "neutral",
+        "skipped",
+        "stale",
+    ),
+)
+vf.add_argument("--run-id", dest="run_id", required=True)
+vf.add_argument("--run-url", dest="run_url", required=True)
+vf.add_argument("--repository", default="", help="override the derived target repository")
+vf.add_argument(
+    "--assert", dest="assertions", action="append", default=[], metavar="NAME=EXPECTED:OBSERVED"
+)
 ```
 
 Confirm the `--conclusion` choices against `/openapi.json` before hard-coding them:
@@ -1696,8 +1741,18 @@ import pytest
 
 from intent_packages.factory_cli import main
 
-ALL_COMMANDS = ["create", "validate", "submit", "status", "evidence",
-                "ready", "dispatch", "verify", "decompose", "route"]
+ALL_COMMANDS = [
+    "create",
+    "validate",
+    "submit",
+    "status",
+    "evidence",
+    "ready",
+    "dispatch",
+    "verify",
+    "decompose",
+    "route",
+]
 
 
 @pytest.mark.parametrize("command", ALL_COMMANDS)
@@ -1716,8 +1771,18 @@ def test_revision_falls_back_to_the_environment(command, monkeypatch):
     if command in {"ready", "dispatch", "verify"}:
         argv += ["--unit-key", "k"]
     if command == "verify":
-        argv += ["--ac", "AC-001", "--check-name", "Q", "--conclusion", "success",
-                 "--run-id", "1", "--run-url", "u"]
+        argv += [
+            "--ac",
+            "AC-001",
+            "--check-name",
+            "Q",
+            "--conclusion",
+            "success",
+            "--run-id",
+            "1",
+            "--run-url",
+            "u",
+        ]
     assert main(argv) == 2
 
 
