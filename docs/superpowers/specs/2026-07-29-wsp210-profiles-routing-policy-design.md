@@ -111,19 +111,19 @@ ungoverned kinds — domain profiles (validator + MapSpec + tag map) and the too
 ```python
 @dataclass(frozen=True)
 class DeliveryProfile:
-    name: str                                    # registry key; package.yaml `profile:` value
-    change_class: str | None                     # non-None ⇒ factory-executable ⇒ routing row required
+    name: str  # registry key; package.yaml `profile:` value
+    change_class: str | None  # non-None ⇒ factory-executable ⇒ routing row required
     profile_fields_schema: MapSpec | None
     tag_to_evidence_type: Mapping[str, str]
-    forbidden_evidence_types: frozenset[str]     # banked-constraint enforcement hook
+    forbidden_evidence_types: frozenset[str]  # banked-constraint enforcement hook
     required_checks: tuple[str, ...]
     default_authority: AuthorityDefaults | None  # envelope template PARAMETERS: budgets,
-                                                 # capabilities, command-ordering rule.
-                                                 # Defaults, never grants.
-    evidence_expectations: str                   # prose contract, incl. budget honesty
-    observation_window: str                      # prose; machine field deferred with follow_up
+    # capabilities, command-ordering rule.
+    # Defaults, never grants.
+    evidence_expectations: str  # prose contract, incl. budget honesty
+    observation_window: str  # prose; machine field deferred with follow_up
     validate: Callable[[dict], list[str]] | None
-    tooling: Mapping[str, ToolingProfile] | None # dep-update's uv/pip/npm variants
+    tooling: Mapping[str, ToolingProfile] | None  # dep-update's uv/pip/npm variants
 ```
 
 `PROFILES: dict[str, DeliveryProfile]`. The two existing domain profiles are **wrapped, not

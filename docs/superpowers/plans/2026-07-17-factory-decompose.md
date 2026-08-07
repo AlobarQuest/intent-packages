@@ -94,11 +94,25 @@ def test_decompose_requires_revision():
 
 
 def test_decompose_parses_all_args(capsys):
-    rc = main([
-        "decompose", "--revision", "rev-1", "--ac", "AC-002",
-        "--target-repo", "AlobarQuest/brain", "--tooling", "pip",
-        "--package", "fastapi", "--from", "0.139.0", "--to", "0.139.2",
-    ])
+    rc = main(
+        [
+            "decompose",
+            "--revision",
+            "rev-1",
+            "--ac",
+            "AC-002",
+            "--target-repo",
+            "AlobarQuest/brain",
+            "--tooling",
+            "pip",
+            "--package",
+            "fastapi",
+            "--from",
+            "0.139.0",
+            "--to",
+            "0.139.2",
+        ]
+    )
     assert rc == 0
     out = capsys.readouterr().out
     assert "rev-1" in out and "AC-002" in out and "pip" in out
@@ -131,11 +145,15 @@ import argparse
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="factory", description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("decompose", help="author + validate a dependency-update decomposition proposal")
+    p = sub.add_parser(
+        "decompose", help="author + validate a dependency-update decomposition proposal"
+    )
     p.add_argument("--revision", required=True, help="intaken package revision id")
     p.add_argument("--ac", required=True, help="acceptance criterion human id, e.g. AC-002")
     p.add_argument("--target-repo", required=True, help="GitHub slug, e.g. AlobarQuest/brain")
-    p.add_argument("--repo-path", default="", help="local checkout path (default: ~/Projects/<repo>)")
+    p.add_argument(
+        "--repo-path", default="", help="local checkout path (default: ~/Projects/<repo>)"
+    )
     p.add_argument("--tooling", required=True, choices=("pip", "uv", "npm"))
     p.add_argument("--package", required=True, help="dependency name")
     p.add_argument("--from", dest="from_version", required=True, help="current pinned version")
@@ -143,7 +161,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--unit-key", default="", help="proposed unit key (default: derived from --ac)")
     p.add_argument("--rationale", default="", help="retained-AC rationale (default: auto)")
     p.add_argument("--out", default="", help="write proposal JSON here (default: stdout)")
-    p.add_argument("--submit", action="store_true", help="submit via orchestrator (default: dry only)")
+    p.add_argument(
+        "--submit", action="store_true", help="submit via orchestrator (default: dry only)"
+    )
     return parser
 
 
@@ -242,7 +262,11 @@ def test_pip_verifier_is_grep(tmp_path):
 def test_build_envelope_shape_matches_contract():
     sites = [dep.PinSite("requirements.txt", "requirements.txt", "0.139.0")]
     env = dep.build_envelope(
-        "AlobarQuest/brain", "pip", "fastapi", "0.139.0", "0.139.2",
+        "AlobarQuest/brain",
+        "pip",
+        "fastapi",
+        "0.139.0",
+        "0.139.2",
         {"accepted_standards": [], "standards_touched": ["project"], "status": "green"},
         sites,
     )
@@ -346,9 +370,7 @@ def _pip_discover(repo: Path, package: str) -> list[PinSite]:
 
 
 def _pip_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
-    return [
-        f"sed -i 's/^{package}=={old}$/{package}=={new}/' {site.file}" for site in sites
-    ]
+    return [f"sed -i 's/^{package}=={old}$/{package}=={new}/' {site.file}" for site in sites]
 
 
 def _pip_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
@@ -420,12 +442,16 @@ git commit -m "feat: dependency-update profile registry + pip variant"
 ```python
 # add to tests/factory/test_profiles_dependency_update.py
 def test_uv_discovers_project_and_group(tmp_path):
-    _write(tmp_path, "pyproject.toml", (
-        '[project]\n'
-        'dependencies = ["fastapi==0.139.0"]\n'
-        '[dependency-groups]\n'
-        'dev = ["ruff==0.15.20", "fastapi==0.139.0"]\n'
-    ))
+    _write(
+        tmp_path,
+        "pyproject.toml",
+        (
+            "[project]\n"
+            'dependencies = ["fastapi==0.139.0"]\n'
+            "[dependency-groups]\n"
+            'dev = ["ruff==0.15.20", "fastapi==0.139.0"]\n'
+        ),
+    )
     sites = dep.PROFILES["uv"].discover_pin_sites(tmp_path, "fastapi")
     labels = sorted(s.label for s in sites)
     assert labels == ["dependency-groups.dev", "project.dependencies"]
@@ -466,7 +492,7 @@ def _uv_pin_version(spec: str, package: str) -> str | None:
     name = re.split(r"[<>=!~ \[]", spec.strip(), maxsplit=1)[0]
     if name != package:
         return None
-    remainder = spec.strip()[len(name):]
+    remainder = spec.strip()[len(name) :]
     match = re.search(r"(?:==|>=)\s*([0-9][^,;\s]*)", remainder)
     return match.group(1) if match else None
 
@@ -552,9 +578,16 @@ import json as _json
 
 
 def test_npm_discovers_dependency(tmp_path):
-    _write(tmp_path, "package.json", _json.dumps({
-        "dependencies": {"zod": "3.23.8"}, "devDependencies": {"typescript": "5.4.5"},
-    }))
+    _write(
+        tmp_path,
+        "package.json",
+        _json.dumps(
+            {
+                "dependencies": {"zod": "3.23.8"},
+                "devDependencies": {"typescript": "5.4.5"},
+            }
+        ),
+    )
     sites = dep.PROFILES["npm"].discover_pin_sites(tmp_path, "zod")
     assert [(s.label, s.current_version) for s in sites] == [("dependencies", "3.23.8")]
 
@@ -564,7 +597,7 @@ def test_npm_mutation_and_verifier(tmp_path):
     cmds = dep.PROFILES["npm"].mutation_commands("zod", "3.23.8", "3.24.0", sites)
     assert cmds == ["npm install zod@3.24.0 --save-exact"]
     v = dep.PROFILES["npm"].verifier_command("zod", "3.23.8", "3.24.0", sites)
-    assert v == "grep -q '\"zod\": \"3.24.0\"' package.json"
+    assert v == 'grep -q \'"zod": "3.24.0"\' package.json'
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -602,7 +635,7 @@ def _npm_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> lis
 
 
 def _npm_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
-    return f"grep -q '\"{package}\": \"{new}\"' package.json"
+    return f'grep -q \'"{package}": "{new}"\' package.json'
 
 
 PROFILES["npm"] = ToolingProfile("npm", _npm_discover, _npm_mutation, _npm_verifier)
@@ -654,6 +687,7 @@ from intent_packages.factory.orchestrator_cli import OrchestratorClient, Orchest
 def _fake(returncode, stdout):
     def runner(argv):
         return subprocess.CompletedProcess(argv, returncode, stdout=stdout, stderr="")
+
     return runner
 
 
@@ -680,7 +714,9 @@ def test_conformance_builds_expected_argv():
 
     def runner(argv):
         seen["argv"] = argv
-        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps({"status": "green"}), stderr="")
+        return subprocess.CompletedProcess(
+            argv, 0, stdout=json.dumps({"status": "green"}), stderr=""
+        )
 
     OrchestratorClient(runner=runner).conformance_claim("/tmp/repo")
     assert seen["argv"] == ["orchestrator", "conformance-claim", "/tmp/repo", "--json"]
@@ -801,32 +837,43 @@ def _git_repo(tmp_path: Path, files: dict[str, str]) -> Path:
     repo.mkdir()
     for name, text in files.items():
         (repo / name).write_text(text, encoding="utf-8")
-    for argv in (["init", "-q"], ["add", "-A"], ["-c", "user.email=t@t", "-c", "user.name=t",
-                 "commit", "-qm", "init"]):
+    for argv in (
+        ["init", "-q"],
+        ["add", "-A"],
+        ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"],
+    ):
         subprocess.run(["git", *argv], cwd=repo, check=True)
     return repo
 
 
 def test_dry_run_reports_changed_file(tmp_path):
     repo = _git_repo(tmp_path, {"requirements.txt": "fastapi==0.139.0\n"})
-    changed = dry_run_mutation(repo, [
-        "sed -i 's/^fastapi==0.139.0$/fastapi==0.139.2/' requirements.txt",
-        "grep -qx 'fastapi==0.139.2' requirements.txt",
-    ])
+    changed = dry_run_mutation(
+        repo,
+        [
+            "sed -i 's/^fastapi==0.139.0$/fastapi==0.139.2/' requirements.txt",
+            "grep -qx 'fastapi==0.139.2' requirements.txt",
+        ],
+    )
     assert changed == {"requirements.txt"}
 
 
 def test_dry_run_fails_closed_on_no_diff(tmp_path):
     repo = _git_repo(tmp_path, {"requirements.txt": "fastapi==0.139.2\n"})
     with pytest.raises(ValidationError, match="no diff"):
-        dry_run_mutation(repo, [
-            "sed -i 's/^fastapi==0.139.0$/fastapi==0.139.2/' requirements.txt",
-        ])
+        dry_run_mutation(
+            repo,
+            [
+                "sed -i 's/^fastapi==0.139.0$/fastapi==0.139.2/' requirements.txt",
+            ],
+        )
 
 
 def test_pin_site_coverage_fails_when_site_untouched():
-    sites = [PinSite("requirements.txt", "requirements.txt", "0.139.0"),
-             PinSite("requirements-dev.txt", "requirements-dev.txt", "0.139.0")]
+    sites = [
+        PinSite("requirements.txt", "requirements.txt", "0.139.0"),
+        PinSite("requirements-dev.txt", "requirements-dev.txt", "0.139.0"),
+    ]
     with pytest.raises(ValidationError, match="requirements-dev.txt"):
         assert_pin_sites_moved({"requirements.txt"}, sites)
 
@@ -974,10 +1021,20 @@ _CONFORMANCE = {"accepted_standards": [], "standards_touched": ["project"], "sta
 
 def test_build_proposal_maps_uuid_and_covers_all_acs():
     from intent_packages.profiles.dependency_update import PinSite
+
     sites = [PinSite("requirements.txt", "requirements.txt", "0.139.0")]
     proposal = decompose.build_proposal(
-        _INTAKE, "AC-002", "brain-ac002", "AlobarQuest/brain", "pip",
-        "fastapi", "0.139.0", "0.139.2", _CONFORMANCE, sites, "retained: not this run",
+        _INTAKE,
+        "AC-002",
+        "brain-ac002",
+        "AlobarQuest/brain",
+        "pip",
+        "fastapi",
+        "0.139.0",
+        "0.139.2",
+        _CONFORMANCE,
+        sites,
+        "retained: not this run",
     )
     assert proposal["expected_version"] == 0
     assert proposal["ac_mappings"] == [{"ac_id": "uuid-2", "unit_key": "brain-ac002"}]
@@ -990,8 +1047,17 @@ def test_build_proposal_maps_uuid_and_covers_all_acs():
 def test_build_proposal_unknown_ac_raises():
     with pytest.raises(decompose.DecomposeError, match="AC-999"):
         decompose.build_proposal(
-            _INTAKE, "AC-999", "k", "AlobarQuest/brain", "pip",
-            "fastapi", "0.139.0", "0.139.2", _CONFORMANCE, [], "r",
+            _INTAKE,
+            "AC-999",
+            "k",
+            "AlobarQuest/brain",
+            "pip",
+            "fastapi",
+            "0.139.0",
+            "0.139.2",
+            _CONFORMANCE,
+            [],
+            "r",
         )
 
 
@@ -999,8 +1065,11 @@ def _git_repo(tmp_path):
     repo = tmp_path / "brain"
     repo.mkdir()
     (repo / "requirements.txt").write_text("fastapi==0.139.0\n", encoding="utf-8")
-    for argv in (["init", "-q"], ["add", "-A"], ["-c", "user.email=t@t", "-c", "user.name=t",
-                 "commit", "-qm", "init"]):
+    for argv in (
+        ["init", "-q"],
+        ["add", "-A"],
+        ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"],
+    ):
         subprocess.run(["git", *argv], cwd=repo, check=True)
     return repo
 
@@ -1011,20 +1080,30 @@ def test_run_end_to_end_no_submit(tmp_path, capsys):
 
     def runner(argv):
         import json
+
         cmd = argv[1]
         body = _INTAKE if cmd == "show-package-intake" else _CONFORMANCE
         return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
 
     rc = decompose.run(
-        revision="rev-1", ac="AC-002", target_repo="AlobarQuest/brain",
-        repo_path=str(repo), tooling="pip", package="fastapi",
-        from_version="0.139.0", to_version="0.139.2", unit_key="",
-        rationale="", out=str(out_file), submit=False,
+        revision="rev-1",
+        ac="AC-002",
+        target_repo="AlobarQuest/brain",
+        repo_path=str(repo),
+        tooling="pip",
+        package="fastapi",
+        from_version="0.139.0",
+        to_version="0.139.2",
+        unit_key="",
+        rationale="",
+        out=str(out_file),
+        submit=False,
         client=OrchestratorClient(runner=runner),
     )
     assert rc == 0
     assert out_file.exists()
     import json
+
     body = json.loads(out_file.read_text())
     assert body["ac_mappings"][0]["ac_id"] == "uuid-2"
 
@@ -1033,20 +1112,32 @@ def test_run_fails_closed_on_no_diff(tmp_path):
     repo = tmp_path / "brain"
     repo.mkdir()
     (repo / "requirements.txt").write_text("fastapi==0.139.2\n", encoding="utf-8")  # already new
-    for argv in (["init", "-q"], ["add", "-A"], ["-c", "user.email=t@t", "-c", "user.name=t",
-                 "commit", "-qm", "init"]):
+    for argv in (
+        ["init", "-q"],
+        ["add", "-A"],
+        ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"],
+    ):
         subprocess.run(["git", *argv], cwd=repo, check=True)
 
     def runner(argv):
         import json
+
         body = _INTAKE if argv[1] == "show-package-intake" else _CONFORMANCE
         return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(body), stderr="")
 
     rc = decompose.run(
-        revision="rev-1", ac="AC-002", target_repo="AlobarQuest/brain",
-        repo_path=str(repo), tooling="pip", package="fastapi",
-        from_version="0.139.0", to_version="0.139.2", unit_key="",
-        rationale="", out="", submit=False,
+        revision="rev-1",
+        ac="AC-002",
+        target_repo="AlobarQuest/brain",
+        repo_path=str(repo),
+        tooling="pip",
+        package="fastapi",
+        from_version="0.139.0",
+        to_version="0.139.2",
+        unit_key="",
+        rationale="",
+        out="",
+        submit=False,
         client=OrchestratorClient(runner=runner),
     )
     assert rc == 1
@@ -1181,8 +1272,17 @@ def run(
         conformance = client.conformance_claim(str(local_repo))
 
         proposal = build_proposal(
-            intake, ac, resolved_key, target_repo, tooling,
-            package, from_version, to_version, conformance, sites, rationale,
+            intake,
+            ac,
+            resolved_key,
+            target_repo,
+            tooling,
+            package,
+            from_version,
+            to_version,
+            conformance,
+            sites,
+            rationale,
         )
         allowed = proposal["proposed_units"][0]["authority"]["constraints"]["allowed_commands"]
 
@@ -1247,11 +1347,26 @@ def test_decompose_delegates_to_run(monkeypatch):
         return 0
 
     monkeypatch.setattr("intent_packages.factory.decompose.run", fake_run)
-    rc = main([
-        "decompose", "--revision", "rev-1", "--ac", "AC-002",
-        "--target-repo", "AlobarQuest/brain", "--tooling", "pip",
-        "--package", "fastapi", "--from", "0.139.0", "--to", "0.139.2", "--submit",
-    ])
+    rc = main(
+        [
+            "decompose",
+            "--revision",
+            "rev-1",
+            "--ac",
+            "AC-002",
+            "--target-repo",
+            "AlobarQuest/brain",
+            "--tooling",
+            "pip",
+            "--package",
+            "fastapi",
+            "--from",
+            "0.139.0",
+            "--to",
+            "0.139.2",
+            "--submit",
+        ]
+    )
     assert rc == 0
     assert seen["revision"] == "rev-1" and seen["ac"] == "AC-002"
     assert seen["from_version"] == "0.139.0" and seen["to_version"] == "0.139.2"
