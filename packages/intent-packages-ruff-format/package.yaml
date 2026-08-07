@@ -1,0 +1,182 @@
+schema_version: 1
+package_id: intent-packages-ruff-format
+title: Reformat embedded code blocks for ruff 0.16
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-08-07T11:55:28Z'
+supersedes: null
+reach:
+- source_repository
+profile: maintenance-remediation
+profile_fields:
+  repo: AlobarQuest/intent-packages
+  remediation_source: >-
+    Dependabot PR #50 (bump ruff 0.15.22 -> 0.16.1) has been blocked since
+    2026-08-04: its `Lint, type-check, and test` check fails while `validate` and
+    `Routing policy compatibility` pass. Measured 2026-08-07: the blocker is
+    `ruff format --check`, NOT `ruff check` - the linter passes clean under
+    0.16.1. ruff 0.16 changed inline-comment spacing (one space before `#`
+    becomes two), and ruff formats Python code blocks embedded in markdown, so
+    seven documentation files under docs/superpowers/ are the entire diff. This
+    is the first execution of docs/operations/dependency-remediation.md in the
+    orchestrator repo.
+  rollback_plan: >-
+    Revert the PR. The change is whitespace inside fenced code blocks in seven
+    markdown files; nothing imports them and no runtime behaviour depends on
+    them.
+  pr_url: 'https://github.com/AlobarQuest/intent-packages/pull/50'
+outcome:
+  what: >-
+    The seven markdown files under docs/superpowers/ that ruff 0.16 would
+    reformat are reformatted, so `ruff format --check .` passes under ruff 0.16.x
+    as well as under the currently pinned 0.15.22. Only whitespace inside fenced
+    Python code blocks changes; no source file and no prose changes.
+  why: >-
+    ADR-0016 gives native auto-merge the routine dependency updates and gives the
+    factory the ones that FAIL. This is that half, executed for the first time.
+    The fix belongs on main rather than on Dependabot's branch: pushing to a
+    producer's branch is overwritten by its next rebase. Verified forward- and
+    backward-compatible on 2026-08-07 - after reformatting with 0.16.1, ruff
+    0.15.22 reports every file already formatted, so main stays green before the
+    version bump lands.
+  beneficiary: >-
+    Every future ruff bump in this repository, which stops being blocked by a
+    formatter change nobody had applied.
+  success_signal: >-
+    A pull request against AlobarQuest/intent-packages whose diff is confined to
+    those seven markdown files, on whose head the repository's own named check
+    concludes success.
+scope:
+  included:
+  - >-
+    Run the repository's formatter over the tree so the seven affected markdown
+    files adopt ruff 0.16's inline-comment spacing.
+  excluded:
+  - >-
+    Bumping ruff itself. Dependabot PR #50 does that and already has auto-merge
+    available; this package removes its blocker and lets the native lane finish.
+  - >-
+    The identical blocker in AlobarQuest/factory-runner (PR #33). That repository
+    deliberately has no caller workflow (ADR-0015), so it is permanently outside
+    this recipe and is remediated by hand.
+  non_goals:
+  - >-
+    Any behaviour change. The entire diff is whitespace inside fenced code blocks
+    in documentation.
+  assumptions:
+  - >-
+    `ruff format` remains part of this repository's `make check`. If the gate
+    stops running the formatter, this package's premise is gone and it should be
+    re-authored rather than forced through.
+  open_questions: []
+sources:
+- location: >-
+    ADR-0016 (orchestrator/docs/decisions/0016) and its Stage-5 recipe
+    docs/operations/dependency-remediation.md, which names PR #50 as the live
+    worked example. Devon approved executing it on 2026-08-07 and granted per-run
+    consent for the assistant to drive the browser gates in his authenticated
+    session - so the intake and both /review approvals on this package are
+    recorded against his identity while being performed by the assistant. Noted
+    here because /review reads the actor from the forward-auth header (ADR-0014)
+    and the ledger cannot express the distinction.
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: null
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    A pull request against AlobarQuest/intent-packages reformats exactly the seven
+    markdown files ruff 0.16 flags, changes no other file, and the repository's
+    named check concludes success on the pull-request head.
+  evidence_type: automated_check
+  evidence: >-
+    ci: the target repository's named check on the pull-request head, observed
+    from GitHub by the orchestrator rather than asserted by the caller.
+  approver: policy
+- id: AC-002
+  condition: a reviewer confirms this package was ready before execution began
+  evidence_type: human_review
+  evidence: >-
+    human: Devon's approval of this package at intake, recorded against the
+    package revision.
+  approver: devon
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 60
+deliverables:
+  artifacts:
+  - >-
+    A pull request against AlobarQuest/intent-packages reformatting seven markdown
+    files under docs/superpowers/.
+  destination: AlobarQuest/intent-packages
+  recipient: devon
+  definition_of_done: >-
+    The pull request exists, its diff is confined to those seven files, and the
+    repository's named check is green on its head. Merging is a separate human act
+    and is not part of this package.
+  operator_responsibilities:
+  - A merge into a production system must trace to recorded permission - either express
+    permission given at the time of the merge, or a standing pre-authorization - recorded
+    as evidence bound to this work unit. A merge that cannot be traced to one of those
+    is a defect, whoever performed it. Outside production this constraint does not
+    apply.
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes:
+  - >-
+    The formatter touches a file beyond the seven, for example if the pinned ruff
+    version in the checkout differs from the one measured. Visible in the diff
+    before any merge, and the stop condition below refuses it.
+  - >-
+    The named check fails on the pull-request head. Nothing is affected; App Brain
+    records this repository as inert, so an unmerged pull request changes nothing.
+  max_impact: low
+  stop_conditions:
+  - The diff touches any file outside docs/superpowers/.
+  - The diff changes anything other than whitespace inside fenced code blocks.
+  rollback: >-
+    Revert the pull request, or close it unmerged. Nothing outside the repository
+    changes either way.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'

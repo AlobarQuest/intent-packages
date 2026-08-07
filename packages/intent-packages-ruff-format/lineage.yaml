@@ -1,0 +1,23 @@
+package_id: intent-packages-ruff-format
+current_state: approved
+revisions:
+- revision: 1
+  hash: c79e0ca3a4c06cb6e57f95b2a8067b954388610d306de383665f8fe0838db365
+  created_at: '2026-08-07T11:55:28Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-07T11:56:31.667261+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-07T11:56:31.667261+00:00'
+  actor: claude-code-interactive
+  event_id: evt-da89ce43c1be43eda2134bfaf242621a
+approvals:
+- revision: 1
+  approved_hash: c79e0ca3a4c06cb6e57f95b2a8067b954388610d306de383665f8fe0838db365
+  approver: devon
+  approved_at: '2026-08-07T11:56:31.873787+00:00'
+  commit: d6f0e99f0cade61ca15c659625fe0df7f8d7ce86
+  event_id: evt-6d573a7cc7ac4127b734e02cba816eb4
+grants: []
