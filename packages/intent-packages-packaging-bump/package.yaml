@@ -1,0 +1,238 @@
+schema_version: 1
+package_id: intent-packages-packaging-bump
+title: Bump packaging to 26.3 in intent-packages
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-08-10T12:36:08Z'
+supersedes: null
+reach:
+- source_repository
+profile: dependency-update
+profile_fields:
+  target_repo: AlobarQuest/intent-packages
+  package: packaging
+  from_version: '26.2'
+  to_version: '26.3'
+outcome:
+  what: >-
+    intent-packages' uv.lock moves `packaging` from 26.2 to 26.3. `packaging` is a
+    TRANSITIVE dependency - it is absent from pyproject.toml, reached through pytest -
+    so the mutator is `uv lock --upgrade-package 'packaging==26.3'` and the entire
+    diff is six lines of uv.lock: the version, the sdist URL and hash, and the wheel
+    URL and hash. No declared constraint changes, no source file changes, and no lint
+    or type surface is touched. The pull request the factory opens is then LANDED BY
+    THE FACTORY under ADR-0020, with no person acting at the merge.
+  why: >-
+    This is WS-P3.7 exit criterion 5: the first irreversible act the factory takes
+    without a human at the merge. ADR-0020 permits it for a bounded class - every
+    acceptance criterion resolved deterministically from OBSERVED evidence, with no
+    human adjudication, into a repository where landing on the default branch deploys
+    nothing. The subject is chosen so that the only unproven thing about the run is the
+    landing itself. AlobarQuest/intent-packages is the one repository in the estate
+    where a unit has already completed on observed `verifier.github.named_check`
+    evidence (WS-P2.36, unit a1493627), and App Brain records landing on its default
+    branch as `inert`. A transitive lockfile-only bump keeps the blast radius at its
+    floor: the alternative available upgrade, ruff 0.16.1 -> 0.16.2, is a declared
+    floor in two sections whose bump makes CI run a new linter over the whole tree -
+    the shape that cost pull request 50 a package revision on 2026-08-07.
+  beneficiary: >-
+    The estate. Every routine change that follows can be landed by the factory rather
+    than queued behind a human touch that ADR-0020 records as adding nothing he can
+    meaningfully exercise.
+  success_signal: >-
+    A commit reaches AlobarQuest/intent-packages `main`, placed there by the factory,
+    whose diff is confined to uv.lock's `packaging` entry - with the orchestrator
+    holding its own record of the landing and no person having acted at the merge.
+scope:
+  included:
+  - >-
+    Run `uv lock --upgrade-package 'packaging==26.3'` in a checkout of
+    AlobarQuest/intent-packages so uv.lock's `packaging` entry moves 26.2 -> 26.3,
+    then `uv lock --check` to prove the lockfile is consistent with pyproject.toml.
+  excluded:
+  - >-
+    The other upgrade available in this repository on 2026-08-10, ruff 0.16.1 ->
+    0.16.2. It is a declared `>=` floor in both `[project.optional-dependencies].dev`
+    and `[dependency-groups].dev`, and moving it makes the named check run a new
+    linter over the entire tree - a wider surface than the first autonomous landing
+    should carry. It is left to Dependabot's own lane.
+  - >-
+    Any edit to pyproject.toml. `packaging` is transitive; declaring it would be a
+    larger change than the one being made and would outlive this package.
+  non_goals:
+  - >-
+    Any behaviour change. Nothing imports `packaging` in this repository's source; it
+    arrives through pytest.
+  assumptions:
+  - >-
+    `uv` is present on the runner without a project virtualenv. Proven by control on
+    2026-08-10 rather than assumed: both commands were run against a tree extracted
+    with `git archive origin/main` (no .venv) under `PATH=~/.local/bin:/usr/bin:/bin`,
+    and both succeeded - neither command needs a synced environment, which is why this
+    envelope carries no `uv sync`.
+  - >-
+    `packaging` 26.3 remains the newest release satisfying this project's constraints.
+    The mutator pins the exact version in its specifier, so a 26.4 published mid-run
+    cannot move the lock past the version this package declares.
+  open_questions: []
+sources:
+- location: >-
+    ADR-0020 (orchestrator/docs/decisions/0020-the-factory-closes-its-own-loop.md,
+    accepted 2026-08-08) and the WS-P3.7 exit-criterion-5 handoff
+    (~/docs/software-delivery-system/2026-08-10-wsp37-criterion5-handoff.md), which
+    chose this target repository and this change and recorded the measurements behind
+    both. Devon's sentence governing the workstream: "Yes, I want the factory to close
+    its own loop." Devon granted per-run consent on 2026-08-10 for the assistant to
+    perform two gates on his behalf: the approval of this package through the audited
+    intent_packages CLI, and the intake and decomposition-proposal approval in
+    /review. Both are therefore recorded against his identity while being performed by
+    the assistant, and neither the lineage ledger nor /review can express the
+    distinction - /review reads the actor from the forward-auth header (ADR-0014), and
+    `approve --approver devon` records the identity it is given. The authority approval
+    that binds this unit's envelope - the gate that grants `github.pr.merge` - is NOT
+    covered by that consent and is performed by Devon himself.
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: null
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+#
+# THIS PACKAGE DECLARES EXACTLY ONE CRITERION, AND THE ABSENCE OF THE USUAL AC-002
+# HUMAN-REVIEW CRITERION IS DELIBERATE. ADR-0020 permits the factory to land its own
+# pull request only when every criterion resolved deterministically from observed
+# evidence "with no human adjudication", and the orchestrator's
+# `verifier_decided_completion` disqualifies the UNIT - not merely the criterion - on
+# any non-verifier adjudication recorded against it, including one for a criterion
+# that was retained rather than mapped. A human-review criterion on this package would
+# therefore be a live way to make the landing refuse, for a restatement of a judgment
+# Devon's approval of this package at intake already carries.
+acceptance:
+- id: AC-001
+  condition: >-
+    A pull request against AlobarQuest/intent-packages moves uv.lock's `packaging`
+    entry from 26.2 to 26.3, changes no other file, and the repository's named check
+    concludes success on the pull-request head.
+  evidence_type: automated_check
+  evidence: >-
+    ci: the target repository's `Lint, type-check, and test` job on the pull-request
+    head, observed from GitHub by the orchestrator rather than asserted by the caller.
+  approver: policy
+
+# allowed_commands is an ORDERED list the worker re-executes at finalize, not a
+# permission set: put mutators first and the verifier last, or the recorded
+# evidence attests to a tree that is not the one pushed. `make check` must never
+# appear in this repo's envelope. Use `uv venv --clear`, never bare `uv venv`.
+#
+# `merge_to_main` stays under requires_approval, where ADR-0001 puts it. It is not
+# projected into the unit's capabilities by name; the decomposition author projects it
+# as `github.pr.merge`, and the approval it requires is the human authority approval
+# bound to that envelope's exact fingerprint.
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 120
+deliverables:
+  artifacts:
+  - >-
+    A pull request against AlobarQuest/intent-packages whose diff is uv.lock's
+    `packaging` entry and nothing else, landed on `main` by the factory.
+  destination: AlobarQuest/intent-packages
+  recipient: devon
+  definition_of_done: >-
+    The pull request exists, its diff is confined to uv.lock, and the repository's
+    named check is green on its head. The landing itself is NOT an acceptance
+    criterion and cannot be: it necessarily happens after the unit completes, so no
+    criterion could carry evidence of it. It is authorized instead by the unit's
+    authority envelope, which grants `github.pr.merge`, and by the human approval
+    bound to that envelope's fingerprint.
+  operator_responsibilities:
+  - A merge into a production system must trace to recorded permission - either express
+    permission given at the time of the merge, or a standing pre-authorization - recorded
+    as evidence bound to this work unit. A merge that cannot be traced to one of those
+    is a defect, whoever performed it. Outside production this constraint does not
+    apply.
+  - >-
+    The recorded permission for THIS merge is the human authority approval bound to
+    the unit's exact authority fingerprint - the envelope that grants
+    `github.pr.merge`. It is a standing pre-authorization in ADR-0020's sense: given
+    before the work existed, to a named capability, for one unit.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    ADR-0020 - the factory closes its own loop. Accepted 2026-08-08. Without it this
+    package's landing is prohibited in nine places in the orchestrator's source tree.
+  required_people_systems: []
+  required_capabilities:
+  - merge_to_main
+  blocking_conditions:
+  - >-
+    The unit's authority envelope must grant `github.pr.merge` at `allowed` - the
+    projection of the `merge_to_main` term above into the unit capability vocabulary.
+    No envelope in production has ever carried it; the capability name was declared
+    cross-repo by WS-P3.7 Increment 3 and grants nothing on its own.
+risk:
+  failure_modes:
+  - >-
+    The mutator yields no diff and the unit dies on `no changes to submit`. Measured
+    against a clean `git archive origin/main` extraction at dab83d6 on 2026-08-10: the
+    ordered command list run twice in one checkout moves `packaging` 26.2 -> 26.3 on
+    the first pass, is a byte-identical no-op on the second, and `uv lock --check`
+    exits 0 both times.
+  - >-
+    The named check fails on the pull-request head. Measured on the same mutated tree
+    with Python 3.12.13, the version CI pins: `make check` rc=0, ruff clean, 111 files
+    already formatted, pyright 0 errors, 694 collected and 694 passed.
+  - >-
+    The landing turns out not to be inert. App Brain records this repository's default
+    branch as `inert`, and the orchestrator refuses to land into a repository the
+    estate calls anything else - read from the estate at the moment of the act, never
+    from a list of repository names.
+  max_impact: low
+  stop_conditions:
+  - The diff touches any file other than uv.lock.
+  - The diff moves any locked package other than `packaging`.
+  - >-
+    Any acceptance criterion resolves on anything but observed
+    `verifier.github.named_check` evidence, or any human adjudication is recorded
+    against the unit. Either makes the landing refuse, and correctly.
+  rollback: >-
+    `git revert` the landed commit in AlobarQuest/intent-packages. App Brain records
+    landing on that repository's default branch as `inert`, so nothing redeploys and
+    there is no image to re-point. There is no rule to withdraw: the permission to
+    land was per-unit, in one envelope, and it is spent.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'

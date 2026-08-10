@@ -1,0 +1,23 @@
+package_id: intent-packages-packaging-bump
+current_state: approved
+revisions:
+- revision: 1
+  hash: 1dc9f63492ca4df68e9a8d56fbb9f3788654eb0a812baa03c43dc68f1a7b7161
+  created_at: '2026-08-10T12:36:08Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-10T13:03:18.605301+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-10T13:03:18.605301+00:00'
+  actor: claude-code-interactive
+  event_id: evt-b231fc6b77fb490b8e5c91d0ca426cb6
+approvals:
+- revision: 1
+  approved_hash: 1dc9f63492ca4df68e9a8d56fbb9f3788654eb0a812baa03c43dc68f1a7b7161
+  approver: devon
+  approved_at: '2026-08-10T13:03:28.913991+00:00'
+  commit: dab83d613af1a559752aef83b891f0415056447d
+  event_id: evt-9d6f291fa6f148e5be3f331f0787fc2b
+grants: []
