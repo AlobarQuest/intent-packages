@@ -78,7 +78,7 @@ class ToolingProfile:
     name: str
     discover_pin_sites: Callable[[Path, str], list[PinSite]]
     mutation_commands: Callable[[Path, str, str, str, list[PinSite]], list[str]]
-    verifier_command: Callable[[str, str, str, list[PinSite]], str]
+    verifier_commands: Callable[[Path, str, str, str, list[PinSite]], list[str]]
 
 
 # ----- pip / requirements.txt -----
@@ -105,10 +105,10 @@ def _pip_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinS
     return [f"sed -i 's/^{package}=={old}$/{package}=={new}/' {site.file}" for site in sites]
 
 
-def _pip_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
+def _pip_verifier(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     primary = next((s.file for s in sites if s.file == "requirements.txt"), None)
     primary = primary or (sites[0].file if sites else "requirements.txt")
-    return f"grep -qx '{package}=={new}' {primary}"
+    return [f"grep -qx '{package}=={new}' {primary}"]
 
 
 # ----- uv / pyproject.toml -----
@@ -194,8 +194,8 @@ def _uv_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinSi
     return [_uv_add(package, new, s.label, frozen=True) for s in sites] + ["uv lock"]
 
 
-def _uv_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
-    return "uv lock --check"
+def _uv_verifier(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+    return ["uv lock --check"]
 
 
 # ----- npm / package.json -----
@@ -245,8 +245,24 @@ def _npm_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinS
     return commands
 
 
-def _npm_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
-    return f'grep -q \'"{package}": "{new}"\' package.json'
+def _npm_verifier(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+    commands: list[str] = []
+    # `npm install` and `npm ci` disagree, and the repository's gate runs the second.
+    # npm install resolves a workable tree and writes a lockfile; npm ci installs that
+    # lockfile strictly and REFUSES it when a peer range is unsatisfied. So a bump can
+    # pass every validation here and fail the target repository's named check at
+    # dependency installation, before anything is compiled or tested -- which is what
+    # happened on 2026-08-19 with typescript 7.0.2 against typescript-eslint's
+    # `peer typescript >=4.8.4 <6.1.0`. Because `dry_run_mutation` executes this whole
+    # list, naming npm ci here moves that refusal to authoring time, where it costs a
+    # decompose run rather than two human approvals and a work-unit attempt.
+    #
+    # Gated on the lockfile because npm ci requires one and fails without it; a
+    # repository that tracks none is verified by the grep alone, as before.
+    if (repo / "package-lock.json").is_file():
+        commands.append("npm ci")
+    commands.append(f'grep -q \'"{package}": "{new}"\' package.json')
+    return commands
 
 
 TOOLING_PROFILES: dict[str, ToolingProfile] = {
@@ -273,14 +289,14 @@ def build_envelope(
     mutations = profile.mutation_commands(repo, package, old, new, sites)
     if not mutations:
         raise ProfileError(f"{tooling}: no mutation commands (no pin sites for {package}?)")
-    verifier = profile.verifier_command(package, old, new, sites)
+    verifiers = profile.verifier_commands(repo, package, old, new, sites)
     return {
         "budgets": dict(BUDGETS),
         "capabilities": dict(CAPABILITIES),
         "change_class": "dependency-update",
         "conformance": conformance,
         "constraints": {
-            "allowed_commands": [*mutations, verifier],
+            "allowed_commands": [*mutations, *verifiers],
             "mutation_commands": list(mutations),
             "target_repository": target_repo,
         },

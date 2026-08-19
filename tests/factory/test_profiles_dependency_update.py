@@ -30,8 +30,10 @@ def test_pip_mutation_commands_one_sed_per_site(tmp_path):
 
 def test_pip_verifier_is_grep(tmp_path):
     sites = [dep.PinSite("requirements.txt", "requirements.txt", "0.139.0")]
-    v = dep.TOOLING_PROFILES["pip"].verifier_command("fastapi", "0.139.0", "0.139.2", sites)
-    assert v == "grep -qx 'fastapi==0.139.2' requirements.txt"
+    v = dep.TOOLING_PROFILES["pip"].verifier_commands(
+        tmp_path, "fastapi", "0.139.0", "0.139.2", sites
+    )
+    assert v == ["grep -qx 'fastapi==0.139.2' requirements.txt"]
 
 
 def test_uv_discovers_project_and_group(tmp_path):
@@ -83,9 +85,9 @@ def test_uv_mutation_dev_only_adds_dev_flag(tmp_path):
 
 def test_uv_verifier_is_lock_check(tmp_path):
     sites = [dep.PinSite("pyproject.toml", "project.dependencies", "0.139.0")]
-    assert (
-        dep.TOOLING_PROFILES["uv"].verifier_command("fastapi", "0", "1", sites) == "uv lock --check"
-    )
+    assert dep.TOOLING_PROFILES["uv"].verifier_commands(tmp_path, "fastapi", "0", "1", sites) == [
+        "uv lock --check"
+    ]
 
 
 def test_uv_mutation_optional_only_uses_optional_flag(tmp_path):
@@ -196,8 +198,8 @@ def test_npm_mutation_and_verifier(tmp_path):
     sites = [dep.PinSite("package.json", "dependencies", "3.23.8")]
     cmds = dep.TOOLING_PROFILES["npm"].mutation_commands(tmp_path, "zod", "3.23.8", "3.24.0", sites)
     assert cmds == ["npm install zod@3.24.0 --save-exact"]
-    v = dep.TOOLING_PROFILES["npm"].verifier_command("zod", "3.23.8", "3.24.0", sites)
-    assert v == 'grep -q \'"zod": "3.24.0"\' package.json'
+    v = dep.TOOLING_PROFILES["npm"].verifier_commands(tmp_path, "zod", "3.23.8", "3.24.0", sites)
+    assert v == ['grep -q \'"zod": "3.24.0"\' package.json']
 
 
 def test_npm_mutation_runs_the_repo_build_when_one_is_declared(tmp_path):
@@ -248,6 +250,7 @@ def test_build_envelope_npm_declares_the_build_as_a_mutator_and_greps_last(tmp_p
         "package.json",
         _json.dumps({"scripts": {"build": "tsc"}, "devDependencies": {"typescript": "5.9.3"}}),
     )
+    _write(tmp_path, "package-lock.json", _json.dumps({"lockfileVersion": 3}))
     sites = dep.TOOLING_PROFILES["npm"].discover_pin_sites(tmp_path, "typescript")
     env = dep.build_envelope(
         "AlobarQuest/infraops-mcp-server",
@@ -261,5 +264,32 @@ def test_build_envelope_npm_declares_the_build_as_a_mutator_and_greps_last(tmp_p
     )
     install = "npm install typescript@7.0.2 --save-exact --save-dev"
     grep = 'grep -q \'"typescript": "7.0.2"\' package.json'
-    assert env["constraints"]["allowed_commands"] == [install, "npm run build", grep]
+    assert env["constraints"]["allowed_commands"] == [install, "npm run build", "npm ci", grep]
     assert env["constraints"]["mutation_commands"] == [install, "npm run build"]
+
+
+def test_npm_verifier_runs_npm_ci_when_the_repo_tracks_a_lockfile(tmp_path):
+    """`npm install` and `npm ci` disagree, and the repository's gate runs the second.
+
+    npm install resolves a workable tree; npm ci installs the resulting lockfile strictly
+    and refuses it when a peer range is unsatisfied. On 2026-08-19 typescript 7.0.2 passed
+    every validation here and failed the target repository's named check at dependency
+    installation, because typescript-eslint declares `peer typescript >=4.8.4 <6.1.0`.
+    `dry_run_mutation` runs this whole list, so naming npm ci moves that refusal to
+    authoring time.
+    """
+    _write(tmp_path, "package.json", _json.dumps({"devDependencies": {"typescript": "5.9.3"}}))
+    _write(tmp_path, "package-lock.json", _json.dumps({"lockfileVersion": 3}))
+    sites = dep.TOOLING_PROFILES["npm"].discover_pin_sites(tmp_path, "typescript")
+    assert dep.TOOLING_PROFILES["npm"].verifier_commands(
+        tmp_path, "typescript", "5.9.3", "7.0.2", sites
+    ) == ["npm ci", 'grep -q \'"typescript": "7.0.2"\' package.json']
+
+
+def test_npm_verifier_omits_npm_ci_without_a_lockfile(tmp_path):
+    """npm ci requires a lockfile and fails without one, so it is not declared then."""
+    _write(tmp_path, "package.json", _json.dumps({"dependencies": {"zod": "3.23.8"}}))
+    sites = dep.TOOLING_PROFILES["npm"].discover_pin_sites(tmp_path, "zod")
+    assert dep.TOOLING_PROFILES["npm"].verifier_commands(
+        tmp_path, "zod", "3.23.8", "3.24.0", sites
+    ) == ['grep -q \'"zod": "3.24.0"\' package.json']
