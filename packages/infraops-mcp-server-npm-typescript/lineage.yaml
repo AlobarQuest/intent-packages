@@ -1,10 +1,23 @@
 package_id: infraops-mcp-server-npm-typescript
-current_state: draft
+current_state: approved
 revisions:
 - revision: 1
-  hash: ceb7d4843196ea3d0e51bc7e3e725330e48c58ee962ecf06e45d12f046f5fdeb
+  hash: 5ba975dc3afb99ca3e71b4a3191ed9cec64af653e00f52746ce3d8c9875a6973
   created_at: '2026-08-19T12:43:28Z'
-  author: factory-create
-transitions: []
-approvals: []
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-19T13:16:56.998921+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-19T13:16:56.998921+00:00'
+  actor: claude-code-interactive
+  event_id: evt-cf934c0d686a44309efc41ce34311482
+approvals:
+- revision: 1
+  approved_hash: 5ba975dc3afb99ca3e71b4a3191ed9cec64af653e00f52746ce3d8c9875a6973
+  approver: policy:dependency-update@v1
+  approved_at: '2026-08-19T13:16:57.769548+00:00'
+  commit: de38100ea7e4cd29fa74099a26767239b1677dfd
+  event_id: evt-28af8edecb5b41c2b19a82db862cd31d
 grants: []
