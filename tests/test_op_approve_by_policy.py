@@ -9,6 +9,7 @@ as a work record nobody can carry.
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
@@ -16,6 +17,8 @@ import pytest
 
 from intent_packages import lineage as ln
 from intent_packages.approval_policy import ApprovalPolicyError
+from intent_packages.canonical import package_hash
+from intent_packages.loader import load_package
 from intent_packages.operations import (
     OperationError,
     do_approve,
@@ -49,10 +52,46 @@ def _fill(pkg_dir: Path, *, before: str = "3.25.76", after: str = "4.4.3") -> No
 
 @pytest.fixture
 def standing(tmp_path, monkeypatch, fake_registry) -> Path:
+    """The shipped standing package, copied out and REWOUND to an unfilled draft shell.
+
+    **The rewind is the point, and it was learned the hard way.** These tests are about the
+    SHAPE of the real package -- whether what this repository actually ships can take a policy
+    approval -- and the shipped copy's lifecycle position is not part of that shape. It moves:
+    the producer fills the two version fields and approves the revision on its first pass, which
+    is the whole purpose of the package existing. A fixture that inherited the live position
+    passed locally and reddened CI the moment the producer had run once, with ten failures
+    reading `illegal transition: 'approved' -> 'ready_for_review'`.
+    """
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
     pkg_dir = tmp_path / STANDING.name
     shutil.copytree(STANDING, pkg_dir)
+    _rewind(pkg_dir)
     return pkg_dir
+
+
+def _rewind(pkg_dir: Path) -> None:
+    """Put a copied standing package back to the state `factory create` leaves it in."""
+    package = pkg_dir / "package.yaml"
+    text = package.read_text(encoding="utf-8")
+    text = re.sub(r"^status:.*$", "status: draft", text, count=1, flags=re.MULTILINE)
+    text = re.sub(r"^revision:.*$", "revision: 1", text, count=1, flags=re.MULTILINE)
+    text = re.sub(r"^(\s*from_version:).*$", r"\1 unassigned", text, count=1, flags=re.MULTILINE)
+    text = re.sub(r"^(\s*to_version:).*$", r"\1 unassigned", text, count=1, flags=re.MULTILINE)
+    package.write_text(text, encoding="utf-8")
+
+    lineage = ln.read(pkg_dir)
+    lineage["current_state"] = "draft"
+    lineage["transitions"] = []
+    lineage["approvals"] = []
+    lineage["revisions"] = [
+        {
+            "revision": 1,
+            "hash": package_hash(load_package(pkg_dir)),
+            "created_at": "2026-08-19T12:43:28Z",
+            "author": "factory-create",
+        }
+    ]
+    ln.write(pkg_dir, lineage)
 
 
 def test_a_filled_standing_package_is_approved_by_the_policy(standing) -> None:
