@@ -62,7 +62,7 @@ def _api_returning_intake(intake=None):
     )
 
 
-def test_build_proposal_maps_uuid_and_covers_all_acs():
+def test_build_proposal_maps_uuid_and_covers_all_acs(tmp_path):
     sites = [PinSite("requirements.txt", "requirements.txt", "0.139.0")]
     proposal = decompose.build_proposal(
         _INTAKE,
@@ -76,6 +76,7 @@ def test_build_proposal_maps_uuid_and_covers_all_acs():
         _CONFORMANCE,
         sites,
         "retained: not this run",
+        tmp_path,
     )
     assert proposal["expected_version"] == 0
     assert proposal["ac_mappings"] == [{"ac_id": "uuid-2", "unit_key": "brain-ac002"}]
@@ -85,7 +86,7 @@ def test_build_proposal_maps_uuid_and_covers_all_acs():
     assert "work_unit_id" not in unit["authority"]["constraints"]
 
 
-def test_build_proposal_rationale_applies_to_retained_only():
+def test_build_proposal_rationale_applies_to_retained_only(tmp_path):
     sites = [PinSite("requirements.txt", "requirements.txt", "0.139.0")]
     rationale = "retained: not this run"
     proposal = decompose.build_proposal(
@@ -100,6 +101,7 @@ def test_build_proposal_rationale_applies_to_retained_only():
         _CONFORMANCE,
         sites,
         rationale,
+        tmp_path,
     )
     assert proposal["rationale"] == (
         "Dependency update: fastapi 0.139.0 -> 0.139.2 in AlobarQuest/brain."
@@ -109,7 +111,7 @@ def test_build_proposal_rationale_applies_to_retained_only():
     assert all(r["rationale"] == rationale for r in proposal["retained_acs"])
 
 
-def test_build_proposal_unknown_ac_raises():
+def test_build_proposal_unknown_ac_raises(tmp_path):
     with pytest.raises(decompose.DecomposeError, match="AC-999"):
         decompose.build_proposal(
             _INTAKE,
@@ -123,6 +125,7 @@ def test_build_proposal_unknown_ac_raises():
             _CONFORMANCE,
             [],
             "r",
+            tmp_path,
         )
 
 
@@ -145,7 +148,7 @@ def _git_repo(tmp_path, content="fastapi==0.139.0\n"):
     return repo
 
 
-def _portable_pip_mutation(package, old, new, sites):
+def _portable_pip_mutation(repo, package, old, new, sites):
     # Test-only macOS-portability shim: the pip profile's REAL mutator is GNU
     # `sed -i 's/.../.../'`, which BSD/macOS sed cannot execute (it requires an
     # explicit backup-suffix argument to -i). The production mutator in

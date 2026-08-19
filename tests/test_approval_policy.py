@@ -23,6 +23,7 @@ from intent_packages.approval_policy import (
     load_policy,
 )
 from intent_packages.profiles import PROFILES
+from intent_packages.profiles.dependency_update import PinSite, build_envelope
 
 CONFORMANT = {
     "profile": "dependency-update",
@@ -389,3 +390,33 @@ def test_anything_else_is_not_a_policy_approver(approver) -> None:
     which is how a lineage entry naming nothing in particular becomes a recognised one.
     """
     assert not is_policy_approver(approver)
+
+
+def test_the_envelope_budget_the_profile_stamps_equals_the_policy_ceiling(tmp_path):
+    """A package declared 120 while the unit envelope derived from it declared 4.
+
+    `build_envelope` stamps `profiles.dependency_update.BUDGETS`; this policy grants a
+    CEILING. Until 2026-08-19 nothing compared them, so every unit this lane produced
+    carried a thirtieth of the budget its own package had been approved for. A lower
+    default is not a safety margin: `budget_exceeded` is curable by nothing, the
+    envelope is write-once, and its approval cannot be taken back. Equal, not merely
+    ordered -- an assertion that the default is <= the ceiling passes against the
+    defect it exists to catch.
+    """
+    grant = load_policy().grants["dependency-update"]
+    assert grant is not None
+    (tmp_path / "requirements.txt").write_text("fastapi==0.139.0\n", encoding="utf-8")
+    envelope = build_envelope(
+        "AlobarQuest/infraops-mcp-server",
+        "pip",
+        "fastapi",
+        "0.139.0",
+        "0.139.2",
+        {"accepted_standards": [], "standards_touched": ["project"], "status": "green"},
+        [PinSite("requirements.txt", "requirements.txt", "0.139.0")],
+        repo=tmp_path,
+    )
+    assert envelope["budgets"] == {
+        "max_attempts": grant.max_attempts,
+        "max_llm_calls": grant.max_llm_calls,
+    }

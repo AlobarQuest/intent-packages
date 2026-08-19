@@ -51,13 +51,16 @@ def build_proposal(
     conformance: dict,
     sites: list[PinSite],
     rationale: str,
+    repo: Path,
     context_enrichment: dict | None = None,
 ) -> dict:
     uuids = _criteria_uuid_map(intake)
     if ac not in uuids:
         raise DecomposeError(f"acceptance criterion {ac} not found in revision")
     mapped_uuid = uuids[ac]
-    envelope = build_envelope(target_repo, tooling, package, old, new, conformance, sites)
+    envelope = build_envelope(
+        target_repo, tooling, package, old, new, conformance, sites, repo=repo
+    )
     retained = [
         {"ac_id": uuid, "rationale": rationale or f"not addressed by the {package} update ({ac})"}
         for human_id, uuid in uuids.items()
@@ -152,6 +155,7 @@ def run(
             conformance,
             sites,
             rationale,
+            local_repo,
             context_enrichment=enrichment_for_profile("dependency-update", client=brain_client),
         )
         change_class = proposal["proposed_units"][0]["authority"]["change_class"]

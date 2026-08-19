@@ -46,7 +46,7 @@ def _document(profile_name: str = "dependency-update") -> dict:
     )
 
 
-def _proposal(document: dict | None) -> dict:
+def _proposal(document: dict | None, repo: Path) -> dict:
     return build_proposal(
         _intake(),
         "AC-001",
@@ -59,25 +59,26 @@ def _proposal(document: dict | None) -> dict:
         {"conformance": "attested"},
         [PinSite(file="pyproject.toml", label="project.dependencies", current_version="0.15.20")],
         "",
+        repo,
         context_enrichment=document,
     )
 
 
-def test_every_proposed_unit_carries_the_document() -> None:
-    proposal = _proposal(_document())
+def test_every_proposed_unit_carries_the_document(tmp_path: Path) -> None:
+    proposal = _proposal(_document(), tmp_path)
 
     for unit in proposal["proposed_units"]:
         assert unit["context_enrichment"]["schema_version"] == 1
 
 
-def test_all_units_of_one_proposal_share_one_resolution() -> None:
+def test_all_units_of_one_proposal_share_one_resolution(tmp_path: Path) -> None:
     """Resolved once per proposal, never once per unit.
 
     Per-unit resolution would let two units of the same proposal disagree about
     the standards they were approved under — and the human approving them would
     have no way to see that they had.
     """
-    proposal = _proposal(_document())
+    proposal = _proposal(_document(), tmp_path)
 
     fingerprints = {
         unit["context_enrichment"]["content_fingerprint"] for unit in proposal["proposed_units"]
@@ -94,9 +95,9 @@ def test_dependency_update_units_carry_an_empty_but_present_document() -> None:
     assert document["content_fingerprint"].startswith("sha256:")
 
 
-def test_a_proposal_without_enrichment_omits_the_key_entirely() -> None:
+def test_a_proposal_without_enrichment_omits_the_key_entirely(tmp_path: Path) -> None:
     """None is not {} — a unit that predates enrichment must stay distinguishable."""
-    proposal = _proposal(None)
+    proposal = _proposal(None, tmp_path)
 
     assert "context_enrichment" not in proposal["proposed_units"][0]
 
