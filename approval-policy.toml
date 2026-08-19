@@ -160,9 +160,10 @@ authority_prohibited = ["secret_write"]
 # package may DECLARE, while the unit envelope is stamped from the profile
 # constant, and that constant was 4. Nothing compared them, so every unit this
 # lane emitted carried a thirtieth of the budget its package was approved for.
-# They are equal now, and `test_the_envelope_budget_the_profile_stamps_equals_
-# the_policy_ceiling` keeps them equal -- so raising this ceiling without raising
-# the profile default is a red test rather than a silent shortfall on every unit.
+# They are equal now, and the test named below keeps them equal, so raising this
+# ceiling without raising the profile default is a red test rather than a silent
+# shortfall on every unit the lane emits:
+#   test_the_envelope_budget_the_profile_stamps_equals_the_policy_ceiling
 max_attempts = 3
 max_llm_calls = 120
 
