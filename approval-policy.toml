@@ -171,7 +171,17 @@ acceptance_approvers = ["policy"]
 # being the routine thing this row describes.
 max_impact = ["low"]
 
-# NOTE ON A REFUSAL WITH NO FIELD. `bump_versions_not_distinct` is unconditional for this
+# TWO NOTES ON REFUSALS WITH NO FIELD, both unconditional for this profile and neither
+# relaxable from here.
+#
+# `not_a_standing_package` -- only a package whose author declared
+# `profile_fields.standing = true` may take a policy approval. Every dependency-update
+# package in the authoring repository declares this same profile and a target repository,
+# so a grant keyed on those alone would cover the eight historical packages that each name
+# one finished bump. `standing` is the only thing that tells a lane from a completed
+# one-off, and it is what the pre-decision was actually about.
+#
+# `bump_versions_not_distinct` is unconditional for this
 # profile and so has nothing to declare here: a revision whose `from_version` equals its
 # `to_version` describes no bump and is refused. That is what stops a standing package
 # being approved before a producer has filled in which bump it is carrying -- the shell is

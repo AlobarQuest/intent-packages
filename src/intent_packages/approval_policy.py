@@ -67,6 +67,7 @@ BUDGET_ABOVE_CEILING: Final = "budget_above_ceiling"
 ACCEPTANCE_NOT_PERMITTED: Final = "acceptance_not_permitted"
 MAX_IMPACT_NOT_PERMITTED: Final = "max_impact_not_permitted"
 BUMP_VERSIONS_NOT_DISTINCT: Final = "bump_versions_not_distinct"
+NOT_A_STANDING_PACKAGE: Final = "not_a_standing_package"
 
 _ROW_REQUIRED_FIELDS: Final = frozenset({"rationale", "decided"})
 _ROW_OPTIONAL_FIELDS: Final = frozenset({"grant"})
@@ -150,6 +151,7 @@ class ApprovalPolicy:
             refusal
             for refusal in (
                 _target_refusal(package, grant),
+                _standing_refusal(package),
                 _bump_refusal(package),
                 _reach_refusal(package, grant),
                 _authority_refusal(package, grant),
@@ -283,6 +285,22 @@ def _target_refusal(package: dict[str, Any], grant: Grant) -> str | None:
     if not isinstance(target, str) or target not in grant.target_repositories:
         return TARGET_REPOSITORY_NOT_PERMITTED
     return None
+
+
+def _standing_refusal(package: dict[str, Any]) -> str | None:
+    """Only a STANDING package may be approved by policy, and the author declares which.
+
+    UNCONDITIONAL for a granted profile, with no field in the grant to relax it. The
+    alternative was measured rather than imagined: every dependency-update package in
+    this repository declares the same profile and the same target-repository field, so a
+    grant keyed on those alone covers the whole historical population -- eight packages
+    naming one finished bump each, any of which a producer scanning the checkout would
+    happily revise. `standing` is the only thing that distinguishes a lane from a
+    completed one-off, and it is what the pre-decision was actually about.
+    """
+    fields = package.get("profile_fields")
+    standing = fields.get("standing") if isinstance(fields, dict) else None
+    return None if standing is True else NOT_A_STANDING_PACKAGE
 
 
 def _bump_refusal(package: dict[str, Any]) -> str | None:

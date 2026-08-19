@@ -2,7 +2,7 @@ package_id: infraops-mcp-server-npm-zod
 current_state: draft
 revisions:
 - revision: 1
-  hash: 138611a41cc0a3161c23c8fe1c5e4e6985ee22e4c9c72d2462e84ef565218b22
+  hash: 82407cb2cc6645a28517f5ec5ff0c7f0c0ee31657054895376012f2428c1134e
   created_at: '2026-08-19T12:43:28Z'
   author: factory-create
 transitions: []

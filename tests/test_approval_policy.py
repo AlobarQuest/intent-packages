@@ -31,6 +31,7 @@ CONFORMANT = {
         "package": "zod",
         "from_version": "3.25.76",
         "to_version": "4.4.3",
+        "standing": True,
     },
     "reach": ["source_repository"],
     "authority": {
@@ -104,6 +105,22 @@ def test_an_unfilled_shell_is_refused(policy) -> None:
         **{"profile_fields.from_version": "unassigned", "profile_fields.to_version": "unassigned"}
     )
     assert policy.refusals_for(package) == ("bump_versions_not_distinct",)
+
+
+def test_a_package_that_is_not_declared_standing_is_refused(policy) -> None:
+    """Kills: dropping `_standing_refusal`.
+
+    The historical population is the subject: eight dependency-update packages in the
+    authoring repository each name one finished bump, declare this same profile, and would
+    otherwise satisfy every other clause for their own target repository.
+    """
+    package = _package(**{"profile_fields.standing": _ABSENT})
+    assert policy.refusals_for(package) == ("not_a_standing_package",)
+
+
+def test_standing_declared_false_is_refused(policy) -> None:
+    package = _package(**{"profile_fields.standing": False})
+    assert policy.refusals_for(package) == ("not_a_standing_package",)
 
 
 def test_an_empty_reach_is_refused(policy) -> None:

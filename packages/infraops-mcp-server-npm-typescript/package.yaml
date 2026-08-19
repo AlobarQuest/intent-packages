@@ -26,6 +26,7 @@ profile_fields:
   package: typescript
   from_version: unassigned
   to_version: unassigned
+  standing: true
 outcome:
   what: >-
     infraops-mcp-server's typescript dependency moves to the version named in

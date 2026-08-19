@@ -26,6 +26,7 @@ profile_fields:
   package: zod
   from_version: unassigned
   to_version: unassigned
+  standing: true
 outcome:
   what: >-
     infraops-mcp-server's zod dependency moves to the version named in
