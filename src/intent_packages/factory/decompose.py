@@ -28,6 +28,7 @@ from intent_packages.profiles.dependency_update import (
     ProfileError,
     build_envelope,
     coding_note,
+    commands_deferred_to_coding,
 )
 
 
@@ -184,7 +185,22 @@ def run(
         allowed = proposal["proposed_units"][0]["authority"]["constraints"]["allowed_commands"]
 
         assert_runner_honest(allowed)
-        changed = dry_run_mutation(local_repo, allowed)
+        # Authoring proves the bump is POSSIBLE, against a tree no agent has touched.
+        # It therefore executes every envelope command except those whose failure is
+        # the assignment rather than a refusal -- see `commands_deferred_to_coding`.
+        # The envelope itself is unnarrowed: the agent may run all of it, and
+        # `finalize-run` re-executes all of it after the work.
+        deferred = commands_deferred_to_coding(local_repo, tooling)
+        unknown = [command for command in deferred if command not in allowed]
+        if unknown:
+            raise DecomposeError(
+                f"deferred commands are not in the envelope: {unknown}; the two lists "
+                f"are built from the same profile and have drifted"
+            )
+        admission = [command for command in allowed if command not in deferred]
+        if not admission:
+            raise DecomposeError("every envelope command is deferred; nothing would be proven")
+        changed = dry_run_mutation(local_repo, admission)
         assert_pin_sites_moved(changed, sites)
 
         body = json.dumps(proposal, indent=2, sort_keys=True)
