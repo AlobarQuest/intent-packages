@@ -23,6 +23,15 @@ def main(argv: list[str] | None = None) -> int:
     p_approve = sub.add_parser("approve", help="approve a package (ready_for_review -> approved)")
     p_approve.add_argument("path")
     p_approve.add_argument("--approver", default="devon", help="approver identity (default: devon)")
+    p_approve.add_argument(
+        "--by-policy",
+        action="store_true",
+        dest="by_policy",
+        help=(
+            "approve by conformance to approval-policy.toml (ADR-0028) rather than as a "
+            "named human. The approver string is computed from the artifact, never typed."
+        ),
+    )
     p_revise = sub.add_parser("revise", help="revise a package to a new, unapproved revision")
     p_revise.add_argument("path")
     p_supersede = sub.add_parser("supersede", help="mark a package superseded by another package")
@@ -85,8 +94,33 @@ def _run_transition(args) -> int:
 
 
 def _run_approve(args) -> int:
+    """Approve, as a named human or by policy conformance.
+
+    `--by-policy` COMPUTES the approver from the artifact rather than accepting one, so
+    the policy version recorded in the ledger and the chain is the version that actually
+    decided. A caller typing `--approver policy:...@v1` by hand would be asserting a
+    version rather than reading one, and `do_approve` refuses a mismatch -- but the flag
+    is what makes the right thing the easy thing.
+    """
+    from intent_packages.approval_policy import ApprovalPolicyError, load_policy
     from intent_packages.emitter import EmitError, FactoryEventsEmitter
+    from intent_packages.loader import LoadError, load_package
     from intent_packages.operations import OperationError, do_approve
+
+    approver = args.approver
+    if args.by_policy:
+        try:
+            profile = load_package(args.path).get("profile")
+            approver = load_policy().approver_for(profile) if isinstance(profile, str) else ""
+        except (ApprovalPolicyError, LoadError) as exc:
+            print(f"approve failed: {exc}", file=sys.stderr)
+            return 1
+        if not approver:
+            print(
+                "approve failed: --by-policy needs a package that declares a profile",
+                file=sys.stderr,
+            )
+            return 1
 
     now = datetime.now(UTC).isoformat()
     try:
@@ -94,14 +128,14 @@ def _run_approve(args) -> int:
         do_approve(
             args.path,
             emitter=FactoryEventsEmitter(),
-            approver=args.approver,
+            approver=approver,
             commit=commit,
             now=now,
         )
     except (OperationError, EmitError, subprocess.CalledProcessError) as exc:
         print(f"approve failed: {exc}", file=sys.stderr)
         return 1
-    print(f"{args.path}: approved by {args.approver}")
+    print(f"{args.path}: approved by {approver}")
     return 0
 
 

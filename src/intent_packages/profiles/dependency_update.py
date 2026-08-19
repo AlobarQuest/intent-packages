@@ -21,7 +21,7 @@ from intent_packages.profiles.base import (
     DeliveryProfile,
     EnrichmentSpec,
 )
-from intent_packages.schema import MapSpec, _s, _walk
+from intent_packages.schema import MapSpec, OptionalKey, _s, _walk
 
 CAPABILITIES: dict[str, str] = {
     "command.run": "allowed",
@@ -256,6 +256,13 @@ PROFILE_FIELDS_SCHEMA = MapSpec(
         "package": _s(str),
         "from_version": _s(str),
         "to_version": _s(str),
+        # ADR-0028. A STANDING package is authored once per (repository, ecosystem,
+        # dependency) and revised once per bump; every dependency-update package before
+        # this field existed named one specific bump and is finished. Optional, so the
+        # historical population still validates -- and declared by the AUTHOR, never by
+        # the producer that revises it, which is what keeps it a statement about intent
+        # rather than a value the same program writes and then satisfies.
+        "standing": OptionalKey(_s(bool)),
     }
 )
 

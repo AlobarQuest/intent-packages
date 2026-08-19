@@ -1,0 +1,23 @@
+package_id: infraops-mcp-server-npm-zod
+current_state: approved
+revisions:
+- revision: 1
+  hash: c1fb1ef3d2a11fe0611a8c0f268a53671aa0be289ee6bfd6c8145df64c778d2b
+  created_at: '2026-08-19T12:43:28Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-19T13:16:54.448705+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-19T13:16:54.448705+00:00'
+  actor: claude-code-interactive
+  event_id: evt-de5a58335bad490eba7ff2992a0b8719
+approvals:
+- revision: 1
+  approved_hash: c1fb1ef3d2a11fe0611a8c0f268a53671aa0be289ee6bfd6c8145df64c778d2b
+  approver: policy:dependency-update@v1
+  approved_at: '2026-08-19T13:16:55.434894+00:00'
+  commit: ee56a4c2be209599d7439768f104eee93d85da1a
+  event_id: evt-8ab4cf84c9b64a34be8981e00164628c
+grants: []

@@ -17,6 +17,11 @@ from collections.abc import Callable
 from pathlib import Path
 
 from intent_packages import canonical, lifecycle, lineage, registry
+from intent_packages.approval_policy import (
+    ApprovalPolicyError,
+    is_policy_approver,
+    load_policy,
+)
 from intent_packages.emitter import EmitError, Emitter, _events_python, _security_standards_dir
 from intent_packages.loader import load_package
 from intent_packages.validate import validate_package
@@ -38,14 +43,28 @@ class ChainUnavailable(Exception):
     """
 
 
-def _has_matching_human_approval(approvals: object, approved_hash: str) -> bool:
+def _is_recognised_approver(approver: object) -> bool:
+    """A human operator, or a policy (ADR-0028). Nothing else may stand in a ledger.
+
+    THE POLICY ARM IS NOT A WEAKER LEDGER CHECK, and the distinction is the whole safety
+    of adding it. A forged ledger entry naming `policy:...@v1` still fails
+    :func:`verify_approval`, because the chain check demands a `package.approved` event
+    for that exact hash and revision -- and the only thing that emits one is
+    :func:`do_approve`, which refuses a policy approval the artifact objects to. What
+    this arm changes is which approvals are RECOGNISED, never how they are proven.
+    """
+    return isinstance(approver, str) and (
+        registry.is_human_operator(approver) or is_policy_approver(approver)
+    )
+
+
+def _has_matching_approval(approvals: object, approved_hash: str) -> bool:
     if not isinstance(approvals, list):
         return False
     return any(
         isinstance(approval, dict)
         and approval.get("approved_hash") == approved_hash
-        and isinstance(approval.get("approver"), str)
-        and registry.is_human_operator(approval["approver"])
+        and _is_recognised_approver(approval.get("approver"))
         for approval in approvals
     )
 
@@ -152,6 +171,44 @@ def do_transition(
     set_status_in_file(pkg_dir, to_state)
 
 
+def _authorize_approver(package: dict, approver: str) -> None:
+    """Refuse an approver who is neither a human operator nor the policy for this package.
+
+    ADR-0028 relaxes the per-revision human act for one narrow, pre-decided shape of work
+    and does so as a POLICY rather than as a removal -- so raising the bar again is an
+    edit to `approval-policy.toml` rather than a rebuild. Three properties matter here:
+
+    * the human arm is untouched, and is tried first;
+    * a policy approver must be EXACTLY the string this document grants for this
+      package's profile, so a caller cannot name a version the artifact is not at, nor
+      borrow another profile's grant;
+    * an artifact that will not load raises rather than yielding no objections, because a
+      caller reading an empty objection list as consent would turn a broken document into
+      a standing approval for everything.
+    """
+    if registry.is_human_operator(approver):
+        return
+    if not is_policy_approver(approver):
+        raise OperationError(
+            f"approval is a human act unless a policy grants it; {approver!r} is neither "
+            "a human-operator identity nor a policy approver"
+        )
+    try:
+        policy = load_policy()
+    except ApprovalPolicyError as exc:
+        raise OperationError(f"the approval policy could not be read: {exc}") from exc
+    profile = package.get("profile")
+    expected = policy.approver_for(profile) if isinstance(profile, str) else None
+    if approver != expected:
+        raise OperationError(
+            f"{approver!r} is not the approver this policy grants for profile "
+            f"{profile!r} at version {policy.version}"
+        )
+    refusals = policy.refusals_for(package)
+    if refusals:
+        raise OperationError("the approval policy refuses this revision: " + ", ".join(refusals))
+
+
 def do_approve(
     pkg_dir: str | Path,
     *,
@@ -171,11 +228,14 @@ def do_approve(
          replay only, already `approved` — see step 6).
       3. `scope.open_questions` must be empty. `validate_package` only warns
          about this (check O); approval is where it becomes a hard error.
-      4. `approver` must resolve to a human-operator registry identity —
-         approval is a human act.
+      4. `approver` must resolve to a human-operator registry identity, or
+         to the policy this package's profile is granted by ADR-0028's
+         `approval-policy.toml` — in which case the artifact must also raise
+         no objection to the revision. Approval is a human act unless a
+         standing, versioned policy says otherwise for this exact shape.
       5. Compute the package hash.
       6. Idempotency (MVP, lineage-based): if `lineage["approvals"]` already
-         has an entry for this exact hash by a human-operator approver, this
+         has an entry for this exact hash by a recognised approver, this
          is a repeat call (e.g. retried after a crash between `lineage.write`
          and `set_status_in_file`, or simply called twice) — complete any
          missing write, but never re-emit or double-append. A stronger,
@@ -205,15 +265,12 @@ def do_approve(
     if package["scope"]["open_questions"]:
         raise OperationError("refusing to approve: scope.open_questions is not empty")
 
-    if not registry.is_human_operator(approver):
-        raise OperationError(
-            f"approval is a human act; {approver!r} is not a human-operator identity"
-        )
+    _authorize_approver(package, approver)
 
     h = canonical.package_hash(package)
 
     approvals = _approval_entries(lin)
-    already_approved = _has_matching_human_approval(approvals, h)
+    already_approved = _has_matching_approval(approvals, h)
     if already_approved:
         if lin["current_state"] != "approved":
             lin["current_state"] = "approved"
@@ -484,8 +541,13 @@ def verify_approval(
 
       1. Recompute `h`, the hash of the package as it stands right now.
       2. Ledger check (always required): `lineage["approvals"]` must contain
-         an entry whose `approved_hash == h`, approved by an identity
-         `registry.is_human_operator` confirms is human. This alone catches
+         an entry whose `approved_hash == h`, approved by a recognised
+         approver — an identity `registry.is_human_operator` confirms is
+         human, or a `policy:<profile>@v<version>` string (ADR-0028). The
+         policy arm does not weaken step 3, which is what actually proves an
+         approval happened: only `do_approve` emits the event it looks for,
+         and it refuses a policy approval the artifact objects to. This alone
+         catches
          both "never approved" and "approved, then the intent drifted"
          (revise bumps the revision but the old approval stays bound to the
          old hash).
@@ -509,7 +571,7 @@ def verify_approval(
     approvals = lin.get("approvals", [])
     if not isinstance(approvals, list):
         return False
-    ledger_ok = _has_matching_human_approval(approvals, h)
+    ledger_ok = _has_matching_approval(approvals, h)
     if not ledger_ok:
         return False
 
