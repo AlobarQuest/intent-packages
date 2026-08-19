@@ -202,7 +202,15 @@ def test_npm_mutation_and_verifier(tmp_path):
     assert v == ['grep -q \'"zod": "3.24.0"\' package.json']
 
 
-def test_npm_mutation_runs_the_repo_build_when_one_is_declared(tmp_path):
+def test_npm_mutation_does_not_run_the_build_even_when_one_is_declared(tmp_path):
+    """The build is the WORK, not a precondition, so it must not be in the envelope.
+
+    `dry_run_mutation` executes every command against the unmodified tree and raises on
+    the first failure. A build that fails there means there is source work to do, which
+    is the case this profile exists to dispatch. Between 2026-08-19 morning and evening
+    `npm run build` was a mutation command and it refused zod 3 -> 4 into
+    infraops-mcp-server, where npm ci resolves and tsc reports real errors.
+    """
     _write(
         tmp_path,
         "package.json",
@@ -212,10 +220,26 @@ def test_npm_mutation_runs_the_repo_build_when_one_is_declared(tmp_path):
     cmds = dep.TOOLING_PROFILES["npm"].mutation_commands(
         tmp_path, "typescript", "5.9.3", "7.0.2", sites
     )
-    assert cmds == [
-        "npm install typescript@7.0.2 --save-exact --save-dev",
-        "npm run build",
-    ]
+    assert cmds == ["npm install typescript@7.0.2 --save-exact --save-dev"]
+    assert "npm run build" not in cmds
+
+
+def test_coding_note_tells_the_agent_to_build_when_the_repo_declares_one(tmp_path):
+    """What `allowed_commands` can no longer carry, the outcome does."""
+    _write(tmp_path, "package.json", _json.dumps({"scripts": {"build": "tsc"}}))
+    note = dep.coding_note(tmp_path, "npm")
+    assert note is not None
+    assert "build" in note
+
+
+def test_coding_note_is_absent_without_a_build_script(tmp_path):
+    _write(tmp_path, "package.json", _json.dumps({"scripts": {"test": "vitest run"}}))
+    assert dep.coding_note(tmp_path, "npm") is None
+
+
+def test_coding_note_is_absent_for_other_tooling(tmp_path):
+    _write(tmp_path, "package.json", _json.dumps({"scripts": {"build": "tsc"}}))
+    assert dep.coding_note(tmp_path, "uv") is None
 
 
 def test_npm_mutation_omits_the_build_when_the_repo_declares_none(tmp_path):
@@ -236,15 +260,8 @@ def test_npm_mutation_omits_the_build_when_the_repo_declares_no_scripts(tmp_path
     assert cmds == ["npm install zod@3.24.0 --save-exact"]
 
 
-def test_build_envelope_npm_declares_the_build_as_a_mutator_and_greps_last(tmp_path):
-    """The build is a MUTATOR, not the verifier, and it precedes the grep.
-
-    A build can write tracked files -- infraops-mcp-server tracks 376 of them under
-    dist/ and fails a pull request whose committed output is stale -- so declaring it
-    a pure check would understate what the envelope authorises. `mutation_commands`
-    must stay an ordered subset of `allowed_commands`, which is what the runner
-    validates, so the grep can only ever be last.
-    """
+def test_build_envelope_npm_verifies_with_npm_ci_and_never_builds(tmp_path):
+    """npm ci verifies; nothing builds. `mutation_commands` stays an ordered subset."""
     _write(
         tmp_path,
         "package.json",
@@ -264,8 +281,8 @@ def test_build_envelope_npm_declares_the_build_as_a_mutator_and_greps_last(tmp_p
     )
     install = "npm install typescript@7.0.2 --save-exact --save-dev"
     grep = 'grep -q \'"typescript": "7.0.2"\' package.json'
-    assert env["constraints"]["allowed_commands"] == [install, "npm run build", "npm ci", grep]
-    assert env["constraints"]["mutation_commands"] == [install, "npm run build"]
+    assert env["constraints"]["allowed_commands"] == [install, "npm ci", grep]
+    assert env["constraints"]["mutation_commands"] == [install]
 
 
 def test_npm_verifier_runs_npm_ci_when_the_repo_tracks_a_lockfile(tmp_path):

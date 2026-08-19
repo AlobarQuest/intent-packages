@@ -369,3 +369,56 @@ def test_run_fails_closed_on_stale_checkout(tmp_path, capsys, portable_pip):
     err = capsys.readouterr().err
     assert "decompose failed:" in err
     assert "pull --ff-only origin main" in err
+
+
+def test_the_coding_note_reaches_the_units_outcome(tmp_path):
+    """Computing the note is not delivering it, and only the outcome reaches the agent.
+
+    A mutation that computes `coding_note` and returns the outcome without it survived
+    the whole suite on 2026-08-19: the note had no assertion anywhere between the
+    profile and the unit. That is the shape this repository already knows -- a value the
+    service produces and the consumer never sees.
+    """
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"build": "tsc"}, "devDependencies": {"typescript": "5.9.3"}}),
+        encoding="utf-8",
+    )
+    proposal = decompose.build_proposal(
+        _INTAKE,
+        "AC-002",
+        "k",
+        "AlobarQuest/infraops-mcp-server",
+        "npm",
+        "typescript",
+        "5.9.3",
+        "5.9.4",
+        _CONFORMANCE,
+        [PinSite("package.json", "devDependencies", "5.9.3")],
+        "r",
+        tmp_path,
+    )
+    outcome = proposal["proposed_units"][0]["outcome"]
+    assert dep_update.coding_note(tmp_path, "npm") in outcome
+
+
+def test_a_repo_with_no_build_script_gets_a_bare_outcome(tmp_path):
+    """The note is conditional, so its absence must be asserted too."""
+    (tmp_path / "package.json").write_text(
+        json.dumps({"dependencies": {"zod": "3.23.8"}}), encoding="utf-8"
+    )
+    proposal = decompose.build_proposal(
+        _INTAKE,
+        "AC-002",
+        "k",
+        "AlobarQuest/infraops-mcp-server",
+        "npm",
+        "zod",
+        "3.23.8",
+        "4.4.3",
+        _CONFORMANCE,
+        [PinSite("package.json", "dependencies", "3.23.8")],
+        "r",
+        tmp_path,
+    )
+    outcome = proposal["proposed_units"][0]["outcome"]
+    assert outcome.endswith("its named check passes on the PR head.")
