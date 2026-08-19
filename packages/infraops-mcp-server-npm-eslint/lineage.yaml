@@ -1,0 +1,10 @@
+package_id: infraops-mcp-server-npm-eslint
+current_state: draft
+revisions:
+- revision: 1
+  hash: cef539c4eea197d40ce173fa1396d3e531176e5a19c4eec9cfbe9e02179272a3
+  created_at: '2026-08-19T12:43:28Z'
+  author: factory-create
+transitions: []
+approvals: []
+grants: []
