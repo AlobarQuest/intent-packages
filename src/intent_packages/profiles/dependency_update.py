@@ -31,7 +31,22 @@ CAPABILITIES: dict[str, str] = {
     "repo.edit": "allowed",
     "repo.read": "allowed",
 }
-BUDGETS: dict[str, int] = {"max_attempts": 3, "max_llm_calls": 4}
+BUDGETS: dict[str, int] = {"max_attempts": 3, "max_llm_calls": 120}
+
+# 120 is structural, not an estimate: `max_attempts` x factory-runner's own
+# `max_turns` literal, which is 40 and is the only thing bounding a single
+# attempt. Setting it there is what makes the RECOVERABLE gate
+# (`attempts_exhausted`, curable by approve_retry) bind before the UNRECOVERABLE
+# one (`budget_exceeded`, curable by nothing, because the envelope is write-once
+# and its approval cannot be taken back). Over-provisioning costs nothing --
+# nothing checks spend mid-run -- and measured burns run 9, 29 and 58 calls.
+#
+# It was 4 until 2026-08-19, while `approval-policy.toml`'s grant already
+# granted 120 and said so. A package therefore declared 120 and the unit
+# envelope `build_envelope` derived from it declared 4, because this constant is
+# what the envelope is stamped from. Nothing compared the two. Keep them equal:
+# the policy is a CEILING, so a lower default here is not a safety margin, it is
+# a way to kill a unit permanently that no later act can undo.
 
 # Runner-honesty deny-list (validation #2): tool-guarded checks the bare hosted
 # runner cannot honestly run (need services / a migrated DB / can exit 0 having
@@ -62,7 +77,7 @@ class PinSite:
 class ToolingProfile:
     name: str
     discover_pin_sites: Callable[[Path, str], list[PinSite]]
-    mutation_commands: Callable[[str, str, str, list[PinSite]], list[str]]
+    mutation_commands: Callable[[Path, str, str, str, list[PinSite]], list[str]]
     verifier_command: Callable[[str, str, str, list[PinSite]], str]
 
 
@@ -86,7 +101,7 @@ def _pip_discover(repo: Path, package: str) -> list[PinSite]:
     return sites
 
 
-def _pip_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+def _pip_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     return [f"sed -i 's/^{package}=={old}$/{package}=={new}/' {site.file}" for site in sites]
 
 
@@ -166,7 +181,7 @@ def _uv_add(package: str, new: str, label: str, *, frozen: bool) -> str:
     return " ".join(parts)
 
 
-def _uv_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+def _uv_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     if not sites:
         return []
     if len(sites) == 1:
@@ -202,10 +217,32 @@ def _npm_discover(repo: Path, package: str) -> list[PinSite]:
     return sites
 
 
-def _npm_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+def _npm_build_script(repo: Path) -> bool:
+    """Whether the checkout declares an npm `build` script."""
+    path = repo / "package.json"
+    if not path.is_file():
+        return False
+    scripts = json.loads(path.read_text(encoding="utf-8")).get("scripts")
+    return isinstance(scripts, dict) and bool(scripts.get("build"))
+
+
+def _npm_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     dev = bool(sites) and all(s.label == "devDependencies" for s in sites)
     flag = " --save-dev" if dev else ""
-    return [f"npm install {package}@{new} --save-exact{flag}"]
+    commands = [f"npm install {package}@{new} --save-exact{flag}"]
+    # A compiler or bundler bump is only claimed to work once the repository's own
+    # build has run against it, and the grep below cannot say anything about that:
+    # it asserts that the mutator did what the mutator does. Declared as a MUTATOR
+    # rather than a verifier because a build can write tracked files --
+    # infraops-mcp-server tracks 376 of them under dist/ and fails a pull request
+    # whose committed output is stale -- so calling it a pure check would
+    # understate what the envelope authorises, and the envelope is what a human's
+    # authority approval attests. Resolved here, at authoring time, rather than
+    # with npm's own --if-present: a flag that skips silently leaves the envelope
+    # ambiguous about what will run, and the dry-run cannot tell the two apart.
+    if _npm_build_script(repo):
+        commands.append("npm run build")
+    return commands
 
 
 def _npm_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
@@ -227,11 +264,13 @@ def build_envelope(
     new: str,
     conformance: dict,
     sites: list[PinSite],
+    *,
+    repo: Path,
 ) -> dict:
     if tooling not in TOOLING_PROFILES:
         raise ProfileError(f"unknown tooling: {tooling}")
     profile = TOOLING_PROFILES[tooling]
-    mutations = profile.mutation_commands(package, old, new, sites)
+    mutations = profile.mutation_commands(repo, package, old, new, sites)
     if not mutations:
         raise ProfileError(f"{tooling}: no mutation commands (no pin sites for {package}?)")
     verifier = profile.verifier_command(package, old, new, sites)
