@@ -23,7 +23,12 @@ from intent_packages.factory.validations import (
     assert_runner_honest,
     dry_run_mutation,
 )
-from intent_packages.profiles.dependency_update import PinSite, ProfileError, build_envelope
+from intent_packages.profiles.dependency_update import (
+    PinSite,
+    ProfileError,
+    build_envelope,
+    coding_note,
+)
 
 
 class DecomposeError(Exception):
@@ -80,10 +85,7 @@ def build_proposal(
             {
                 "unit_key": unit_key,
                 "title": f"Update {package} to {new} in {target_repo}",
-                "outcome": (
-                    f"{target_repo} receives a PR that moves {package} {old} -> {new}; "
-                    f"its named check passes on the PR head."
-                ),
+                "outcome": _outcome(target_repo, tooling, package, old, new, repo),
                 "required_capability": "repo.edit",
                 "authority": envelope,
                 "max_attempts": 3,
@@ -94,6 +96,21 @@ def build_proposal(
         "ac_mappings": [{"ac_id": mapped_uuid, "unit_key": unit_key}],
         "retained_acs": retained,
     }
+
+
+def _outcome(target_repo: str, tooling: str, package: str, old: str, new: str, repo: Path) -> str:
+    """What the unit must achieve, plus whatever the tooling needs the agent to know.
+
+    The note is here rather than in `allowed_commands` because that list is executed
+    against the unmodified tree by `dry_run_mutation`; an instruction whose whole point
+    is that it may fail until the agent has worked cannot live there.
+    """
+    text = (
+        f"{target_repo} receives a PR that moves {package} {old} -> {new}; "
+        f"its named check passes on the PR head."
+    )
+    note = coding_note(repo, tooling)
+    return f"{text} {note}" if note else text
 
 
 def _resolve_repo_path(target_repo: str, repo_path: str) -> Path:

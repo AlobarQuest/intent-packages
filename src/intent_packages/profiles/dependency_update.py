@@ -229,20 +229,42 @@ def _npm_build_script(repo: Path) -> bool:
 def _npm_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     dev = bool(sites) and all(s.label == "devDependencies" for s in sites)
     flag = " --save-dev" if dev else ""
-    commands = [f"npm install {package}@{new} --save-exact{flag}"]
-    # A compiler or bundler bump is only claimed to work once the repository's own
-    # build has run against it, and the grep below cannot say anything about that:
-    # it asserts that the mutator did what the mutator does. Declared as a MUTATOR
-    # rather than a verifier because a build can write tracked files --
-    # infraops-mcp-server tracks 376 of them under dist/ and fails a pull request
-    # whose committed output is stale -- so calling it a pure check would
-    # understate what the envelope authorises, and the envelope is what a human's
-    # authority approval attests. Resolved here, at authoring time, rather than
-    # with npm's own --if-present: a flag that skips silently leaves the envelope
-    # ambiguous about what will run, and the dry-run cannot tell the two apart.
-    if _npm_build_script(repo):
-        commands.append("npm run build")
-    return commands
+    # `npm run build` is deliberately NOT here, and the reason is the whole point of
+    # the lane. `dry_run_mutation` executes every command in the envelope against the
+    # UNMODIFIED tree, before any coding agent has touched it, and raises on the first
+    # failure. A build that fails there does not mean the bump is impossible -- it means
+    # there is source work to do, which is precisely the work this profile exists to
+    # dispatch. It was here between 2026-08-19 morning and evening and it refused zod
+    # 3 -> 4 into infraops-mcp-server, where `npm ci` resolves cleanly and `tsc` reports
+    # real errors across a dozen files. That is the factory's central case, declined at
+    # authoring time.
+    #
+    # The distinction is not mutator-versus-verifier. It is whether a command's failure
+    # means the bump is IMPOSSIBLE or that it NEEDS WORK. `npm ci` failing means the
+    # dependency graph cannot resolve, which no source change in scope can fix, so it
+    # belongs in the envelope. A build failing is the assignment.
+    #
+    # What the build was buying is preserved by `coding_note` below: the agent is told
+    # to run it, and a stale tracked `dist/` still fails the repository's own named
+    # check, so the requirement is enforced one cycle later rather than not at all.
+    return [f"npm install {package}@{new} --save-exact{flag}"]
+
+
+def coding_note(repo: Path, tooling: str) -> str | None:
+    """A sentence for the unit's outcome, or None. What the agent must do, not may.
+
+    `constraints.allowed_commands` reaches the coding agent only as prompt text, so it
+    cannot carry an instruction that the dry run would refuse to execute. This can:
+    the outcome is prose, it is what actually steers the agent, and it is inside the
+    envelope a human approves.
+    """
+    if tooling != "npm" or not _npm_build_script(repo):
+        return None
+    return (
+        "Run the repository's own build and commit any tracked output it produces; "
+        "a repository that tracks compiled output fails its named check when that "
+        "output is stale."
+    )
 
 
 def _npm_verifier(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
