@@ -2,7 +2,7 @@ schema_version: 1
 package_id: infraops-mcp-server-npm-eslint
 title: Adopt the proposed npm update of eslint in infraops-mcp-server
 revision: 1
-status: draft
+status: approved
 created_by: factory-create
 owner: devon
 created_at: '2026-08-19T12:43:28Z'
@@ -24,8 +24,8 @@ profile: dependency-update
 profile_fields:
   target_repo: AlobarQuest/infraops-mcp-server
   package: eslint
-  from_version: unassigned
-  to_version: unassigned
+  from_version: '9.39.4'
+  to_version: '10.8.1'
   standing: true
 outcome:
   what: >-
