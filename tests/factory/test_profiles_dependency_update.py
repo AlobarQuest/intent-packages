@@ -202,14 +202,13 @@ def test_npm_mutation_and_verifier(tmp_path):
     assert v == ['grep -q \'"zod": "3.24.0"\' package.json']
 
 
-def test_npm_mutation_does_not_run_the_build_even_when_one_is_declared(tmp_path):
-    """The build is the WORK, not a precondition, so it must not be in the envelope.
+def test_npm_mutation_grants_the_build_when_one_is_declared(tmp_path):
+    """The envelope is the agent's ENTIRE command vocabulary, so it must be complete.
 
-    `dry_run_mutation` executes every command against the unmodified tree and raises on
-    the first failure. A build that fails there means there is source work to do, which
-    is the case this profile exists to dispatch. Between 2026-08-19 morning and evening
-    `npm run build` was a mutation command and it refused zod 3 -> 4 into
-    infraops-mcp-server, where npm ci resolves and tsc reports real errors.
+    factory-runner writes a PreToolUse hook from `constraints.allowed_commands` and
+    Claude Code exact-matches every Bash call against it, so a command absent here is
+    one the agent cannot run. Measured 2026-08-19: with the build omitted, the zod
+    3 -> 4 agent attempted it, was refused, and moved the pin instead.
     """
     _write(
         tmp_path,
@@ -220,8 +219,45 @@ def test_npm_mutation_does_not_run_the_build_even_when_one_is_declared(tmp_path)
     cmds = dep.TOOLING_PROFILES["npm"].mutation_commands(
         tmp_path, "typescript", "5.9.3", "7.0.2", sites
     )
-    assert cmds == ["npm install typescript@7.0.2 --save-exact --save-dev"]
-    assert "npm run build" not in cmds
+    assert cmds == ["npm install typescript@7.0.2 --save-exact --save-dev", "npm run build"]
+
+
+def test_the_build_is_deferred_from_authoring(tmp_path):
+    """Granted to the agent, withheld from the dry run. Both halves, or neither works."""
+    _write(tmp_path, "package.json", _json.dumps({"scripts": {"build": "tsc"}}))
+    assert dep.commands_deferred_to_coding(tmp_path, "npm") == ("npm run build",)
+
+
+def test_nothing_is_deferred_without_a_build_script(tmp_path):
+    _write(tmp_path, "package.json", _json.dumps({"scripts": {"test": "vitest run"}}))
+    assert dep.commands_deferred_to_coding(tmp_path, "npm") == ()
+
+
+def test_nothing_is_deferred_for_other_tooling(tmp_path):
+    _write(tmp_path, "package.json", _json.dumps({"scripts": {"build": "tsc"}}))
+    assert dep.commands_deferred_to_coding(tmp_path, "uv") == ()
+
+
+def test_every_deferred_command_is_in_the_envelope(tmp_path):
+    """A deferred command absent from the envelope would silently narrow the dry run."""
+    _write(
+        tmp_path,
+        "package.json",
+        _json.dumps({"scripts": {"build": "tsc"}, "devDependencies": {"typescript": "5.9.3"}}),
+    )
+    sites = dep.TOOLING_PROFILES["npm"].discover_pin_sites(tmp_path, "typescript")
+    env = dep.build_envelope(
+        "AlobarQuest/infraops-mcp-server",
+        "npm",
+        "typescript",
+        "5.9.3",
+        "7.0.2",
+        {"accepted_standards": [], "standards_touched": ["code"], "status": "green"},
+        sites,
+        repo=tmp_path,
+    )
+    allowed = env["constraints"]["allowed_commands"]
+    assert set(dep.commands_deferred_to_coding(tmp_path, "npm")) <= set(allowed)
 
 
 def test_coding_note_tells_the_agent_to_build_when_the_repo_declares_one(tmp_path):
@@ -260,8 +296,8 @@ def test_npm_mutation_omits_the_build_when_the_repo_declares_no_scripts(tmp_path
     assert cmds == ["npm install zod@3.24.0 --save-exact"]
 
 
-def test_build_envelope_npm_verifies_with_npm_ci_and_never_builds(tmp_path):
-    """npm ci verifies; nothing builds. `mutation_commands` stays an ordered subset."""
+def test_build_envelope_npm_grants_the_build_and_verifies_with_npm_ci(tmp_path):
+    """The agent gets the build; npm ci verifies. `mutation_commands` stays an ordered subset."""
     _write(
         tmp_path,
         "package.json",
@@ -281,8 +317,8 @@ def test_build_envelope_npm_verifies_with_npm_ci_and_never_builds(tmp_path):
     )
     install = "npm install typescript@7.0.2 --save-exact --save-dev"
     grep = 'grep -q \'"typescript": "7.0.2"\' package.json'
-    assert env["constraints"]["allowed_commands"] == [install, "npm ci", grep]
-    assert env["constraints"]["mutation_commands"] == [install]
+    assert env["constraints"]["allowed_commands"] == [install, "npm run build", "npm ci", grep]
+    assert env["constraints"]["mutation_commands"] == [install, "npm run build"]
 
 
 def test_npm_verifier_runs_npm_ci_when_the_repo_tracks_a_lockfile(tmp_path):

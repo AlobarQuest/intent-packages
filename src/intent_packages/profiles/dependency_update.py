@@ -229,25 +229,45 @@ def _npm_build_script(repo: Path) -> bool:
 def _npm_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     dev = bool(sites) and all(s.label == "devDependencies" for s in sites)
     flag = " --save-dev" if dev else ""
-    # `npm run build` is deliberately NOT here, and the reason is the whole point of
-    # the lane. `dry_run_mutation` executes every command in the envelope against the
-    # UNMODIFIED tree, before any coding agent has touched it, and raises on the first
-    # failure. A build that fails there does not mean the bump is impossible -- it means
-    # there is source work to do, which is precisely the work this profile exists to
-    # dispatch. It was here between 2026-08-19 morning and evening and it refused zod
-    # 3 -> 4 into infraops-mcp-server, where `npm ci` resolves cleanly and `tsc` reports
-    # real errors across a dozen files. That is the factory's central case, declined at
-    # authoring time.
+    commands = [f"npm install {package}@{new} --save-exact{flag}"]
+    # The envelope is the agent's ENTIRE command vocabulary, not a suggestion:
+    # factory-runner writes a PreToolUse hook from `constraints.allowed_commands`
+    # (`command_policy.py::write_tool_policy`, keyed to the authority fingerprint,
+    # chmod 0400, outside the checkout) and Claude Code exact-matches every Bash call
+    # against it. A command absent here is a command the agent CANNOT RUN.
     #
-    # The distinction is not mutator-versus-verifier. It is whether a command's failure
-    # means the bump is IMPOSSIBLE or that it NEEDS WORK. `npm ci` failing means the
-    # dependency graph cannot resolve, which no source change in scope can fix, so it
-    # belongs in the envelope. A build failing is the assignment.
+    # So the build belongs here, and its being here is what lets a migration happen at
+    # all: without it the agent cannot compile, cannot see what the new major broke,
+    # and cannot fix it. Measured 2026-08-19 -- with the build omitted, the zod 3 -> 4
+    # agent attempted `npm run build`, was refused by the hook, said so, and moved the
+    # pin, producing a two-file pull request whose checks all failed.
     #
-    # What the build was buying is preserved by `coding_note` below: the agent is told
-    # to run it, and a stale tracked `dist/` still fails the repository's own named
-    # check, so the requirement is enforced one cycle later rather than not at all.
-    return [f"npm install {package}@{new} --save-exact{flag}"]
+    # It is a MUTATOR because it writes tracked files where compiled output is tracked.
+    # What must NOT happen is authoring executing it against the unmodified tree --
+    # see `commands_deferred_to_coding`.
+    if _npm_build_script(repo):
+        commands.append("npm run build")
+    return commands
+
+
+def commands_deferred_to_coding(repo: Path, tooling: str) -> tuple[str, ...]:
+    """Envelope commands authoring must NOT execute, because they run before the work.
+
+    `dry_run_mutation` executes commands against the UNMODIFIED tree to prove the bump
+    is possible. A build there answers a different question: it fails whenever the new
+    version requires source changes, which is the case this profile exists to dispatch.
+
+    The discriminator is what a failure MEANS. `npm install` and `npm ci` failing means
+    the dependency graph cannot resolve, which no in-scope source change fixes, so
+    authoring must run them. A build failing is the assignment, so authoring must not.
+
+    Deferred is not unenforced: `finalize-run` re-executes the whole of
+    `allowed_commands` after the coding phase, so the build still has to pass before
+    anything is pushed.
+    """
+    if tooling != "npm" or not _npm_build_script(repo):
+        return ()
+    return ("npm run build",)
 
 
 def coding_note(repo: Path, tooling: str) -> str | None:
@@ -261,9 +281,9 @@ def coding_note(repo: Path, tooling: str) -> str | None:
     if tooling != "npm" or not _npm_build_script(repo):
         return None
     return (
-        "Run the repository's own build and commit any tracked output it produces; "
-        "a repository that tracks compiled output fails its named check when that "
-        "output is stale."
+        "Run the repository's own build; it is in your authorized commands, and what "
+        "it reports is the work. A repository that tracks compiled output also fails "
+        "its named check when that output is stale."
     )
 
 
