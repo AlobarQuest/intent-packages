@@ -1,5 +1,6 @@
 {
   "change-manager-fastapi-bump": "57dfef2bb982eaf234c98f0ad75cf78ab461c0721bfad29114f972efb761a5c2",
+  "change-manager-resolved-state-display": "4e3d22c0ec05b43200c577b5b78550892aa7a26e0846d335880e13a9f3752e08",
   "conformance-claim-helper": "6a753677334de371e55d7bfcb2e6d3adfca959de34bf0c277e85cbc4e6976608",
   "drill-2026-07-27-production-recovery": "31a63ae57d427e92785019b325d6b783d8589279435d78e01308dc138d58c96f",
   "evidence-tag-matching-guards": "c833f5f26572a2d4c94e8c2fdcb256d04f1ce42b472286f7fd65174be3e509d5",
