@@ -23,7 +23,13 @@ from intent_packages.factory.validations import (
     assert_runner_honest,
     dry_run_mutation,
 )
-from intent_packages.profiles.dependency_update import PinSite, ProfileError, build_envelope
+from intent_packages.profiles.dependency_update import (
+    PinSite,
+    ProfileError,
+    build_envelope,
+    coding_note,
+    commands_deferred_to_coding,
+)
 
 
 class DecomposeError(Exception):
@@ -51,13 +57,16 @@ def build_proposal(
     conformance: dict,
     sites: list[PinSite],
     rationale: str,
+    repo: Path,
     context_enrichment: dict | None = None,
 ) -> dict:
     uuids = _criteria_uuid_map(intake)
     if ac not in uuids:
         raise DecomposeError(f"acceptance criterion {ac} not found in revision")
     mapped_uuid = uuids[ac]
-    envelope = build_envelope(target_repo, tooling, package, old, new, conformance, sites)
+    envelope = build_envelope(
+        target_repo, tooling, package, old, new, conformance, sites, repo=repo
+    )
     retained = [
         {"ac_id": uuid, "rationale": rationale or f"not addressed by the {package} update ({ac})"}
         for human_id, uuid in uuids.items()
@@ -77,10 +86,7 @@ def build_proposal(
             {
                 "unit_key": unit_key,
                 "title": f"Update {package} to {new} in {target_repo}",
-                "outcome": (
-                    f"{target_repo} receives a PR that moves {package} {old} -> {new}; "
-                    f"its named check passes on the PR head."
-                ),
+                "outcome": _outcome(target_repo, tooling, package, old, new, repo),
                 "required_capability": "repo.edit",
                 "authority": envelope,
                 "max_attempts": 3,
@@ -91,6 +97,21 @@ def build_proposal(
         "ac_mappings": [{"ac_id": mapped_uuid, "unit_key": unit_key}],
         "retained_acs": retained,
     }
+
+
+def _outcome(target_repo: str, tooling: str, package: str, old: str, new: str, repo: Path) -> str:
+    """What the unit must achieve, plus whatever the tooling needs the agent to know.
+
+    The note is here rather than in `allowed_commands` because that list is executed
+    against the unmodified tree by `dry_run_mutation`; an instruction whose whole point
+    is that it may fail until the agent has worked cannot live there.
+    """
+    text = (
+        f"{target_repo} receives a PR that moves {package} {old} -> {new}; "
+        f"its named check passes on the PR head."
+    )
+    note = coding_note(repo, tooling)
+    return f"{text} {note}" if note else text
 
 
 def _resolve_repo_path(target_repo: str, repo_path: str) -> Path:
@@ -152,6 +173,7 @@ def run(
             conformance,
             sites,
             rationale,
+            local_repo,
             context_enrichment=enrichment_for_profile("dependency-update", client=brain_client),
         )
         change_class = proposal["proposed_units"][0]["authority"]["change_class"]
@@ -163,7 +185,22 @@ def run(
         allowed = proposal["proposed_units"][0]["authority"]["constraints"]["allowed_commands"]
 
         assert_runner_honest(allowed)
-        changed = dry_run_mutation(local_repo, allowed)
+        # Authoring proves the bump is POSSIBLE, against a tree no agent has touched.
+        # It therefore executes every envelope command except those whose failure is
+        # the assignment rather than a refusal -- see `commands_deferred_to_coding`.
+        # The envelope itself is unnarrowed: the agent may run all of it, and
+        # `finalize-run` re-executes all of it after the work.
+        deferred = commands_deferred_to_coding(local_repo, tooling)
+        unknown = [command for command in deferred if command not in allowed]
+        if unknown:
+            raise DecomposeError(
+                f"deferred commands are not in the envelope: {unknown}; the two lists "
+                f"are built from the same profile and have drifted"
+            )
+        admission = [command for command in allowed if command not in deferred]
+        if not admission:
+            raise DecomposeError("every envelope command is deferred; nothing would be proven")
+        changed = dry_run_mutation(local_repo, admission)
         assert_pin_sites_moved(changed, sites)
 
         body = json.dumps(proposal, indent=2, sort_keys=True)

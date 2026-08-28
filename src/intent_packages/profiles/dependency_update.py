@@ -21,7 +21,7 @@ from intent_packages.profiles.base import (
     DeliveryProfile,
     EnrichmentSpec,
 )
-from intent_packages.schema import MapSpec, _s, _walk
+from intent_packages.schema import MapSpec, OptionalKey, _s, _walk
 
 CAPABILITIES: dict[str, str] = {
     "command.run": "allowed",
@@ -31,7 +31,22 @@ CAPABILITIES: dict[str, str] = {
     "repo.edit": "allowed",
     "repo.read": "allowed",
 }
-BUDGETS: dict[str, int] = {"max_attempts": 3, "max_llm_calls": 4}
+BUDGETS: dict[str, int] = {"max_attempts": 3, "max_llm_calls": 120}
+
+# 120 is structural, not an estimate: `max_attempts` x factory-runner's own
+# `max_turns` literal, which is 40 and is the only thing bounding a single
+# attempt. Setting it there is what makes the RECOVERABLE gate
+# (`attempts_exhausted`, curable by approve_retry) bind before the UNRECOVERABLE
+# one (`budget_exceeded`, curable by nothing, because the envelope is write-once
+# and its approval cannot be taken back). Over-provisioning costs nothing --
+# nothing checks spend mid-run -- and measured burns run 9, 29 and 58 calls.
+#
+# It was 4 until 2026-08-19, while `approval-policy.toml`'s grant already
+# granted 120 and said so. A package therefore declared 120 and the unit
+# envelope `build_envelope` derived from it declared 4, because this constant is
+# what the envelope is stamped from. Nothing compared the two. Keep them equal:
+# the policy is a CEILING, so a lower default here is not a safety margin, it is
+# a way to kill a unit permanently that no later act can undo.
 
 # Runner-honesty deny-list (validation #2): tool-guarded checks the bare hosted
 # runner cannot honestly run (need services / a migrated DB / can exit 0 having
@@ -62,8 +77,8 @@ class PinSite:
 class ToolingProfile:
     name: str
     discover_pin_sites: Callable[[Path, str], list[PinSite]]
-    mutation_commands: Callable[[str, str, str, list[PinSite]], list[str]]
-    verifier_command: Callable[[str, str, str, list[PinSite]], str]
+    mutation_commands: Callable[[Path, str, str, str, list[PinSite]], list[str]]
+    verifier_commands: Callable[[Path, str, str, str, list[PinSite]], list[str]]
 
 
 # ----- pip / requirements.txt -----
@@ -86,14 +101,14 @@ def _pip_discover(repo: Path, package: str) -> list[PinSite]:
     return sites
 
 
-def _pip_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+def _pip_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     return [f"sed -i 's/^{package}=={old}$/{package}=={new}/' {site.file}" for site in sites]
 
 
-def _pip_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
+def _pip_verifier(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     primary = next((s.file for s in sites if s.file == "requirements.txt"), None)
     primary = primary or (sites[0].file if sites else "requirements.txt")
-    return f"grep -qx '{package}=={new}' {primary}"
+    return [f"grep -qx '{package}=={new}' {primary}"]
 
 
 # ----- uv / pyproject.toml -----
@@ -166,7 +181,7 @@ def _uv_add(package: str, new: str, label: str, *, frozen: bool) -> str:
     return " ".join(parts)
 
 
-def _uv_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+def _uv_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     if not sites:
         return []
     if len(sites) == 1:
@@ -179,8 +194,8 @@ def _uv_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list
     return [_uv_add(package, new, s.label, frozen=True) for s in sites] + ["uv lock"]
 
 
-def _uv_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
-    return "uv lock --check"
+def _uv_verifier(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+    return ["uv lock --check"]
 
 
 # ----- npm / package.json -----
@@ -202,14 +217,94 @@ def _npm_discover(repo: Path, package: str) -> list[PinSite]:
     return sites
 
 
-def _npm_mutation(package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+def _npm_build_script(repo: Path) -> bool:
+    """Whether the checkout declares an npm `build` script."""
+    path = repo / "package.json"
+    if not path.is_file():
+        return False
+    scripts = json.loads(path.read_text(encoding="utf-8")).get("scripts")
+    return isinstance(scripts, dict) and bool(scripts.get("build"))
+
+
+def _npm_mutation(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
     dev = bool(sites) and all(s.label == "devDependencies" for s in sites)
     flag = " --save-dev" if dev else ""
-    return [f"npm install {package}@{new} --save-exact{flag}"]
+    commands = [f"npm install {package}@{new} --save-exact{flag}"]
+    # The envelope is the agent's ENTIRE command vocabulary, not a suggestion:
+    # factory-runner writes a PreToolUse hook from `constraints.allowed_commands`
+    # (`command_policy.py::write_tool_policy`, keyed to the authority fingerprint,
+    # chmod 0400, outside the checkout) and Claude Code exact-matches every Bash call
+    # against it. A command absent here is a command the agent CANNOT RUN.
+    #
+    # So the build belongs here, and its being here is what lets a migration happen at
+    # all: without it the agent cannot compile, cannot see what the new major broke,
+    # and cannot fix it. Measured 2026-08-19 -- with the build omitted, the zod 3 -> 4
+    # agent attempted `npm run build`, was refused by the hook, said so, and moved the
+    # pin, producing a two-file pull request whose checks all failed.
+    #
+    # It is a MUTATOR because it writes tracked files where compiled output is tracked.
+    # What must NOT happen is authoring executing it against the unmodified tree --
+    # see `commands_deferred_to_coding`.
+    if _npm_build_script(repo):
+        commands.append("npm run build")
+    return commands
 
 
-def _npm_verifier(package: str, old: str, new: str, sites: list[PinSite]) -> str:
-    return f'grep -q \'"{package}": "{new}"\' package.json'
+def commands_deferred_to_coding(repo: Path, tooling: str) -> tuple[str, ...]:
+    """Envelope commands authoring must NOT execute, because they run before the work.
+
+    `dry_run_mutation` executes commands against the UNMODIFIED tree to prove the bump
+    is possible. A build there answers a different question: it fails whenever the new
+    version requires source changes, which is the case this profile exists to dispatch.
+
+    The discriminator is what a failure MEANS. `npm install` and `npm ci` failing means
+    the dependency graph cannot resolve, which no in-scope source change fixes, so
+    authoring must run them. A build failing is the assignment, so authoring must not.
+
+    Deferred is not unenforced: `finalize-run` re-executes the whole of
+    `allowed_commands` after the coding phase, so the build still has to pass before
+    anything is pushed.
+    """
+    if tooling != "npm" or not _npm_build_script(repo):
+        return ()
+    return ("npm run build",)
+
+
+def coding_note(repo: Path, tooling: str) -> str | None:
+    """A sentence for the unit's outcome, or None. What the agent must do, not may.
+
+    `constraints.allowed_commands` reaches the coding agent only as prompt text, so it
+    cannot carry an instruction that the dry run would refuse to execute. This can:
+    the outcome is prose, it is what actually steers the agent, and it is inside the
+    envelope a human approves.
+    """
+    if tooling != "npm" or not _npm_build_script(repo):
+        return None
+    return (
+        "Run the repository's own build; it is in your authorized commands, and what "
+        "it reports is the work. A repository that tracks compiled output also fails "
+        "its named check when that output is stale."
+    )
+
+
+def _npm_verifier(repo: Path, package: str, old: str, new: str, sites: list[PinSite]) -> list[str]:
+    commands: list[str] = []
+    # `npm install` and `npm ci` disagree, and the repository's gate runs the second.
+    # npm install resolves a workable tree and writes a lockfile; npm ci installs that
+    # lockfile strictly and REFUSES it when a peer range is unsatisfied. So a bump can
+    # pass every validation here and fail the target repository's named check at
+    # dependency installation, before anything is compiled or tested -- which is what
+    # happened on 2026-08-19 with typescript 7.0.2 against typescript-eslint's
+    # `peer typescript >=4.8.4 <6.1.0`. Because `dry_run_mutation` executes this whole
+    # list, naming npm ci here moves that refusal to authoring time, where it costs a
+    # decompose run rather than two human approvals and a work-unit attempt.
+    #
+    # Gated on the lockfile because npm ci requires one and fails without it; a
+    # repository that tracks none is verified by the grep alone, as before.
+    if (repo / "package-lock.json").is_file():
+        commands.append("npm ci")
+    commands.append(f'grep -q \'"{package}": "{new}"\' package.json')
+    return commands
 
 
 TOOLING_PROFILES: dict[str, ToolingProfile] = {
@@ -227,21 +322,23 @@ def build_envelope(
     new: str,
     conformance: dict,
     sites: list[PinSite],
+    *,
+    repo: Path,
 ) -> dict:
     if tooling not in TOOLING_PROFILES:
         raise ProfileError(f"unknown tooling: {tooling}")
     profile = TOOLING_PROFILES[tooling]
-    mutations = profile.mutation_commands(package, old, new, sites)
+    mutations = profile.mutation_commands(repo, package, old, new, sites)
     if not mutations:
         raise ProfileError(f"{tooling}: no mutation commands (no pin sites for {package}?)")
-    verifier = profile.verifier_command(package, old, new, sites)
+    verifiers = profile.verifier_commands(repo, package, old, new, sites)
     return {
         "budgets": dict(BUDGETS),
         "capabilities": dict(CAPABILITIES),
         "change_class": "dependency-update",
         "conformance": conformance,
         "constraints": {
-            "allowed_commands": [*mutations, verifier],
+            "allowed_commands": [*mutations, *verifiers],
             "mutation_commands": list(mutations),
             "target_repository": target_repo,
         },
@@ -256,6 +353,13 @@ PROFILE_FIELDS_SCHEMA = MapSpec(
         "package": _s(str),
         "from_version": _s(str),
         "to_version": _s(str),
+        # ADR-0028. A STANDING package is authored once per (repository, ecosystem,
+        # dependency) and revised once per bump; every dependency-update package before
+        # this field existed named one specific bump and is finished. Optional, so the
+        # historical population still validates -- and declared by the AUTHOR, never by
+        # the producer that revises it, which is what keeps it a statement about intent
+        # rather than a value the same program writes and then satisfies.
+        "standing": OptionalKey(_s(bool)),
     }
 )
 

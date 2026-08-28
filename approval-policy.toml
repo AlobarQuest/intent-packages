@@ -1,0 +1,198 @@
+# approval-policy.toml -- when a package revision may be approved by conformance
+# rather than by a named human (ADR-0028, decision 2).
+#
+# WHAT THIS IS FOR. A standing dependency-update package is revised once per
+# bump, and every revision needs an approval before it can be taken into the
+# orchestrator. Asking a person for each one is the toil ADR-0028 exists to
+# remove: he has already pre-decided the repository and the shape of the work,
+# and the per-revision click re-ratifies that decision without adding to it.
+# So a conformant revision is approved by THIS DOCUMENT, and the ledger and the
+# tamper-evident chain record the policy version rather than a person's name --
+# which is re-derivable in a way a click is not.
+#
+# IT IS A POLICY, NEVER A REMOVAL, and that distinction is the whole of
+# ADR-0028's caution. Devon, 2026-08-19: "That doesn't mean the gate is useless,
+# it just is not needed yet." Raising the bar later -- requiring a named human
+# for a repository, a profile, or all of them -- is an edit to this file: delete
+# a row's grant, or narrow one of its sets. Had the guard been deleted instead,
+# restoring it would be a rebuild, and nothing would ever prompt the decision to
+# restore it.
+#
+# THE READING RULE, inherited from factory-policy.toml. This document can only
+# ever REFUSE. `refusals_for` returns why policy objects, and an empty answer
+# means "this policy raises no objection" -- which is weaker than "approve it".
+# `do_approve` still requires a valid package, a legal current state, empty
+# open questions, and a writable chain. Nothing written here can widen any of
+# those, because there is no way to write a permission at all: a row's grant is
+# a set of shapes the objections are withheld from, and a profile with no
+# [profile.<name>.grant] table draws `profile_not_policy_approvable` always.
+#
+# NO IMPLICIT DEFAULT, AND TOTAL COVERAGE. Every registered delivery profile
+# (intent_packages.profiles.PROFILES) has exactly one row here, and a row for a
+# profile that registry does not know is an error. A new profile shipped without
+# a row does not fall through to something permissive: this file stops loading,
+# and a document that does not load approves nothing.
+#
+# NOTHING IS CACHED. The artifact is read and parsed on every consultation, for
+# factory-policy.toml's reason: a cache is the mechanism by which a policy change
+# silently fails to take effect, and this surface has no volume that would
+# justify one.
+#
+# `version` IS THE SCHEMA VERSION, not an edit counter, and it is also what the
+# approver string records. Bump it only when the shape changes, and only in the
+# same commit that teaches the loader the new version and ships the code reading
+# any new field. The loader accepts exactly the versions it knows.
+#
+# WHAT THIS DOCUMENT CANNOT CHECK, stated so that it is a known residual rather
+# than a discovery. ADR-0028 describes the pre-decision as "this repository,
+# this ecosystem, these update types". Only the first is checkable here: a
+# package declares its target repository, and declares neither the packaging
+# ecosystem nor the kind of version change. Which bumps become work is decided
+# by the producer, against the transcribed auto-merge cascade
+# (orchestrator's `landing_ledger.rules`), and is NOT re-checked here.
+#
+# A DECLARED FIELD WAS CONSIDERED AND REJECTED. The producer could write
+# `profile_fields.update_type` and this document could check it -- but the same
+# program would then be writing the value and satisfying the condition, which is
+# the tautology this estate has already found once in the conformance gate
+# ("accepted_standards must come from a real waiver source, never echoed from
+# standards_touched"). A check on a self-asserted field reads stronger than it
+# is. What this document checks instead is the package's SHAPE, which is the
+# part of a standing grant that must not move: where the work lands, what it may
+# touch, what it may spend, and who adjudicates it.
+
+version = 1
+
+# ---------------------------------------------------------------------------
+# The four profiles with no policy grant. Each declares WHY, because a row that
+# said nothing would be indistinguishable from an oversight -- and total
+# coverage means these rows exist whether or not anybody has thought about them.
+# ---------------------------------------------------------------------------
+
+[profile.software-delivery]
+rationale = """
+Delivers a change somebody designed, so no two revisions of one package are the
+same shape and there is nothing standing to pre-decide. A person approves each.
+"""
+decided = "2026-08-19"
+
+[profile.infrastructure-change]
+rationale = """
+Changes something already serving. The reach this profile is authored for is
+`live_estate`, where the effect is felt the moment it lands, and a standing
+approval is exactly what should not exist.
+"""
+decided = "2026-08-19"
+
+[profile.maintenance-remediation]
+rationale = """
+Repairs a thing that broke, and what broke differs every time. ADR-0016 assigns
+the FAILED dependency updates here, which is the case where a person reading the
+package is the point rather than the cost.
+"""
+decided = "2026-08-19"
+
+[profile.non-software-operational]
+rationale = """
+Operational work reaching outside this estate -- a console, a registrar, a
+tracker. The least reversible reach in the vocabulary; it earns the most
+restraint, not the least.
+"""
+decided = "2026-08-19"
+
+# ---------------------------------------------------------------------------
+# The one profile with a grant.
+# ---------------------------------------------------------------------------
+
+[profile.dependency-update]
+rationale = """
+A version string moves, a lockfile follows, a pull request opens, and the target
+repository's own named check decides whether it was right. Between two revisions
+of one standing package the ONLY difference is which dependency and which two
+versions -- everything a person would read is identical, which is what makes the
+per-revision approval ceremony rather than review. ADR-0016 already decided that
+these bumps go to the factory; ADR-0028 decided that saying so once should not
+have to be repeated per bump.
+"""
+decided = "2026-08-19"
+
+[profile.dependency-update.grant]
+rationale = """
+Deliberately one repository. ADR-0028's whole point is that the bar can be
+raised or lowered by editing this table, so it starts at the narrowest useful
+setting and widens on evidence. infraops-mcp-server is where the cascade-refused
+remainder actually is -- measured 2026-08-19, its three open npm majors are the
+entire classifiable Tier C population across all six cascade repositories -- and
+App Brain records a landing there as inert, so nothing that is running changes
+when one of these pull requests lands.
+"""
+decided = "2026-08-19"
+target_repositories = ["AlobarQuest/infraops-mcp-server"]
+
+# EXACTLY, not a subset. A revision that reaches anywhere else is a different
+# kind of work wearing this profile's name, and `source_repository` is the reach
+# whose work is inert on arrival -- the only one where suppressing a human gate
+# costs nothing that has to be undone.
+reach = ["source_repository"]
+
+# The authority envelope terms, EXACTLY. A revision that adds a term, drops one,
+# or moves one between the three lists is not the shape that was pre-decided,
+# and refuses. This is the field that stops a policy approval widening what the
+# work may do.
+authority_allowed = ["repository_read", "repository_write", "test_execution"]
+authority_requires_approval = ["merge_to_main"]
+authority_prohibited = ["secret_write"]
+
+# CEILINGS, so a revision may spend less but never more.
+#
+# `max_llm_calls` is structural rather than an estimate: `max_attempts` x
+# factory-runner's own `max_turns` literal, which is 40 and is the only thing
+# that actually bounds a single attempt. Setting it there is what guarantees the RECOVERABLE gate
+# (`attempts_exhausted`, curable by approve_retry) binds before the
+# UNRECOVERABLE one (`budget_exceeded`, curable by nothing, because the envelope
+# is write-once and its approval cannot be taken back). Over-provisioning costs
+# nothing -- nothing checks spend mid-run -- and the measured burns here run
+# 9, 29 and 58 calls, so an envelope authored against an observed run has twice
+# been within a few calls of killing its unit permanently.
+#
+# This said "120 rather than the profile default of 4" until 2026-08-19, which
+# RECORDED a divergence rather than closing it: the ceiling here bounds what a
+# package may DECLARE, while the unit envelope is stamped from the profile
+# constant, and that constant was 4. Nothing compared them, so every unit this
+# lane emitted carried a thirtieth of the budget its package was approved for.
+# They are equal now, and the test named below keeps them equal, so raising this
+# ceiling without raising the profile default is a red test rather than a silent
+# shortfall on every unit the lane emits:
+#   test_the_envelope_budget_the_profile_stamps_equals_the_policy_ceiling
+max_attempts = 3
+max_llm_calls = 120
+
+# Which criterion shapes may appear. `human_review` is ABSENT deliberately: a
+# human-judgment criterion is a fourth human act after the three ADR-0028 keeps,
+# and `factory create` scaffolds one into every package, so a lane package that
+# was scaffolded rather than authored refuses here rather than quietly acquiring
+# a gate nobody chose. It is also what disqualifies a unit from the autonomous
+# landing lane, which is a decision to take deliberately and not by default.
+acceptance_evidence_types = ["automated_check"]
+acceptance_approvers = ["policy"]
+
+# The blast radius a standing grant covers. A revision claiming more has stopped
+# being the routine thing this row describes.
+max_impact = ["low"]
+
+# TWO NOTES ON REFUSALS WITH NO FIELD, both unconditional for this profile and neither
+# relaxable from here.
+#
+# `not_a_standing_package` -- only a package whose author declared
+# `profile_fields.standing = true` may take a policy approval. Every dependency-update
+# package in the authoring repository declares this same profile and a target repository,
+# so a grant keyed on those alone would cover the eight historical packages that each name
+# one finished bump. `standing` is the only thing that tells a lane from a completed
+# one-off, and it is what the pre-decision was actually about.
+#
+# `bump_versions_not_distinct` is unconditional for this
+# profile and so has nothing to declare here: a revision whose `from_version` equals its
+# `to_version` describes no bump and is refused. That is what stops a standing package
+# being approved before a producer has filled in which bump it is carrying -- the shell is
+# authored with the same placeholder in both, so the interlock is structural rather than a
+# rule somebody has to remember.

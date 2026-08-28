@@ -62,7 +62,7 @@ def _api_returning_intake(intake=None):
     )
 
 
-def test_build_proposal_maps_uuid_and_covers_all_acs():
+def test_build_proposal_maps_uuid_and_covers_all_acs(tmp_path):
     sites = [PinSite("requirements.txt", "requirements.txt", "0.139.0")]
     proposal = decompose.build_proposal(
         _INTAKE,
@@ -76,6 +76,7 @@ def test_build_proposal_maps_uuid_and_covers_all_acs():
         _CONFORMANCE,
         sites,
         "retained: not this run",
+        tmp_path,
     )
     assert proposal["expected_version"] == 0
     assert proposal["ac_mappings"] == [{"ac_id": "uuid-2", "unit_key": "brain-ac002"}]
@@ -85,7 +86,7 @@ def test_build_proposal_maps_uuid_and_covers_all_acs():
     assert "work_unit_id" not in unit["authority"]["constraints"]
 
 
-def test_build_proposal_rationale_applies_to_retained_only():
+def test_build_proposal_rationale_applies_to_retained_only(tmp_path):
     sites = [PinSite("requirements.txt", "requirements.txt", "0.139.0")]
     rationale = "retained: not this run"
     proposal = decompose.build_proposal(
@@ -100,6 +101,7 @@ def test_build_proposal_rationale_applies_to_retained_only():
         _CONFORMANCE,
         sites,
         rationale,
+        tmp_path,
     )
     assert proposal["rationale"] == (
         "Dependency update: fastapi 0.139.0 -> 0.139.2 in AlobarQuest/brain."
@@ -109,7 +111,7 @@ def test_build_proposal_rationale_applies_to_retained_only():
     assert all(r["rationale"] == rationale for r in proposal["retained_acs"])
 
 
-def test_build_proposal_unknown_ac_raises():
+def test_build_proposal_unknown_ac_raises(tmp_path):
     with pytest.raises(decompose.DecomposeError, match="AC-999"):
         decompose.build_proposal(
             _INTAKE,
@@ -123,6 +125,7 @@ def test_build_proposal_unknown_ac_raises():
             _CONFORMANCE,
             [],
             "r",
+            tmp_path,
         )
 
 
@@ -145,7 +148,7 @@ def _git_repo(tmp_path, content="fastapi==0.139.0\n"):
     return repo
 
 
-def _portable_pip_mutation(package, old, new, sites):
+def _portable_pip_mutation(repo, package, old, new, sites):
     # Test-only macOS-portability shim: the pip profile's REAL mutator is GNU
     # `sed -i 's/.../.../'`, which BSD/macOS sed cannot execute (it requires an
     # explicit backup-suffix argument to -i). The production mutator in
@@ -366,3 +369,144 @@ def test_run_fails_closed_on_stale_checkout(tmp_path, capsys, portable_pip):
     err = capsys.readouterr().err
     assert "decompose failed:" in err
     assert "pull --ff-only origin main" in err
+
+
+def test_the_coding_note_reaches_the_units_outcome(tmp_path):
+    """Computing the note is not delivering it, and only the outcome reaches the agent.
+
+    A mutation that computes `coding_note` and returns the outcome without it survived
+    the whole suite on 2026-08-19: the note had no assertion anywhere between the
+    profile and the unit. That is the shape this repository already knows -- a value the
+    service produces and the consumer never sees.
+    """
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"build": "tsc"}, "devDependencies": {"typescript": "5.9.3"}}),
+        encoding="utf-8",
+    )
+    proposal = decompose.build_proposal(
+        _INTAKE,
+        "AC-002",
+        "k",
+        "AlobarQuest/infraops-mcp-server",
+        "npm",
+        "typescript",
+        "5.9.3",
+        "5.9.4",
+        _CONFORMANCE,
+        [PinSite("package.json", "devDependencies", "5.9.3")],
+        "r",
+        tmp_path,
+    )
+    outcome = proposal["proposed_units"][0]["outcome"]
+    assert dep_update.coding_note(tmp_path, "npm") in outcome
+
+
+def test_a_repo_with_no_build_script_gets_a_bare_outcome(tmp_path):
+    """The note is conditional, so its absence must be asserted too."""
+    (tmp_path / "package.json").write_text(
+        json.dumps({"dependencies": {"zod": "3.23.8"}}), encoding="utf-8"
+    )
+    proposal = decompose.build_proposal(
+        _INTAKE,
+        "AC-002",
+        "k",
+        "AlobarQuest/infraops-mcp-server",
+        "npm",
+        "zod",
+        "3.23.8",
+        "4.4.3",
+        _CONFORMANCE,
+        [PinSite("package.json", "dependencies", "3.23.8")],
+        "r",
+        tmp_path,
+    )
+    outcome = proposal["proposed_units"][0]["outcome"]
+    assert outcome.endswith("its named check passes on the PR head.")
+
+
+def _npm_git_repo(tmp_path):
+    """A checkout whose package.json declares a build script, tracking a file:// origin."""
+    origin = tmp_path / "npm-origin"
+    origin.mkdir()
+    (origin / "package.json").write_text(
+        json.dumps({"scripts": {"build": "tsc"}, "dependencies": {"zod": "3.25.76"}}),
+        encoding="utf-8",
+    )
+    for argv in (
+        ["init", "-q", "-b", "main"],
+        ["add", "-A"],
+        ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"],
+    ):
+        subprocess.run(["git", *argv], cwd=origin, check=True)
+    repo = tmp_path / "npm-repo"
+    subprocess.run(
+        ["git", "clone", "--quiet", str(origin), str(repo)], check=True, capture_output=True
+    )
+    return repo
+
+
+def _run_npm_decompose(tmp_path, repo, monkeypatch):
+    """Drive decompose over an npm repo, capturing what authoring actually executes."""
+    seen = {}
+
+    def fake_dry_run(repo_path, commands):
+        seen["commands"] = list(commands)
+        return {"package.json"}
+
+    monkeypatch.setattr(decompose, "dry_run_mutation", fake_dry_run)
+    out_file = tmp_path / "proposal.json"
+    rc = decompose.run(
+        brain_client=_FakeBrain(),
+        revision="rev-1",
+        ac="AC-002",
+        target_repo="AlobarQuest/infraops-mcp-server",
+        repo_path=str(repo),
+        tooling="npm",
+        package="zod",
+        from_version="3.25.76",
+        to_version="4.4.3",
+        unit_key="",
+        rationale="",
+        out=str(out_file),
+        submit=False,
+        client=_conformance_client(),
+        api=_api_returning_intake(),
+    )
+    return rc, seen, json.loads(out_file.read_text()) if out_file.exists() else None
+
+
+def test_authoring_defers_the_build_but_the_envelope_still_grants_it(tmp_path, monkeypatch):
+    """The two halves of the fix, together, because either alone is a defect.
+
+    GRANTED: `allowed_commands` is the agent's entire Bash vocabulary — factory-runner
+    exact-matches against it in a PreToolUse hook — so a build absent from it is a
+    build the agent cannot run, and a migration it cannot perform.
+
+    DEFERRED: `dry_run_mutation` executes against the UNMODIFIED tree, where a build
+    fails precisely when the bump needs the source work this profile exists to
+    dispatch. Running the whole list there refuses that work at authoring time.
+
+    A mutation reverting decompose to `dry_run_mutation(local_repo, allowed)` passed
+    the entire suite on 2026-08-19; nothing asserted the narrowing happened.
+    """
+    repo = _npm_git_repo(tmp_path)
+    rc, seen, body = _run_npm_decompose(tmp_path, repo, monkeypatch)
+
+    assert rc == 0
+    assert body is not None
+    allowed = body["proposed_units"][0]["authority"]["constraints"]["allowed_commands"]
+    assert "npm run build" in allowed, "the agent must be able to run the build"
+    assert "npm run build" not in seen["commands"], "authoring must not run it"
+    assert seen["commands"] == [c for c in allowed if c != "npm run build"]
+
+
+def test_a_deferred_command_outside_the_envelope_is_refused(tmp_path, monkeypatch):
+    """The drift guard. The two lists come from one profile; if they disagree, stop.
+
+    Without it a renamed command would silently drop out of the deferral set and
+    authoring would run the build again — the failure this whole change removes.
+    """
+    repo = _npm_git_repo(tmp_path)
+    monkeypatch.setattr(decompose, "commands_deferred_to_coding", lambda repo, tooling: ("nope",))
+    rc, _seen, _body = _run_npm_decompose(tmp_path, repo, monkeypatch)
+    assert rc == 1

@@ -1,0 +1,208 @@
+schema_version: 1
+package_id: change-manager-resolved-state-display
+title: Render a resolved item as terminal instead of as a dead end
+revision: 1
+status: approved
+created_by: hq
+owner: devon
+created_at: '2026-08-26T12:00:00Z'
+supersedes: null
+reach:
+- source_repository
+- live_estate
+profile: maintenance-remediation
+profile_fields:
+  repo: AlobarQuest/change-manager
+  remediation_source: >-
+    change-manager PROJECT.md backlog, P2, added 2026-08-10: "A 'resolved' item is
+    a GUI dead end: app/templates/_row.html and item_detail.html branch on
+    pending|deferred, blocked, approved-without-executor, and wontfix - nothing
+    matches resolved, so no action is offered and the API is the only route back."
+    Found when an HQ probe resolved item 44 by accident and it could not be
+    restored by clicking. THE ITEM'S OWN SUGGESTED REMEDY IS SUPERSEDED and must
+    not be implemented: it ends "Consider offering Reactivate from resolved, as
+    wontfix already has", and on 2026-08-21 Devon ruled that `resolved` is
+    TERMINAL BY DESIGN - considered and declined - with `reactivate` deliberately
+    guarded to `wontfix` in app/transitions.py because reversing a decline is
+    natural and reversing a thing that happened is not. The backlog item predates
+    that ruling by eleven days. What remains is a DISPLAY defect: the templates
+    offer a resolved item neither an action nor an explanation, so a reader cannot
+    tell a terminal state from an unhandled one.
+  rollback_plan: >-
+    Revert the pull request. The change is confined to two Jinja templates and
+    adds no route, no transition and no database write, so reverting restores the
+    previous rendering exactly. change-manager redeploys from main on merge, so a
+    revert redeploys the previous templates by the same path.
+outcome:
+  what: >-
+    app/templates/_row.html and app/templates/item_detail.html gain a branch that
+    matches `resolved` and renders it as a TERMINAL state - stating that the item
+    is resolved and that no further action is available - in the same visual idiom
+    the templates already use for `wontfix`. No Reactivate control, no other
+    control, and no new route: `resolved` offers nothing to click, and the point of
+    the change is that it says so rather than rendering blank.
+  why: >-
+    Devon's 2026-08-21 ruling made `resolved` terminal by design; the templates
+    were written before it and match no branch for that state, so a resolved item
+    renders as though something is missing. A reader cannot distinguish "this is
+    finished" from "this view is broken", and the estate has already paid once for
+    that confusion when item 44 was resolved by accident and looked recoverable.
+    Making the terminal state legible is the remedy the ruling implies.
+  beneficiary: >-
+    Anyone reading the change-manager GUI, which is the only surface where a
+    resolved record is seen at all.
+  success_signal: >-
+    A pull request against AlobarQuest/change-manager whose diff is confined to
+    those two templates and their tests, on whose head the repository's named
+    check `Lint, type-check, and test` concludes success.
+scope:
+  included:
+  - >-
+    A branch matching `resolved` in app/templates/_row.html and in
+    app/templates/item_detail.html, rendering the state as terminal and saying that
+    no further action is available.
+  - >-
+    A test asserting that a resolved item renders that branch and offers no action
+    control.
+  excluded:
+  - >-
+    Any Reactivate control from `resolved`, and any change to app/transitions.py.
+    Devon ruled on 2026-08-21 that resolved is terminal by design and that
+    reactivate stays guarded to wontfix. Implementing the backlog item's literal
+    suggestion would contradict a decision.
+  - >-
+    Any change to how an item REACHES `resolved`. The lifecycle is not in scope;
+    only how the state is displayed once reached.
+  non_goals:
+  - >-
+    Any behaviour change. No route, no transition, no database write, no API
+    change.
+  assumptions:
+  - >-
+    `wontfix` is rendered by a branch these templates already carry, so there is an
+    in-repo idiom to follow rather than a new pattern to invent. Stated as an
+    assumption because it is read from the backlog item's own description of the
+    templates rather than measured by the author.
+  open_questions: []
+sources:
+- location: >-
+    change-manager PROJECT.md backlog line 33 (added 2026-08-10) for the defect,
+    and Devon's ruling of 2026-08-21 - recorded in orchestrator CLAUDE.md - that
+    `resolved` is terminal by design, which supersedes that item's suggested
+    remedy. The two disagree, and this package follows the later decision.
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: >-
+    Jinja templates only. The repository's named check is `Lint, type-check, and
+    test`; the verifier must run what that check runs.
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: >-
+    AlobarQuest/change-manager REDEPLOYS ON MERGE, so landing this changes a
+    running service. That is why `reach` declares `live_estate`, which carries the
+    02:00-06:00 America/New_York change window.
+  other: []
+
+# ONE acceptance criterion, deliberately, and it is the whole reason this package
+# can be landed by the factory. `verifier_decided_completion`'s fifth disqualifier
+# throws out a unit where a human decided ANYTHING - including a criterion merely
+# RETAINED rather than mapped to the unit - so a second, human_review criterion of
+# the kind `factory create` scaffolds as AC-002 would make this unit permanently
+# unlandable by the machine, and the refusal would not appear until after the
+# write-once envelope and both human approvals were spent. Modelled on
+# intent-packages-packaging-bump, the package behind the estate's first autonomous
+# landing (ADR-0020, merge b3f1522f), which carries exactly one criterion.
+acceptance:
+- id: AC-001
+  condition: >-
+    A pull request against AlobarQuest/change-manager adds a `resolved` branch to
+    app/templates/_row.html and app/templates/item_detail.html that renders the
+    state as terminal and offers no action control, changes no file outside those
+    two templates and their tests, and the repository's named check
+    `Lint, type-check, and test` concludes success on the pull-request head.
+  evidence_type: automated_check
+  evidence: >-
+    ci: the target repository's named check `Lint, type-check, and test` on the
+    pull-request head, observed from GitHub by the orchestrator rather than
+    asserted by the caller.
+  approver: policy
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 120
+deliverables:
+  artifacts:
+  - >-
+    A pull request against AlobarQuest/change-manager adding a resolved branch to
+    two Jinja templates, with a test.
+  destination: AlobarQuest/change-manager
+  recipient: devon
+  definition_of_done: >-
+    The pull request exists, its diff is confined to those two templates and their
+    tests, and the repository's named check is green on its head. Merging is
+    performed by the orchestrator under `pr_merge_admission`, inside the
+    `live_estate` change window, on the authority Devon approves per unit.
+  operator_responsibilities:
+  - A merge into a production system must trace to recorded permission - either express
+    permission given at the time of the merge, or a standing pre-authorization - recorded
+    as evidence bound to this work unit. A merge that cannot be traced to one of those
+    is a defect, whoever performed it. Outside production this constraint does not
+    apply.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    ADR-0025 (a factory record is approved by policy, not by a click) and deploy
+    policy version 4, which admits `change_class: factory-delivery` and is what
+    makes this record approved at proposal. Both landed 2026-08-25; the population
+    was zero until this package.
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes:
+  - >-
+    The coding agent implements the backlog item's literal suggestion and adds a
+    Reactivate control from `resolved`, contradicting Devon's 2026-08-21 ruling.
+    This is the failure this package is written against: the outcome and the
+    excluded scope both name it, and the stop condition below refuses it.
+  - >-
+    The diff reaches beyond the two templates - into app/transitions.py, a route or
+    a model. Visible before any merge, and refused by the stop condition.
+  - >-
+    The named check fails on the pull-request head. Nothing is affected; an
+    unmerged pull request changes nothing in a repository that only deploys from
+    main.
+  max_impact: low
+  stop_conditions:
+  - Any Reactivate control, or any other action control, offered from `resolved`.
+  - Any change to app/transitions.py.
+  - The diff touches any file other than the two named templates and their tests.
+  rollback: >-
+    Revert the pull request, which redeploys the previous templates by the same
+    path that deployed these. Nothing outside the repository changes.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'

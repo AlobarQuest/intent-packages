@@ -1,0 +1,23 @@
+package_id: change-manager-resolved-state-display
+current_state: approved
+revisions:
+- revision: 1
+  hash: 4e3d22c0ec05b43200c577b5b78550892aa7a26e0846d335880e13a9f3752e08
+  created_at: '2026-08-26T12:00:02Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-08-26T12:01:22.555583+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-08-26T12:01:22.555583+00:00'
+  actor: claude-code-interactive
+  event_id: evt-27e3c8f9856b43369c88ec858d70a1cb
+approvals:
+- revision: 1
+  approved_hash: 4e3d22c0ec05b43200c577b5b78550892aa7a26e0846d335880e13a9f3752e08
+  approver: devon
+  approved_at: '2026-08-26T13:29:25.123851+00:00'
+  commit: 8785bf62ca58ffaae5e3a506021b5a5955f4e5dc
+  event_id: evt-7975bdc4547a4bbf92c0b88a3c7bb9a5
+grants: []

@@ -74,7 +74,7 @@ def test_empty_string_field_fails():
     assert "profile_fields.package: must be a non-empty string" in errs
 
 
-def test_envelope_key_set_is_the_pinned_contract():
+def test_envelope_key_set_is_the_pinned_contract(tmp_path):
     envelope = build_envelope(
         "AlobarQuest/x",
         "uv",
@@ -83,6 +83,7 @@ def test_envelope_key_set_is_the_pinned_contract():
         "2.9.1",
         {"scanner": "real"},
         [PinSite("pyproject.toml", "dependency-groups.dev", "2.8.0")],
+        repo=tmp_path,
     )
     assert set(envelope) == {
         "budgets",
