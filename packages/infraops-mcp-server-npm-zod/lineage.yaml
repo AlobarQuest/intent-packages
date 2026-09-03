@@ -21,6 +21,11 @@ revisions:
   created_at: '2026-09-03T17:36:17.599177+00:00'
   author: claude-code-interactive
   snapshotted_at: '2026-09-03T17:36:17.772324+00:00'
+- revision: 5
+  hash: 1cc4eb7644683ccad39ad13f366f0768f031e603faeda7b11429c55742213329
+  created_at: '2026-09-03T19:45:54.859873+00:00'
+  author: claude-code-interactive
+  snapshotted_at: '2026-09-03T19:45:55.036017+00:00'
 transitions:
 - kind: transition
   from: draft
@@ -64,6 +69,18 @@ transitions:
   at: '2026-09-03T17:36:17.772324+00:00'
   actor: claude-code-interactive
   event_id: evt-b160cea9948540f2b232f82fb6e61078
+- kind: revision
+  from: approved
+  to: draft
+  at: '2026-09-03T19:45:54.859873+00:00'
+  actor: claude-code-interactive
+  event_id: evt-d464933cc84e4713a99fb5f59a6b4555
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-09-03T19:45:55.036017+00:00'
+  actor: claude-code-interactive
+  event_id: evt-4600ecfc875c466eb011e33168a19def
 approvals:
 - revision: 1
   approved_hash: c1fb1ef3d2a11fe0611a8c0f268a53671aa0be289ee6bfd6c8145df64c778d2b
@@ -89,4 +106,10 @@ approvals:
   approved_at: '2026-09-03T17:36:17.920659+00:00'
   commit: f2d6fa3557d16ce51de3677f7449c98e9f42faef
   event_id: evt-5c22c32e2ac140b591a99bdd0c0a0bca
+- revision: 5
+  approved_hash: 1cc4eb7644683ccad39ad13f366f0768f031e603faeda7b11429c55742213329
+  approver: policy:dependency-update@v1
+  approved_at: '2026-09-03T19:45:55.203386+00:00'
+  commit: a9992cd911c252a3b09aa3c88a737a7f3dec4348
+  event_id: evt-74c7145b2caf41089e7db4b18568134c
 grants: []
