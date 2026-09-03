@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: infraops-mcp-server-npm-zod
 title: Adopt the proposed npm update of zod in infraops-mcp-server
-revision: 2
+revision: 3
 status: approved
 created_by: factory-create
 owner: devon
