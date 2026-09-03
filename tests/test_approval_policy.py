@@ -161,8 +161,19 @@ def test_a_missing_authority_term_is_refused(policy) -> None:
 
 
 def test_a_budget_above_the_ceiling_is_refused(policy) -> None:
-    """Kills: dropping or loosening the ceiling comparison in `_budget_refusal`."""
-    package = _package(**{"authority.budgets": {"max_attempts": 3, "max_llm_calls": 121}})
+    """Kills: dropping or loosening the ceiling comparison in `_budget_refusal`.
+
+    The over-ceiling value is DERIVED rather than written, because this test's subject is the
+    COMPARISON and not the number. It was the literal 121 until 2026-09-03; raising the ceiling
+    to 240 left it quietly under the bar, so it asserted a refusal that no longer applied and
+    reddened for a reason unrelated to what it guards. The ceiling's VALUE is pinned elsewhere,
+    by `test_the_envelope_budget_the_profile_stamps_equals_the_policy_ceiling` against the
+    profile constant the envelope is actually stamped from.
+    """
+    grant = policy.grants["dependency-update"]
+    assert grant is not None
+    over = grant.max_llm_calls + 1
+    package = _package(**{"authority.budgets": {"max_attempts": 3, "max_llm_calls": over}})
     assert policy.refusals_for(package) == ("budget_above_ceiling",)
 
 

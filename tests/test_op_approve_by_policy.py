@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from intent_packages import lineage as ln
-from intent_packages.approval_policy import ApprovalPolicyError
+from intent_packages.approval_policy import ApprovalPolicyError, load_policy
 from intent_packages.canonical import package_hash
 from intent_packages.loader import load_package
 from intent_packages.operations import (
@@ -153,10 +153,25 @@ def test_an_unfilled_standing_package_cannot_be_approved(standing) -> None:
 
 
 def test_a_non_conformant_revision_cannot_be_approved(standing) -> None:
+    """The over-ceiling value is DERIVED from the policy, and the substitution is ASSERTED.
+
+    It was `replace("max_llm_calls: 120", ...)` until 2026-09-03. Raising the ceiling to 240
+    left that literal matching nothing, so the package stayed conformant and this test asserted
+    a refusal that could not happen. It failed loudly only by luck of direction: a `str.replace`
+    that matches nothing is SILENT, and the same staleness pointing the other way would have
+    made the test pass while exercising nothing.
+    """
     _fill(standing)
-    text = (standing / "package.yaml").read_text()
-    text = text.replace("max_llm_calls: 120", "max_llm_calls: 1200")
-    (standing / "package.yaml").write_text(text)
+    path = standing / "package.yaml"
+    text = path.read_text()
+    grant = load_policy().grants["dependency-update"]
+    assert grant is not None
+    ceiling = grant.max_llm_calls
+    current = re.search(r"max_llm_calls: (\d+)", text)
+    assert current is not None, "the scaffold declares no llm-call budget to raise"
+    replaced = text.replace(current.group(0), f"max_llm_calls: {ceiling + 1}")
+    assert replaced != text, "the budget substitution matched nothing; this test would be vacuous"
+    path.write_text(replaced)
     do_transition(standing, "ready_for_review", emitter=StubEmitter(), now=NOW)
 
     with pytest.raises(OperationError, match="budget_above_ceiling"):
