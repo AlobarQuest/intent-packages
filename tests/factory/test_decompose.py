@@ -12,11 +12,14 @@ from intent_packages.profiles import dependency_update as dep_update
 from intent_packages.profiles.dependency_update import PinSite
 
 _INTAKE = {
+    # The real payload always carries the revision id; the idempotency key is
+    # derived from it, so a fixture without one is not a faithful intake.
+    "id": "9d2f1a04-3c77-4a91-8f2e-6b1c05d7e480",
     "acceptance_criteria": [
         {"id": "uuid-1", "ac_id": "AC-001"},
         {"id": "uuid-2", "ac_id": "AC-002"},
         {"id": "uuid-3", "ac_id": "AC-003"},
-    ]
+    ],
 }
 _CONFORMANCE = {"accepted_standards": [], "standards_touched": ["project"], "status": "green"}
 

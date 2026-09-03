@@ -45,6 +45,33 @@ def _repo_name(target_repo: str) -> str:
     return target_repo.split("/", 1)[-1]
 
 
+def _idempotency_key(intake: dict, package: str, new: str) -> str:
+    """Identify the OPERATION, which is "propose a decomposition for THIS revision".
+
+    The key used to be `factory-decompose-{target_repo}-{package}-{new}`, which names the BUMP
+    and not the revision proposing it. A standing package is revised per bump (ADR-0028), so the
+    second revision of the SAME bump -- which is exactly what a first attempt failing produces --
+    collided with the first and the orchestrator refused it:
+
+        idempotency_conflict: idempotency key belongs to a different operation
+
+    That made a re-proposal structurally impossible for the one case the standing-package model
+    exists to create. Measured 2026-09-03 on infraops-mcp-server-npm-zod revision 3, whose
+    revision 2 had already claimed the key.
+
+    Keyed on the intake's revision id, and REFUSING when it is absent rather than falling back:
+    a fallback to the old shape would restore the collision silently, for a payload whose shape
+    nobody checked.
+    """
+    revision_id = intake.get("id")
+    if not isinstance(revision_id, str) or not revision_id:
+        raise DecomposeError(
+            "the intake carries no revision id, so an idempotency key cannot identify this "
+            "operation; refusing rather than reusing a key that names only the bump"
+        )
+    return f"factory-decompose-{revision_id}-{package}-{new}".replace("/", "-")
+
+
 def build_proposal(
     intake: dict,
     ac: str,
@@ -79,7 +106,7 @@ def build_proposal(
         {"context_enrichment": context_enrichment} if context_enrichment is not None else {}
     )
     return {
-        "idempotency_key": f"factory-decompose-{target_repo}-{package}-{new}".replace("/", "-"),
+        "idempotency_key": _idempotency_key(intake, package, new),
         "expected_version": 0,
         "rationale": f"Dependency update: {package} {old} -> {new} in {target_repo}.",
         "proposed_units": [
