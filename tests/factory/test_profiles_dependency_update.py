@@ -228,9 +228,36 @@ def test_the_build_is_deferred_from_authoring(tmp_path):
     assert dep.commands_deferred_to_coding(tmp_path, "npm") == ("npm run build",)
 
 
-def test_nothing_is_deferred_without_a_build_script(tmp_path):
+def test_a_test_script_is_deferred_even_without_a_build_script(tmp_path):
+    """`npm test` defers on its own merits, not as a rider on the build.
+
+    This asserted `== ()` until 2026-09-03, when `npm test` came off the runner-honesty
+    deny-list: its fixture declares a test script, so the old assertion said "a repository
+    whose gate runs tests defers nothing", which is the state that let unit ac6f1dd6 ship a
+    change that compiled and threw.
+    """
     _write(tmp_path, "package.json", _json.dumps({"scripts": {"test": "vitest run"}}))
+    assert dep.commands_deferred_to_coding(tmp_path, "npm") == ("npm test",)
+
+
+def test_nothing_is_deferred_when_the_repo_declares_no_gate(tmp_path):
+    """The genuine empty case: no build, no test, no eslint config, no prettier config."""
+    _write(tmp_path, "package.json", _json.dumps({"scripts": {"start": "node ."}}))
     assert dep.commands_deferred_to_coding(tmp_path, "npm") == ()
+
+
+def test_the_gate_components_are_each_gated_on_their_own_marker(tmp_path):
+    """A repository without the tool must not be handed a command it cannot run."""
+    _write(tmp_path, "package.json", _json.dumps({"scripts": {"test": "vitest run"}}))
+    _write(tmp_path, "eslint.config.mjs", "export default [];\n")
+
+    deferred = dep.commands_deferred_to_coding(tmp_path, "npm")
+
+    assert "npx eslint ." in deferred
+    assert "npm test" in deferred
+    assert not any("prettier" in command for command in deferred), (
+        "prettier was named without a .prettierrc for it to run against"
+    )
 
 
 def test_nothing_is_deferred_for_other_tooling(tmp_path):
