@@ -27,10 +27,11 @@ class FakeBrainClient:
 
 def _intake() -> dict:
     return {
+        "id": "1b7c8e52-40da-4f63-9a15-2e8c9d3b7f61",
         "acceptance_criteria": [
             {"ac_id": "AC-001", "id": "11111111-1111-1111-1111-111111111111"},
             {"ac_id": "AC-002", "id": "22222222-2222-2222-2222-222222222222"},
-        ]
+        ],
     }
 
 
