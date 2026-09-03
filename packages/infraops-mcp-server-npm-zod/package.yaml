@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: infraops-mcp-server-npm-zod
 title: Adopt the proposed npm update of zod in infraops-mcp-server
-revision: 3
+revision: 4
 status: approved
 created_by: factory-create
 owner: devon
@@ -139,16 +139,18 @@ authority:
   prohibited:
   - secret_write
 
-  # max_llm_calls is max_attempts x factory-runner's own max_turns literal, which
-  # is the only thing that actually bounds a single attempt. It is structural
-  # rather than an estimate on purpose: the recoverable gate (attempts_exhausted,
+  # max_llm_calls is max_attempts x factory-runner's max_turns literal x CALLS
+  # PER TURN. That third factor was missing until 2026-09-03 and revision 3 died
+  # of it: a turn is not an LLM call, 40 turns cost 66 and 65 on two measured
+  # attempts, so 3 x 40 = 120 bought 1.8 attempts and budget_exceeded refused the
+  # third attempt max_attempts had granted. Structural rather than an estimate: the recoverable gate (attempts_exhausted,
   # curable by approve_retry) must bind before the unrecoverable one
   # (budget_exceeded, curable by nothing, because the envelope is write-once and
   # its approval cannot be taken back). Over-provisioning costs nothing, because
   # nothing checks spend mid-run.
   budgets:
     max_attempts: 3
-    max_llm_calls: 120
+    max_llm_calls: 240
 deliverables:
   artifacts:
   - >-

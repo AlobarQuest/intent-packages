@@ -31,15 +31,28 @@ CAPABILITIES: dict[str, str] = {
     "repo.edit": "allowed",
     "repo.read": "allowed",
 }
-BUDGETS: dict[str, int] = {"max_attempts": 3, "max_llm_calls": 120}
+BUDGETS: dict[str, int] = {"max_attempts": 3, "max_llm_calls": 240}
 
-# 120 is structural, not an estimate: `max_attempts` x factory-runner's own
-# `max_turns` literal, which is 40 and is the only thing bounding a single
-# attempt. Setting it there is what makes the RECOVERABLE gate
+# 240 is structural, not an estimate: `max_attempts` x `max_turns` x CALLS PER
+# TURN. The first two are 3 and factory-runner's own 40-literal, the only thing
+# bounding a single attempt. The third was MISSING until 2026-09-03 and is the
+# whole correction: a turn is not an LLM call. Measured on two full-length
+# attempts of the same unit, 40 turns cost 66 and 65 calls -- a ratio of ~1.65 --
+# so the old 120 bought 1.8 attempts while claiming to buy 3. Rounded to 2 rather
+# than 1.65, because the ratio is measured on two runs and the failure it guards
+# is unrecoverable.
+#
+# HOW THE OLD NUMBER FAILED, since it failed exactly as designed not to. Unit
+# b1e02957 (zod 3->4 into infraops-mcp-server) burned 66 calls on attempt 1 and
+# 65 on attempt 2 = 131 of 120. `budget_exceeded` then refused the THIRD attempt
+# `max_attempts` had granted -- the unrecoverable gate binding before the
+# recoverable one, which is the precise inversion this constant exists to
+# prevent. The unit is permanently dead. Setting it there is what makes the RECOVERABLE gate
 # (`attempts_exhausted`, curable by approve_retry) bind before the UNRECOVERABLE
 # one (`budget_exceeded`, curable by nothing, because the envelope is write-once
 # and its approval cannot be taken back). Over-provisioning costs nothing --
-# nothing checks spend mid-run -- and measured burns run 9, 29 and 58 calls.
+# nothing checks spend mid-run -- and measured burns run 9, 29, 58, 65 and 66
+# calls, the last two being full-length attempts rather than small bumps.
 #
 # It was 4 until 2026-08-19, while `approval-policy.toml`'s grant already
 # granted 120 and said so. A package therefore declared 120 and the unit

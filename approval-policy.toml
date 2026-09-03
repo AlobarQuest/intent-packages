@@ -146,14 +146,24 @@ authority_prohibited = ["secret_write"]
 # CEILINGS, so a revision may spend less but never more.
 #
 # `max_llm_calls` is structural rather than an estimate: `max_attempts` x
-# factory-runner's own `max_turns` literal, which is 40 and is the only thing
-# that actually bounds a single attempt. Setting it there is what guarantees the RECOVERABLE gate
-# (`attempts_exhausted`, curable by approve_retry) binds before the
-# UNRECOVERABLE one (`budget_exceeded`, curable by nothing, because the envelope
-# is write-once and its approval cannot be taken back). Over-provisioning costs
-# nothing -- nothing checks spend mid-run -- and the measured burns here run
-# 9, 29 and 58 calls, so an envelope authored against an observed run has twice
-# been within a few calls of killing its unit permanently.
+# factory-runner's own `max_turns` literal (40, the only thing that actually
+# bounds a single attempt) x CALLS PER TURN. Setting it there is what guarantees
+# the RECOVERABLE gate (`attempts_exhausted`, curable by approve_retry) binds
+# before the UNRECOVERABLE one (`budget_exceeded`, curable by nothing, because
+# the envelope is write-once and its approval cannot be taken back).
+#
+# THE THIRD FACTOR WAS MISSING UNTIL 2026-09-03, and its absence broke the
+# guarantee the other two exist to provide. A turn is not an LLM call: measured
+# on two full-length attempts of one unit, 40 turns cost 66 and 65 calls, a ratio
+# of ~1.65. So 3 x 40 = 120 bought 1.8 attempts while reading as three, and unit
+# b1e02957 spent 131 of 120 across two attempts -- `budget_exceeded` then refused
+# the third attempt `max_attempts` had granted, which is exactly the inversion
+# this number exists to prevent. The unit is permanently dead.
+#
+# Rounded to 2 rather than the measured 1.65, because the ratio rests on two runs
+# and the failure it guards is unrecoverable. Over-provisioning costs nothing --
+# nothing checks spend mid-run -- and the measured burns run 9, 29, 58, 65 and 66,
+# the last two being full-length attempts rather than small bumps.
 #
 # This said "120 rather than the profile default of 4" until 2026-08-19, which
 # RECORDED a divergence rather than closing it: the ceiling here bounds what a
@@ -165,7 +175,7 @@ authority_prohibited = ["secret_write"]
 # shortfall on every unit the lane emits:
 #   test_the_envelope_budget_the_profile_stamps_equals_the_policy_ceiling
 max_attempts = 3
-max_llm_calls = 120
+max_llm_calls = 240
 
 # Which criterion shapes may appear. `human_review` is ABSENT deliberately: a
 # human-judgment criterion is a fourth human act after the three ADR-0028 keeps,
