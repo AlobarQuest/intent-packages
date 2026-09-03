@@ -61,15 +61,31 @@ BUDGETS: dict[str, int] = {"max_attempts": 3, "max_llm_calls": 240}
 # the policy is a CEILING, so a lower default here is not a safety margin, it is
 # a way to kill a unit permanently that no later act can undo.
 
-# Runner-honesty deny-list (validation #2): tool-guarded checks the bare hosted
-# runner cannot honestly run (need services / a migrated DB / can exit 0 having
-# verified nothing). uv lock --check and grep are deterministic and allowed.
+# Runner-honesty deny-list (validation #2). These are AGGREGATE or SERVICE-BOUND
+# entry points: a bare hosted runner either cannot run them (they want a database,
+# a migrated schema, or a tool CI installs separately) or they are tool-guarded and
+# can exit 0 having verified nothing. `uv lock --check` and grep are deterministic
+# and allowed.
+#
+# `npm test` / `npm run test` WERE HERE AND WERE MIS-CLASSIFIED, removed 2026-09-03
+# on Devon's ruling that an envelope may name the target repository's own gate when
+# passing that gate IS the acceptance criterion. They belong to neither hazard:
+# after `npm ci` a vitest run needs no service, and it reports a real count rather
+# than skipping. The cost of the mis-classification was measured -- unit ac6f1dd6
+# opened infraops-mcp-server#91 with a change that COMPILED and did not work
+# (`JSON schema must be an object, but got undefined` from the zodToJsonSchema
+# interop) plus a prettier failure, because AC-001 is decided by a named check
+# running exactly the commands the envelope was forbidden to run.
+#
+# What stays denied stays for the FIRST reason, not because it is a gate: name a
+# gate's runnable COMPONENTS rather than its aggregate entry point. `make check` is
+# the clearest case -- in infraops-mcp-server it shells out to shellcheck, which CI
+# installs in its own step and the factory runner does not have, so naming it would
+# fail for a reason unrelated to the change.
 DENIED_VERIFIER_PATTERNS: tuple[str, ...] = (
     r"\bmake\s+check\b",
     r"\bmake\s+test\b",
     r"\bpytest\b",
-    r"\bnpm\s+test\b",
-    r"\bnpm\s+run\s+test\b",
     r"\btox\b",
     r"\bnox\b",
 )
@@ -278,9 +294,17 @@ def commands_deferred_to_coding(repo: Path, tooling: str) -> tuple[str, ...]:
     `allowed_commands` after the coding phase, so the build still has to pass before
     anything is pushed.
     """
-    if tooling != "npm" or not _npm_build_script(repo):
+    if tooling != "npm":
         return ()
-    return ("npm run build",)
+    deferred: list[str] = []
+    if _npm_build_script(repo):
+        deferred.append("npm run build")
+    # The gate's components defer for the SAME reason the build does: each fails against the
+    # unmodified tree whenever the new version needs source changes, which is the case this
+    # profile exists to dispatch. `npm ci` stays undeferred -- its failure means the dependency
+    # graph cannot resolve, which no in-scope source change fixes, so authoring must see it.
+    deferred.extend(_npm_gate_components(repo))
+    return tuple(deferred)
 
 
 def coding_note(repo: Path, tooling: str) -> str | None:
@@ -316,8 +340,46 @@ def _npm_verifier(repo: Path, package: str, old: str, new: str, sites: list[PinS
     # repository that tracks none is verified by the grep alone, as before.
     if (repo / "package-lock.json").is_file():
         commands.append("npm ci")
+    # THE GATE'S RUNNABLE COMPONENTS, after `npm ci` so they see the lockfile-resolved
+    # tree the named check sees. Each is gated on the marker the target repository's own
+    # Makefile gates it on, so a repository without the tool gets no command it cannot
+    # run. Named individually rather than as `make check` because that aggregate also
+    # shells out to shellcheck, which CI installs in its own step and this runner has not.
+    commands.extend(_npm_gate_components(repo))
     commands.append(f'grep -q \'"{package}": "{new}"\' package.json')
     return commands
+
+
+def _npm_gate_components(repo: Path) -> list[str]:
+    """The parts of the target repository's named check a bare runner can honestly run.
+
+    AC-001 for this profile is "the repository's own named check passes on the pull request
+    head". Until 2026-09-03 the envelope could not run any of it: `npm test` was on the
+    runner-honesty deny-list, and eslint and prettier were simply never named. The lane
+    therefore certified whatever compiled -- and infraops-mcp-server#91 is what that produces,
+    a zod 4 migration that builds and throws at runtime.
+    """
+    components: list[str] = []
+    if (repo / "eslint.config.mjs").is_file():
+        components.append("npx eslint .")
+    if (repo / ".prettierrc").is_file():
+        components.append("npx prettier --check .")
+    if "test" in _npm_scripts(repo):
+        components.append("npm test")
+    return components
+
+
+def _npm_scripts(repo: Path) -> dict:
+    """The checkout's npm scripts, or {} -- tolerant, because a malformed manifest is the
+    target repository's problem to report through its own gate, not a reason to refuse here."""
+    manifest = repo / "package.json"
+    if not manifest.is_file():
+        return {}
+    try:
+        scripts = json.loads(manifest.read_text(encoding="utf-8")).get("scripts")
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return scripts if isinstance(scripts, dict) else {}
 
 
 TOOLING_PROFILES: dict[str, ToolingProfile] = {
