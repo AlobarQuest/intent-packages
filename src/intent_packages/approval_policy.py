@@ -361,9 +361,12 @@ def _authority_refusal(package: dict[str, Any], grant: Grant) -> str | None:
 def _budget_refusal(package: dict[str, Any], grant: Grant) -> str | None:
     """A ceiling, so a revision may spend less and never more.
 
-    A null budget is refused rather than read as "the default": the profile default is
-    four LLM calls, which is under a tenth of the smallest burn measured here, and a
-    revision that declares nothing would take it silently.
+    A null budget is refused rather than read as "the default", so that a revision
+    declaring nothing cannot silently acquire whatever the profile constant happens
+    to be. That constant was four LLM calls when this refusal was written -- under a
+    tenth of the smallest burn ever measured here -- and it has since been 120, 240
+    and 360. The number moving is the reason the rule is about DECLARING rather than
+    about any particular default.
     """
     authority = package.get("authority")
     budgets = authority.get("budgets") if isinstance(authority, dict) else None
