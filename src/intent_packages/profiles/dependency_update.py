@@ -31,16 +31,34 @@ CAPABILITIES: dict[str, str] = {
     "repo.edit": "allowed",
     "repo.read": "allowed",
 }
-BUDGETS: dict[str, int] = {"max_attempts": 3, "max_llm_calls": 240}
+# Calls per turn: a turn is not an LLM call, and the ratio between them is the
+# factor `max_llm_calls` was computed without until 2026-09-03. Measured on two
+# full-length attempts of one unit, 40 turns cost 66 and 65 calls -- ~1.65 --
+# and rounded UP to 2, because the ratio rests on two runs and the failure it
+# guards is unrecoverable. Named rather than left in prose so
+# `scripts/check_routing_policy_compatibility.py` can compute the same floor the
+# comment below claims, against the runner literal that actually bounds a run.
+CALLS_PER_TURN = 2
 
-# 240 is structural, not an estimate: `max_attempts` x `max_turns` x CALLS PER
-# TURN. The first two are 3 and factory-runner's own 40-literal, the only thing
-# bounding a single attempt. The third was MISSING until 2026-09-03 and is the
-# whole correction: a turn is not an LLM call. Measured on two full-length
-# attempts of the same unit, 40 turns cost 66 and 65 calls -- a ratio of ~1.65 --
-# so the old 120 bought 1.8 attempts while claiming to buy 3. Rounded to 2 rather
-# than 1.65, because the ratio is measured on two runs and the failure it guards
-# is unrecoverable.
+BUDGETS: dict[str, int] = {"max_attempts": 3, "max_llm_calls": 360}
+
+# 360 is structural, not an estimate: `max_attempts` x factory-runner's own
+# `max_turns` literal x CALLS_PER_TURN, which at 3 x 60 x 2 is 360. It is a
+# FLOOR -- over-provisioning costs nothing, because nothing checks spend
+# mid-run, while under-provisioning kills a unit in a way no later act can undo.
+#
+# IT WAS 240 FOR THREE DAYS AND THE 240 WAS RIGHT WHEN WRITTEN, which is the
+# part worth carrying. 240 is 3 x 40 x 2, and 40 was factory-runner's literal
+# until `abd72db` raised it to 60 and `#73` advanced RECOMMENDED_CALLER_PIN onto
+# that revision. The runner's own comment beside the new literal says outright:
+# "RAISING THIS IS COUPLED TO budgets.max_llm_calls ... At 60 that is
+# 3 x 60 x 2 = 360, and intent-packages moves with it. Raising one alone
+# reproduces the failure that killed a unit permanently." intent-packages did
+# not move with it. Nothing compared the two, so nothing said so -- **a comment
+# that names a coupling is not a check**, which is the same defect this
+# constant's own history already records one paragraph down, and the reason
+# `check_routing_policy_compatibility.py` now vets this floor rather than only
+# the model literal.
 #
 # HOW THE OLD NUMBER FAILED, since it failed exactly as designed not to. Unit
 # b1e02957 (zod 3->4 into infraops-mcp-server) burned 66 calls on attempt 1 and
