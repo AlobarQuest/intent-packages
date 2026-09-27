@@ -30,7 +30,7 @@ from typing import Any, Protocol
 
 import httpx
 
-from intent_packages.factory.credentials import CredentialError, Runner, _default_runner
+from intent_packages.factory.credentials import CredentialError, Runner, fetch_bws_secret
 from intent_packages.profiles import EnrichmentSpec
 
 MANIFEST = Path(__file__).resolve().parents[3] / ".bws-secrets.toml"
@@ -108,41 +108,16 @@ def resolve_brain_key(brain: BrainKey, *, runner: Runner | None = None) -> str:
     """Return `brain`'s access key, from the environment or BWS. Never logged.
 
     Env first so CI and tests never touch BWS, exactly as `credentials.resolve_token`
-    does for the orchestrator bearers.
+    does for the orchestrator bearers, and through the same BWS fetch.
     """
     from_env = os.environ.get(brain.env_var, "")
     if from_env:
         return from_env
-    uuid = brain_secret_uuid(brain)
-    if not os.environ.get("BWS_ACCESS_TOKEN"):
-        raise CredentialError(
-            f"no credential for the {brain.value} brain: set {brain.env_var}, or set "
-            f"BWS_ACCESS_TOKEN so it can be fetched from BWS secret {uuid}"
-        )
-    result = (runner or _default_runner)(["bws", "secret", "get", uuid, "--output", "env"])
-    if result.returncode != 0:
-        raise CredentialError(
-            f"bws secret get failed for the {brain.value} brain (secret {uuid}), "
-            f"exit {result.returncode}"
-        )
-    return _parse_key(result.stdout, brain, uuid)
-
-
-def _parse_key(stdout: str, brain: BrainKey, uuid: str) -> str:
-    """Extract the value from `bws secret get --output env`. Never echoes stdout."""
-    saw_separator = False
-    for line in stdout.splitlines():
-        _, separator, value = line.partition("=")
-        if not separator:
-            continue
-        saw_separator = True
-        value = value.strip().strip('"')
-        if value:
-            return value
-    if not saw_separator and (bare := stdout.strip()):
-        return bare
-    raise CredentialError(
-        f"bws secret get returned no value for the {brain.value} brain (secret {uuid})"
+    return fetch_bws_secret(
+        brain_secret_uuid(brain),
+        subject=f"the {brain.value} brain",
+        env_var=brain.env_var,
+        runner=runner,
     )
 
 

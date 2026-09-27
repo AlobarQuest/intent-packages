@@ -66,32 +66,72 @@ def resolve_token(role: Role, *, runner: Runner | None = None) -> str:
     from_env = os.environ.get(role.env_var, "")
     if from_env:
         return from_env
-    uuid = secret_uuid(role)
+    return fetch_bws_secret(
+        secret_uuid(role), subject=role.value, env_var=role.env_var, runner=runner
+    )
+
+
+def bws_get_argv(uuid: str) -> list[str]:
+    """The one `bws secret get` invocation every resolver in this package uses.
+
+    `FORCE_COLOR` / `CLICOLOR_FORCE` make bws wrap its output in ANSI escapes
+    even when stdout is a pipe, and Node toolchains set them routinely; the
+    token then arrives wrapped in control bytes and every API call dies as a
+    bare HTTP 400 naming nothing. Unsetting both and passing `--color no` does
+    not depend on the flag winning against a forcing variable.
+    """
+    return [
+        "env",
+        "-u",
+        "FORCE_COLOR",
+        "-u",
+        "CLICOLOR_FORCE",
+        "bws",
+        "secret",
+        "get",
+        uuid,
+        "--output",
+        "env",
+        "--color",
+        "no",
+    ]
+
+
+def fetch_bws_secret(uuid: str, *, subject: str, env_var: str, runner: Runner | None = None) -> str:
+    """Fetch and parse one BWS secret's value. Never logged, never echoed on failure.
+
+    `subject` names what the value is for and `env_var` names the environment
+    override, so every failure tells the operator both routes.
+    """
     if not os.environ.get("BWS_ACCESS_TOKEN"):
         raise CredentialError(
-            f"no credential for {role.value}: set {role.env_var}, or set BWS_ACCESS_TOKEN "
+            f"no credential for {subject}: set {env_var}, or set BWS_ACCESS_TOKEN "
             f"so it can be fetched from BWS secret {uuid}"
         )
+    not_found = CredentialError(
+        f"bws CLI not found while resolving {subject}: install and authenticate bws, "
+        f"or set {env_var} instead"
+    )
     try:
-        result = (runner or _default_runner)(["bws", "secret", "get", uuid, "--output", "env"])
+        result = (runner or _default_runner)(bws_get_argv(uuid))
     except FileNotFoundError as error:
-        raise CredentialError(
-            f"bws CLI not found while resolving {role.value}: install and authenticate bws, "
-            f"or set {role.env_var} instead"
-        ) from error
+        raise not_found from error
     except subprocess.TimeoutExpired as error:
         raise CredentialError(
             f"bws secret get timed out after {BWS_TIMEOUT_SECONDS}s while resolving "
-            f"{role.value}: authenticate bws, or set {role.env_var} instead"
+            f"{subject}: authenticate bws, or set {env_var} instead"
         ) from error
+    # `env` reports a missing program as exit 127 rather than raising.
+    if result.returncode == 127:
+        raise not_found
     if result.returncode != 0:
         raise CredentialError(
-            f"bws secret get failed for {role.value} (secret {uuid}), exit {result.returncode}"
+            f"bws secret get failed for {subject} (secret {uuid}), exit {result.returncode}"
         )
-    return _parse_bws_env_output(result.stdout, role, uuid)
+    return _parse_bws_env_output(result.stdout, subject, uuid)
 
 
-def _parse_bws_env_output(stdout: str, role: Role, uuid: str) -> str:
+def _parse_bws_env_output(stdout: str, subject: str, uuid: str) -> str:
     """Extract the value from `bws secret get --output env` (KEY="value" lines).
 
     Falls back to the whole trimmed stdout only when no line looked like
@@ -114,4 +154,4 @@ def _parse_bws_env_output(stdout: str, role: Role, uuid: str) -> str:
         bare = stdout.strip()
         if bare:
             return bare
-    raise CredentialError(f"bws secret get returned no value for {role.value} (secret {uuid})")
+    raise CredentialError(f"bws secret get returned no value for {subject} (secret {uuid})")
