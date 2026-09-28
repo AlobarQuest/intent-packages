@@ -38,10 +38,12 @@ def test_a_package_id_lives_in_one_place():
 
 
 def test_all_package_dirs_is_both_directories(tmp_path):
-    for base, name in (("packages", "live"), ("archive", "settled"), ("archive", "stray")):
+    for base, name in (("packages", "live"), ("archive", "settled"), ("packages", ".hidden")):
         (tmp_path / base / name).mkdir(parents=True)
-    for base, name in (("packages", "live"), ("archive", "settled")):
-        (tmp_path / base / name / "package.yaml").write_text("{}\n")
+    (tmp_path / "packages" / "live" / "package.yaml").write_text("{}\n")
+    (tmp_path / "packages" / "a-file").write_text("not a package\n")
 
+    # `settled` has no package.yaml and is still listed: a broken package must reach
+    # validation and fail there, not drop out of every check.
     assert [p.name for p in layout.all_package_dirs(tmp_path)] == ["live", "settled"]
     assert layout.all_package_dirs(tmp_path / "missing") == []

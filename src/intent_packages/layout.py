@@ -23,9 +23,15 @@ ARCHIVE_DIRNAME: Final = "archive"
 
 
 def _dirs(base: Path) -> list[Path]:
+    """Every subdirectory, whether or not it holds a package.yaml.
+
+    Not filtered on the file being present: a directory whose package.yaml is missing is a
+    broken package, and it must reach `validate_package` and fail there rather than drop out
+    of every check unseen.
+    """
     if not base.is_dir():
         return []
-    return sorted(p for p in base.iterdir() if (p / "package.yaml").is_file())
+    return sorted(p for p in base.iterdir() if p.is_dir() and not p.name.startswith("."))
 
 
 def active_package_dirs(root: Path = REPO_ROOT) -> list[Path]:
