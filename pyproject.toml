@@ -1,7 +1,7 @@
 [project]
 name = "intent-packages"
 version = "0.1.0"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = ["httpx>=0.28.1", "pyyaml>=6.0.3"]
 
 [project.optional-dependencies]
@@ -56,6 +56,6 @@ max-complexity = 10
 [tool.pyright]
 extraPaths = ["src"]
 typeCheckingMode = "basic"
-pythonVersion = "3.12"
+pythonVersion = "3.14"
 reportMissingModuleSource = "none"
 exclude = ["**/node_modules", "**/__pycache__", "**/.*", "**/alembic", "**/migrations"]
