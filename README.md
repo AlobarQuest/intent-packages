@@ -47,6 +47,14 @@ archived package keeps its hash, lineage and approval, and `verify-approval` sti
 `validate --all` and the hash regression cover both directories. `tests/test_layout.py` fails
 if a terminal package is left in `packages/`, or if the archive holds one that is not terminal.
 
+## Audit trail
+
+An approval is proven by the ledger entry in `lineage.yaml` together with the matching
+`package.approved` event in the tamper-evident factory-events chain. `verify-approval` checks
+both. It does not use git history. The approval's recorded `commit` is provenance only, and
+is often not an ancestor of `main` because pull requests here are squash-merged. See
+[ADR-0001](docs/decisions/0001-approval-chain-is-the-audit-trail.md).
+
 ## Design
 
 See `docs/superpowers/specs/2026-07-03-ws21-intent-package-schema.md`.
