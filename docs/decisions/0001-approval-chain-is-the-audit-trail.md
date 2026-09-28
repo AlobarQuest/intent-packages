@@ -6,7 +6,7 @@
 
 ## Context
 
-`do_approve` records the commit that was `HEAD` when a revision was approved. It writes that
+When a revision is approved, the CLI reads the commit at `HEAD` and `do_approve` records it. It writes that
 sha into the package's `lineage.yaml` approval entry and into the `package.approved` event's
 payload. Pull requests into this repository are squash-merged. Squashing rewrites a branch
 into one new commit on `main`, so a commit that was `HEAD` on the branch never becomes an
