@@ -395,7 +395,7 @@ def _npm_scripts(repo: Path) -> dict:
         return {}
     try:
         scripts = json.loads(manifest.read_text(encoding="utf-8")).get("scripts")
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {}
     return scripts if isinstance(scripts, dict) else {}
 
