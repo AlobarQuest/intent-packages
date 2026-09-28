@@ -120,7 +120,7 @@ def test_a_scaffolded_landing_package_has_no_human_judgment_criterion(profile_na
     acceptance = document["acceptance"]
 
     assert [item["id"] for item in acceptance] == ["AC-001"]
-    assert all(item["evidence_type"] != "human_review" for item in acceptance)
+    assert acceptance[0]["evidence_type"] == "automated_check"
     assert all(item["approver"] == "policy" for item in acceptance)
 
 
