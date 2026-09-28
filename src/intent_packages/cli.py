@@ -4,7 +4,6 @@ import argparse
 import subprocess
 import sys
 from datetime import UTC, datetime
-from pathlib import Path
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -12,10 +11,12 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     p_hash = sub.add_parser("hash", help="print sha256(JCS(intent_core)) of a package")
     p_hash.add_argument("path")
-    p_validate = sub.add_parser("validate", help="validate a package (or every packages/*/)")
+    p_validate = sub.add_parser(
+        "validate", help="validate a package (or every packages/*/ and archive/*/)"
+    )
     p_validate.add_argument("path", nargs="?", help="path to a package directory")
     p_validate.add_argument(
-        "--all", action="store_true", help="validate every packages/*/ directory"
+        "--all", action="store_true", help="validate every packages/*/ and archive/*/ directory"
     )
     p_transition = sub.add_parser("transition", help="transition a package to a new state")
     p_transition.add_argument("path")
@@ -177,13 +178,13 @@ def _run_verify_approval(args) -> int:
 
 
 def _run_validate(parser: argparse.ArgumentParser, args) -> int:
+    from intent_packages.layout import all_package_dirs
     from intent_packages.validate import validate_package, validate_warnings
 
     if args.all:
-        base = Path(__file__).resolve().parents[2] / "packages"
-        pkg_dirs = sorted(p for p in base.glob("*") if p.is_dir()) if base.is_dir() else []
+        pkg_dirs = all_package_dirs()
         if not pkg_dirs:
-            print("no packages found under packages/")
+            print("no packages found under packages/ or archive/")
             return 0
         any_errors = False
         for pkg_dir in pkg_dirs:

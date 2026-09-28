@@ -1,6 +1,6 @@
 """Non-software-operational delivery profile (WS-P2.10): work with no repo,
 no CI, and no authority envelope — listing launches and similar operational
-workflows. Shaped from packages/ws-2.4-historical-listing-launch (the
+workflows. Shaped from archive/ws-2.4-historical-listing-launch (the
 reference exemplar); WS-P2.13's native run authors the first package that
 declares it. Evidence comes from humans, external systems, and observations
 only — the tag map has no ci:/gate: entries, so automated_test is
