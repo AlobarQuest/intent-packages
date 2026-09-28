@@ -1,4 +1,4 @@
-"""WS-P2.10 regression harness: every real package in packages/ must validate
+"""WS-P2.10 regression harness: every real package, in packages/ and archive/, must validate
 with zero errors, and its package_hash must match the committed snapshot.
 
 Written BEFORE any WS-P2.10 change lands, so drift introduced by the registry
@@ -14,15 +14,15 @@ import pytest
 import yaml
 
 from intent_packages.canonical import package_hash
+from intent_packages.layout import all_package_dirs
 from intent_packages.validate import validate_package
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PACKAGES_DIR = REPO_ROOT / "packages"
 SNAPSHOT_PATH = REPO_ROOT / "tests" / "fixtures" / "package_hashes.json"
 
 
 def _package_dirs() -> list[Path]:
-    return sorted(p for p in PACKAGES_DIR.iterdir() if (p / "package.yaml").is_file())
+    return all_package_dirs()
 
 
 def _snapshot() -> dict[str, str]:

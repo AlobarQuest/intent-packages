@@ -6,15 +6,14 @@ from pathlib import Path
 import pytest
 import yaml
 
+from intent_packages.layout import all_package_dirs
 from intent_packages.profiles import software_delivery
 from intent_packages.profiles._evidence_tags import check_evidence_tags
 from intent_packages.validate import validate_package
 
-PACKAGES_DIR = Path(__file__).resolve().parents[1] / "packages"
-
 
 def _package_dirs() -> list[Path]:
-    return sorted(p for p in PACKAGES_DIR.iterdir() if (p / "package.yaml").is_file())
+    return all_package_dirs()
 
 
 def _load(pkg_dir: Path) -> dict:

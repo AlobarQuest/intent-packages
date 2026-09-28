@@ -34,7 +34,18 @@ PYTHONPATH=src python3 -m intent_packages <command>
 packages/<package_id>/
   package.yaml    # the intent (status field is excluded from the hash)
   lineage.yaml    # append-only revisions + transitions + approvals
+archive/<package_id>/
+  ...             # settled packages: the same two files, in a terminal state
 ```
+
+A package is **settled** once its state is terminal (`closed`, `cancelled`, `failed` or
+`superseded`). Settled packages live under `archive/`, so `packages/` holds only work that
+something may still act on. The orchestrator's bump proposer and work carrier read
+`packages/` alone. To archive a package, take it to a terminal state with the lifecycle CLI,
+then `git mv packages/<id> archive/<id>`. The hash covers the YAML and not the path, so an
+archived package keeps its hash, lineage and approval, and `verify-approval` still passes.
+`validate --all` and the hash regression cover both directories. `tests/test_layout.py` fails
+if a terminal package is left in `packages/`, or if the archive holds one that is not terminal.
 
 ## Design
 
