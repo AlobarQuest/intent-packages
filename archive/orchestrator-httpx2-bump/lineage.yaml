@@ -1,5 +1,5 @@
 package_id: orchestrator-httpx2-bump
-current_state: approved
+current_state: cancelled
 revisions:
 - revision: 1
   hash: 7404f9710d07f9a70fd060de1b3d716a4a2d78c99a96f6e9dde0e6429b9bd5d1
@@ -13,6 +13,12 @@ transitions:
   at: '2026-08-02T23:28:07.791492+00:00'
   actor: claude-code-interactive
   event_id: evt-9e5cbe40a7c54574aa223bd26880bf08
+- kind: transition
+  from: approved
+  to: cancelled
+  at: '2026-09-28T16:17:31.047702+00:00'
+  actor: claude-code-interactive
+  event_id: evt-e4142271f0c24820ac547f695f18d728
 approvals:
 - revision: 1
   approved_hash: 7404f9710d07f9a70fd060de1b3d716a4a2d78c99a96f6e9dde0e6429b9bd5d1
