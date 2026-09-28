@@ -80,41 +80,52 @@ def _tag_for_evidence_type(profile: DeliveryProfile, evidence_type: str) -> str:
 
 
 def _acceptance_items(profile: DeliveryProfile) -> list[dict]:
-    """Exactly two acceptance items.
+    """The scaffold's acceptance items: AC-001 always, AC-002 only where a person decides.
 
-    AC-001's evidence type is drawn from the profile (`_evidence_type`) —
-    whichever automated producer this profile's tag map permits. AC-002 is
-    always `human_review`, hardcoded rather than derived the same way: for
-    infrastructure-change, `_evidence_type` itself already resolves to
-    `human_review` (its tag map permits nothing else once `automated_test` is
-    excluded — software-delivery did too until WS-P2.36 moved its `ci:`/`gate:`
-    tags to `automated_check`), but for the other three profiles
-    deriving AC-002 the same way as AC-001 would type a
-    "a reviewer confirms..." condition as a machine check
-    (`automated_check`/`external_attestation`) — a scaffold that contradicts
-    what its own condition text asserts. `human_review` is legal for every
-    registered profile (each declares a `"human:"` tag mapping to it), so one
-    hardcoded value covers all five with no per-profile branching.
+    AC-001's evidence type is drawn from the profile (`_evidence_type`) --
+    whichever automated producer this profile's tag map permits -- and is
+    decided by `approver: policy`.
+
+    **A PROFILE THE FACTORY LANDS GETS AC-001 ALONE.** A profile with a
+    `change_class` is factory-executable, and the orchestrator refuses to merge a
+    unit when a person decided ANY criterion on its package -- including one merely
+    retained rather than mapped to the unit (`verifier_decided_completion`,
+    ADR-0020). That refusal surfaces only after the unit has completed, when its
+    write-once envelope and both human approvals are spent, so a scaffolded
+    `human_review` AC-002 made every such package unlandable from birth. The shape
+    that lands is the one `intent-packages-packaging-bump` and
+    `change-manager-resolved-state-display` carry: one `automated_check`
+    criterion, `approver: policy`. An author who wants a person's judgment on a
+    landing package adds that criterion deliberately and accepts the cost.
+
+    Every other profile keeps AC-002 as `human_review`, hardcoded rather than
+    derived like AC-001: its condition ("a reviewer confirms...") describes human
+    judgment, and deriving it would type that as a machine check. `human_review`
+    is legal for every registered profile (each declares a `"human:"` tag).
     """
     ac1_type = _evidence_type(profile)
     ac1_tag = _tag_for_evidence_type(profile, ac1_type)
-    ac2_tag = _tag_for_evidence_type(profile, "human_review")
-    return [
+    items = [
         {
             "id": "AC-001",
             "condition": f"this {profile.name} package's primary outcome is achieved",
             "evidence_type": ac1_type,
             "evidence": f"{ac1_tag} describe the {ac1_type} evidence produced for AC-001",
             "approver": "policy",
-        },
-        {
-            "id": "AC-002",
-            "condition": "a reviewer confirms this package was ready before execution began",
-            "evidence_type": "human_review",
-            "evidence": f"{ac2_tag} describe the human judgment recorded for AC-002",
-            "approver": "devon",
-        },
+        }
     ]
+    if profile.change_class is None:
+        ac2_tag = _tag_for_evidence_type(profile, "human_review")
+        items.append(
+            {
+                "id": "AC-002",
+                "condition": "a reviewer confirms this package was ready before execution began",
+                "evidence_type": "human_review",
+                "evidence": f"{ac2_tag} describe the human judgment recorded for AC-002",
+                "approver": "devon",
+            }
+        )
+    return items
 
 
 def _stub_for(field: ScalarSpec | ListSpec | MapSpec | OpenMapSpec | OptionalKey) -> object:
@@ -340,7 +351,7 @@ def _splice_comments(yaml_text: str, profile: DeliveryProfile) -> str:
     and the key never appears in this file at all, so it belongs where the
     package's own `authority` section begins, not immediately above acceptance
     criteria it has no topical link to. The two blocks are therefore never
-    adjacent: the two acceptance items sit between them.
+    adjacent: the acceptance items sit between them.
     """
     lines = yaml_text.splitlines(keepends=True)
     lines = _insert_before(lines, "acceptance:\n", _AC_ID_COMMENT)

@@ -98,21 +98,56 @@ def test_ac_id_semantics_are_documented_in_the_output(tmp_path):
     assert "database UUID" in text and "AC-001" in text
 
 
-@pytest.mark.parametrize("profile_name", sorted(PROFILES))
-def test_ac001_is_profile_derived_ac002_is_always_human_review(profile_name, tmp_path):
-    """AC-002's condition ("a reviewer confirms...") describes human judgment,
-    so its evidence_type must be human_review regardless of what AC-001's
-    profile-derived evidence type happens to be (fix round 1)."""
+LANDING_PROFILES = sorted(name for name, prof in PROFILES.items() if prof.change_class)
+NON_LANDING_PROFILES = sorted(name for name, prof in PROFILES.items() if not prof.change_class)
+
+
+def test_the_landing_profiles_are_the_three_the_factory_executes():
+    """Pinned to literals: the split below is derived from `change_class`, so a profile
+    gaining or losing one would silently move between the two tests without this."""
+    assert LANDING_PROFILES == ["dependency-update", "maintenance-remediation", "software-delivery"]
+    assert NON_LANDING_PROFILES == ["infrastructure-change", "non-software-operational"]
+
+
+@pytest.mark.parametrize("profile_name", LANDING_PROFILES)
+def test_a_scaffolded_landing_package_has_no_human_judgment_criterion(profile_name, tmp_path):
+    """The AC-002 trap. The orchestrator refuses to merge a unit when a person decided any
+    criterion on its package, retained ones included, and says so only after the unit has
+    completed. A landing scaffold therefore carries one policy-decided automated criterion,
+    the shape of `intent-packages-packaging-bump`."""
+    scaffolds.create(profile_name, "scaffold-probe", str(tmp_path), reach=REACH)
+    document = yaml.safe_load((tmp_path / "scaffold-probe" / "package.yaml").read_text())
+    acceptance = document["acceptance"]
+
+    assert [item["id"] for item in acceptance] == ["AC-001"]
+    assert acceptance[0]["evidence_type"] == "automated_check"
+    assert all(item["approver"] == "policy" for item in acceptance)
+
+
+@pytest.mark.parametrize("profile_name", NON_LANDING_PROFILES)
+def test_a_non_landing_scaffold_keeps_its_human_review_ac002(profile_name, tmp_path):
+    """AC-002's condition ("a reviewer confirms...") describes human judgment, so where a
+    person decides it its evidence_type is human_review whatever AC-001's is."""
     scaffolds.create(profile_name, "scaffold-probe", str(tmp_path), reach=REACH)
     document = yaml.safe_load((tmp_path / "scaffold-probe" / "package.yaml").read_text())
     ac1, ac2 = document["acceptance"]
 
     assert ac1["id"] == "AC-001"
-    assert ac1["evidence_type"] == scaffolds._evidence_type(PROFILES[profile_name])
-    assert ac1["evidence_type"] != "automated_test"
-
     assert ac2["id"] == "AC-002"
     assert ac2["evidence_type"] == "human_review"
+    assert ac2["approver"] == "devon"
+
+
+@pytest.mark.parametrize("profile_name", sorted(PROFILES))
+def test_ac001_is_profile_derived_and_policy_decided(profile_name, tmp_path):
+    scaffolds.create(profile_name, "scaffold-probe", str(tmp_path), reach=REACH)
+    document = yaml.safe_load((tmp_path / "scaffold-probe" / "package.yaml").read_text())
+    ac1 = document["acceptance"][0]
+
+    assert ac1["id"] == "AC-001"
+    assert ac1["evidence_type"] == scaffolds._evidence_type(PROFILES[profile_name])
+    assert ac1["evidence_type"] != "automated_test"
+    assert ac1["approver"] == "policy"
 
 
 # Pinned to literals, not to `_evidence_type`. The assertion above compares the scaffold against
@@ -153,7 +188,6 @@ def test_dependency_update_envelope_comment_precedes_authority_not_acceptance(tm
 
     assert ac_id_index < acceptance_index < envelope_index < authority_index
 
-    # Not adjacent: both acceptance items sit between the two comment blocks.
+    # Not adjacent: the acceptance items sit between the two comment blocks.
     between = text[acceptance_index:envelope_index]
     assert "id: AC-001" in between
-    assert "id: AC-002" in between
