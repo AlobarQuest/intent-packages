@@ -719,3 +719,14 @@ def test_status_reports_a_missing_authority_approval_as_missing(capsys):
     out = capsys.readouterr().out
     assert "no authority approval recorded" in out
     assert "authority approved by" not in out
+
+
+def test_a_unit_key_resolves_to_the_live_unit_not_a_cancelled_one():
+    """A re-approval after a supersession reuses cancelled units' keys (orchestrator ADR-0052)."""
+    units = [
+        {"id": "old", "unit_key": "caller-pin", "state": "cancelled"},
+        {"id": "new", "unit_key": "caller-pin", "state": "ready"},
+    ]
+
+    assert reads._unit_id_for_key(units, "caller-pin") == "new"
+    assert reads._unit_id_for_key(units[:1], "caller-pin") is None

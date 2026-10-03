@@ -129,8 +129,14 @@ def units_for(api: RevisionApi, revision_id: str) -> list[dict]:
 
 
 def _unit_id_for_key(units: list[dict], unit_key: str) -> str | None:
+    """The live unit holding `unit_key`.
+
+    A superseded decomposition leaves cancelled units behind, and the orchestrator lets a
+    re-approval reuse their keys (orchestrator ADR-0052), so a key can name a cancelled unit and a
+    live one. The live one is the unit the operator means.
+    """
     for unit in units:
-        if unit["unit_key"] == unit_key:
+        if unit["unit_key"] == unit_key and unit["state"] != "cancelled":
             return unit["id"]
     return None
 
