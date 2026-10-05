@@ -88,9 +88,9 @@ def ready(
 ) -> int:
     """SYSTEM: move a unit DRAFT -> READY.
 
-    Authority approval alone never does this (it only sets
-    `authority_approval_id`); `ready` is the separate SYSTEM `(DRAFT, READY)`
-    edge. The unit's current version is unknown up front (DRAFT units carry
+    The orchestrator takes this edge itself once readiness is satisfied (SDS 1.1
+    item 2d-1), so an already-READY unit is reported as success. `ready` remains
+    the catch-up for a unit readiness reached without an event (a policy change). The unit's current version is unknown up front (DRAFT units carry
     no `version` on any read surface), so this resolves it via
     `api.resolve_version`'s documented probe before posting the real command.
     """
@@ -106,6 +106,14 @@ def ready(
         unit_id = reads.resolve_unit_id(api, revision_id, unit_key, verb="ready")
         if unit_id is None:
             return 1
+        # The orchestrator readies a unit itself once its readiness is satisfied (SDS 1.1 item
+        # 2d-1), so the unit is usually READY already. A READY unit is in flight; a DRAFT one never
+        # is, so this tells the two apart without probing.
+        snapshot = reads.in_flight_snapshot(api, unit_id)
+        if snapshot is not None and snapshot.get("state") == "ready":
+            print(f"unit {unit_id} is already ready (version {snapshot.get('version')})")
+            print(f"next: factory dispatch --revision {revision_id} --unit-key {unit_key}")
+            return 0
         version = api.resolve_version(
             unit_id, probe={"idempotency_key": idempotency_key}, command="ready"
         )

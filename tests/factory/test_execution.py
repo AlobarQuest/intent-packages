@@ -666,3 +666,27 @@ def test_ready_requires_a_revision_when_none_given(monkeypatch, capsys):
 def test_ready_falls_back_to_the_env_revision(monkeypatch):
     monkeypatch.setenv("FACTORY_REVISION", "r-env")
     assert execution.ready("", "bump-fastapi", api=_fake_api()) == 0
+
+
+def test_ready_reports_an_already_ready_unit_as_success(capsys):
+    """The orchestrator readies a unit itself once readiness is satisfied (SDS 1.1 item 2d-1)."""
+    commands = []
+
+    def in_flight_units():
+        return {
+            "units": [
+                {"work_unit_id": "u1", "unit_key": "bump-fastapi", "state": "ready", "version": 1}
+            ],
+            "release_bindings": [],
+        }
+
+    def command(unit_id, name, payload):
+        commands.append(name)
+        return {}
+
+    api = _fake_api(in_flight_units=in_flight_units, command=command)
+    rc = execution.ready("r1", "bump-fastapi", api=api)
+
+    assert rc == 0
+    assert commands == []
+    assert "already ready" in capsys.readouterr().out
