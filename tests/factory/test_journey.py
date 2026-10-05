@@ -389,12 +389,12 @@ def test_units_for_derives_flat_unit_dicts_with_pr_when_present():
                         "authority_approved_by": "devon",
                         "authority_decision": "approved",
                     },
-                    # The REAL `TraceabilityPrHop`: `{pr_number, head_sha}` and
-                    # nothing else. This fixture used to say
+                    # The REAL `TraceabilityPrHop`: `{pr_number, head_sha,
+                    # source}`. This fixture used to say
                     # `{"number": 7, "state": "open"}` -- a shape production
                     # never sends, in the same repo where three defects had
                     # already come from fixtures calibrated to invented shapes.
-                    "pr": {"pr_number": 7, "head_sha": "abc1234def"},
+                    "pr": {"pr_number": 7, "head_sha": "abc1234def", "source": "unit_pr_binding"},
                 },
             ],
         }
@@ -402,7 +402,11 @@ def test_units_for_derives_flat_unit_dicts_with_pr_when_present():
     units = reads.units_for(_fake_api(traceability=traceability), "r1")
     assert [u["unit_key"] for u in units] == ["k1", "k2"]
     assert "pr" not in units[0]
-    assert units[1]["pr"] == {"pr_number": 7, "head_sha": "abc1234def"}
+    assert units[1]["pr"] == {
+        "pr_number": 7,
+        "head_sha": "abc1234def",
+        "source": "unit_pr_binding",
+    }
 
 
 def test_status_drives_a_real_api_with_the_expected_methods_and_paths(capsys):
