@@ -211,16 +211,21 @@ def _draft_next_action(base_url: str, revision_id: str, unit: dict) -> str:
     """The two DRAFT cases, which are the two failure modes that historically
     cost the most time.
 
-    An authority approval does NOT move lifecycle state, so an approved unit
-    sits in DRAFT until the SYSTEM `commands/ready` edge is driven. And the
-    generic `/review` approve button records `subject_type="action"`, which
+    The orchestrator readies a unit itself once its readiness holds (SDS 1.1
+    item 2d-1, orchestrator #346), so an approved unit still in DRAFT is one
+    whose readiness does not hold yet -- usually a pending dependency -- or one
+    whose readiness came to hold with no event (a policy change), which
+    `factory ready` catches up. And the generic `/review` approve button
+    records `subject_type="action"`, which
     satisfies the `AWAITING_APPROVAL -> READY` guard but NOT readiness --
     readiness wants `subject_type="authority"` bound to this exact fingerprint.
     """
     if unit.get("authority_decision") == "approved":
         return (
-            "authority approved but the unit is still DRAFT -- authority approval does not move "
-            f"state. Run: factory ready --revision {revision_id} --unit-key {unit['unit_key']}"
+            "authority approved but the unit is still DRAFT -- its readiness does not hold yet "
+            f"(usually a pending dependency; see {links.unit(base_url, unit['id'])}). Once it "
+            "holds, the orchestrator readies the unit itself. If readiness already holds, catch up "
+            f"with: factory ready --revision {revision_id} --unit-key {unit['unit_key']}"
         )
     return (
         "needs a HUMAN authority approval bound to fingerprint "
@@ -355,8 +360,8 @@ def status(
     """Print one screen for a revision: intake, proposals, units, next action.
 
     The next-action line is what makes this a front door: it distinguishes an
-    authority approval recorded on a still-DRAFT unit (needs `factory ready` --
-    authority approval alone never moves lifecycle state) from a unit approved
+    authority approval recorded on a still-DRAFT unit (its readiness does not
+    hold yet; the orchestrator readies it once it does) from a unit approved
     with the generic `/review` button (`subject_type=action`, which does not
     satisfy readiness at all).
     """
