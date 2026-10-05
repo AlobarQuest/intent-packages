@@ -90,8 +90,9 @@ def ready(
 
     The orchestrator takes this edge itself once readiness is satisfied (SDS 1.1
     item 2d-1), so an already-READY unit is reported as success. `ready` remains
-    the catch-up for a unit readiness reached without an event (a policy change). The unit's current version is unknown up front (DRAFT units carry
-    no `version` on any read surface), so this resolves it via
+    the catch-up for a unit readiness reached without an event (a policy change).
+    The unit's current version is unknown up front (DRAFT units carry no
+    `version` on any read surface), so this resolves it via
     `api.resolve_version`'s documented probe before posting the real command.
     """
     api = api or OrchestratorApi(verbose=verbose)
