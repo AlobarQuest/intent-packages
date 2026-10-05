@@ -215,7 +215,7 @@ def scan_dispatch_events(api: RevisionApi, unit_id: str) -> tuple[int, frozenset
     failed)` and all four consume a `runner_attempt`, so a dispatch skipped by a
     closed window still occupies its ordinal. `dispatch()` calls this exactly
     once per invocation -- one `history` request, not two -- and feeds the
-    ordinal into `next_runner_attempt` and the id set into its no-op guard.
+    id set into its no-op guard (the orchestrator assigns the ordinal itself).
     `status` calls it to report the latest ordinal.
     """
     latest = 0

@@ -100,28 +100,6 @@ def _history_with_dispatch(runner_attempt, dispatch_record_id):
     return history
 
 
-# -- next_runner_attempt (pure arithmetic, fix round 2/5) --------------------
-#
-# Fix round 2/5 changed the signature from `(api, unit_id, attempt_count)` to
-# `(attempt_count, latest_runner_attempt)`: `dispatch()` used to call
-# `next_runner_attempt` (one `history()` fetch) AND a second helper for the
-# no-op guard's record-id set (a second `history()` fetch) -- two reads of
-# the same data, and a real TOCTOU window between them. `next_runner_attempt`
-# is now a pure function over facts `reads.scan_dispatch_events` already produced
-# in ONE scan; `dispatch()` calls that scan once and feeds both outputs
-# onward. It is still the actual function `dispatch()` calls for the
-# ordinal (Important 2, fix round 1/5) -- it just no longer does its own I/O.
-
-
-def test_next_runner_attempt_uses_the_max_of_both_counters():
-    assert execution.next_runner_attempt(1, 2) == 3
-    assert execution.next_runner_attempt(5, 2) == 6
-
-
-def test_next_runner_attempt_is_one_when_never_dispatched():
-    assert execution.next_runner_attempt(0, 0) == 1
-
-
 # -- reads.scan_dispatch_events (the single history scan) -------------------------
 
 
@@ -241,7 +219,8 @@ def test_dispatch_reports_a_reused_record_id_as_failure(capsys):
 
 def test_dispatch_accepts_a_new_record_id(capsys):
     def dispatch(unit_id, payload):
-        return {"id": "d-new", "status": "dispatched", "reason_code": None}
+        # The orchestrator assigns the ordinal and the response names it.
+        return {"id": "d-new", "status": "dispatched", "reason_code": None, "runner_attempt": 3}
 
     api = _fake_api(history=_history_with_dispatch(2, "d-old"), dispatch=dispatch)
     rc = execution.dispatch("r1", "bump-fastapi", api=api)
@@ -300,30 +279,6 @@ def test_dispatch_detects_reuse_of_a_non_latest_prior_id(capsys):
     rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(history=history, dispatch=dispatch))
     assert rc == 1
     assert "no-op" in capsys.readouterr().err
-
-
-def test_dispatch_calls_next_runner_attempt_not_a_parallel_implementation(monkeypatch):
-    """Fix round 1/5, Important 2 regression. `dispatch()` must call the
-    independently-tested `next_runner_attempt` for the ordinal -- not
-    reimplement the same `max(...) + 1` arithmetic inline, which would leave
-    `next_runner_attempt`'s own tests exercising a function production never
-    calls. Proven by monkeypatching `next_runner_attempt` itself and
-    asserting the POST payload carries exactly the value it returned."""
-    seen = {}
-
-    def fake_next_runner_attempt(attempt_count, latest_runner_attempt):
-        seen["called_with"] = (attempt_count, latest_runner_attempt)
-        return 99
-
-    def dispatch(unit_id, payload):
-        seen["payload"] = payload
-        return {"id": "d-new", "status": "dispatched", "reason_code": None}
-
-    monkeypatch.setattr(execution, "next_runner_attempt", fake_next_runner_attempt)
-    rc = execution.dispatch("r1", "bump-fastapi", api=_fake_api(dispatch=dispatch))
-    assert rc == 0
-    assert seen["called_with"] == (0, 0)
-    assert seen["payload"]["runner_attempt"] == 99
 
 
 def test_dispatch_reads_history_exactly_once_over_the_real_api():
@@ -402,7 +357,7 @@ def test_dispatch_reads_history_exactly_once_over_the_real_api():
     assert len(history_calls) == 1
 
 
-def test_dispatch_posts_the_computed_runner_attempt_and_in_flight_version():
+def test_dispatch_posts_the_in_flight_version_and_no_ordinal():
     seen = {}
 
     def dispatch(unit_id, payload):
@@ -425,7 +380,8 @@ def test_dispatch_posts_the_computed_runner_attempt_and_in_flight_version():
     rc = execution.dispatch("r1", "bump-fastapi", api=api)
     assert rc == 0
     assert seen["payload"]["expected_version"] == 7
-    assert seen["payload"]["runner_attempt"] == 6  # max(4, 5) + 1
+    # The orchestrator assigns the ordinal (orchestrator #344); the client sends none.
+    assert "runner_attempt" not in seen["payload"]
 
 
 def test_dispatch_refuses_a_unit_that_is_not_in_flight(capsys):

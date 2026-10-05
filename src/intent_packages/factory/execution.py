@@ -2,10 +2,12 @@
 
 Split out from `journey.py` (which stays the read/report surface -- `submit`,
 `status`, `evidence`) because these two verbs carry version and dispatch-
-ordinal hazards `journey.py`'s verbs do not: a wrong `expected_version` is a
-clean `version_conflict`, but a wrong `runner_attempt` can be a SILENT NO-OP
--- the orchestrator returns a PRE-EXISTING `DispatchRecord` with HTTP 200,
-having triggered no `workflow_dispatch` at all.
+ordinal hazards `journey.py`'s verbs do not. The orchestrator assigns the
+dispatch ordinal (orchestrator #344, SDS 1.1 item 3a-2), so this client sends
+none; a supplied ordinal other than the next one is refused there with
+`dispatch_attempt_not_next`. Until then a reused `runner_attempt` was a SILENT
+NO-OP -- a PRE-EXISTING `DispatchRecord` with HTTP 200, having triggered no
+`workflow_dispatch` at all -- and the checks below are kept against that.
 
 Proving a real dispatch happened takes THREE checks, not one -- fix round
 1/5 found the first draft only had the third, and had it wrong:
@@ -81,31 +83,6 @@ class ExecutionApi(RevisionApi, InFlightApi, Protocol):
     def dispatch(self, unit_id: str, payload: dict, /) -> dict: ...
 
 
-def next_runner_attempt(attempt_count: int, latest_runner_attempt: int) -> int:
-    """The next dispatch ordinal, given facts already scanned from `history`.
-
-    Dispatch and claim ordinals are INDEPENDENT: `DispatchRecord.runner_attempt`
-    counts dispatch decisions including skipped ones, while `attempt_count`
-    counts worker claims. They drift apart the moment a dispatch is skipped or
-    a claim is reclaimed, so `attempt_count + 1` is not a safe substitute for
-    either.
-
-    Fix round 2/5: this used to take `(api, unit_id, attempt_count)` and do its
-    own history scan -- so `dispatch()`, which also needs the record-id set from
-    that same scan, called it twice, issuing two `api.history()` requests for
-    what should be one atomic read. The fix for Important 2 (fix round 1/5) was
-    never "this function must do its own I/O" -- only that `dispatch()` must
-    call the SAME tested arithmetic it is measured by, not a parallel inline
-    copy. Making this a pure function over the scan's own outputs satisfies that
-    while collapsing the read to one: `dispatch()` calls
-    `reads.scan_dispatch_events` once and feeds both resulting facts onward --
-    `latest_runner_attempt` here, the record-id set into the no-op guard. Two
-    sequential reads could also disagree if a concurrent dispatch landed in
-    between; one read cannot.
-    """
-    return max(attempt_count, latest_runner_attempt) + 1
-
-
 def ready(
     revision_id: str, unit_key: str, *, api: ExecutionApi | None = None, verbose: bool = False
 ) -> int:
@@ -154,9 +131,9 @@ def dispatch(
     (fix round 2/5: it used to be read twice -- once to derive the ordinal,
     once more to derive the no-op guard's record-id set -- which was both a
     wasted round trip and a real TOCTOU window, since a concurrent dispatch
-    landing between the two reads could make them disagree). `runner_attempt`
-    is computed by `next_runner_attempt`, the one function both this call and
-    its own tests exercise for the arithmetic (fix round 1/5, Important 2).
+    landing between the two reads could make them disagree). The orchestrator
+    assigns `runner_attempt` (orchestrator #344); this call sends none, and the
+    scan now feeds only the no-op guard's record-id set.
 
     A response is only accepted as a real dispatch when ALL of: (1) its
     record id is not one already recorded for this unit at any earlier
@@ -178,7 +155,6 @@ def dispatch(
         return 2
 
     unit_id: str | None = None
-    runner_attempt = 0
     prior_dispatch_ids: frozenset[str] = frozenset()
     # A separate flag, not `prior_dispatch_ids` being empty: an empty set is the
     # legitimate "never dispatched" case, and reconciling against a scan that
@@ -196,15 +172,13 @@ def dispatch(
                 file=sys.stderr,
             )
             return 1
-        latest_runner_attempt, prior_dispatch_ids = reads.scan_dispatch_events(api, unit_id)
+        _, prior_dispatch_ids = reads.scan_dispatch_events(api, unit_id)
         scanned_before_post = True
-        runner_attempt = next_runner_attempt(snapshot["attempt_count"], latest_runner_attempt)
         idempotency_key = f"factory-dispatch-{uuid.uuid4()}"
         response = api.dispatch(
             unit_id,
             {
                 "idempotency_key": idempotency_key,
-                "runner_attempt": runner_attempt,
                 "expected_version": snapshot["version"],
             },
         )
@@ -214,7 +188,7 @@ def dispatch(
             _reconcile_inconclusive_dispatch(api, unit_id, revision_id, prior_dispatch_ids)
         return 1
 
-    return _report_dispatch_outcome(response, prior_dispatch_ids, runner_attempt)
+    return _report_dispatch_outcome(response, prior_dispatch_ids)
 
 
 def _reconcile_inconclusive_dispatch(
@@ -275,9 +249,7 @@ def _reconcile_inconclusive_dispatch(
     )
 
 
-def _report_dispatch_outcome(
-    response: dict, prior_dispatch_ids: frozenset[str], runner_attempt: int
-) -> int:
+def _report_dispatch_outcome(response: dict, prior_dispatch_ids: frozenset[str]) -> int:
     """Accept the response as a real dispatch, or say exactly why it is not.
 
     Extracted from `dispatch()` to keep both under the C901 ceiling once the
@@ -302,7 +274,10 @@ def _report_dispatch_outcome(
         )
         return 1
 
-    print(f"dispatched: record {new_id} (runner_attempt {runner_attempt}), status={status}")
+    print(
+        f"dispatched: record {new_id} (runner_attempt {response.get('runner_attempt')}), "
+        f"status={status}"
+    )
     run_url = response.get("github_run_url")
     if run_url:
         print(f"Actions run: {run_url}")
