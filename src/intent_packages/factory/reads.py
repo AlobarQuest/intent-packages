@@ -23,7 +23,8 @@ The wire facts encoded here, each verified against the live
   carrying `intent`/`unit`/`pr`/`commit`/... hops.
 - `TraceabilityUnitHop` carries `id`, `unit_key`, `title`, `state`,
   `authority_fingerprint`, `authority_approved_by`, `authority_decision`.
-- `TraceabilityPrHop` is `{pr_number, head_sha}` -- nothing else.
+- `TraceabilityPrHop` is `{pr_number, head_sha, source}`; `source` is `unit_pr_binding` (a
+  factory PR) or `landing_ledger` (a PR made outside the factory, read from the landing ledger).
 - `GET /work-units/{id}/history` is a BARE JSON ARRAY of `EventResponse`, whose
   event kind lives under `action` (never `type`).
 - `GET /in-flight-units` is a JSON object `{units[], release_bindings[]}` and
@@ -107,7 +108,7 @@ def units_for(api: RevisionApi, revision_id: str) -> list[dict]:
     itself. Each returned dict is the chain's `unit` hop (`id`, `unit_key`,
     `state`, `authority_fingerprint`, `authority_approved_by`,
     `authority_decision`) with a `pr` key added when the chain carries one --
-    `TraceabilityPrHop`, i.e. `{pr_number, head_sha}` and nothing else.
+    `TraceabilityPrHop`, i.e. `{pr_number, head_sha, source}`.
     """
     data = api.traceability(revision_id=revision_id)
     units = []
