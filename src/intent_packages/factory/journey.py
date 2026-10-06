@@ -135,9 +135,11 @@ def _emit_payload(
 
     try:
         key = idempotency_key or staging_key(package)
-        return client.emit_intake_payload(str(pkg_dir), source_repository, key)
     except (KeyError, CanonicalError) as error:
-        print(f"submit failed: cannot derive the staging key: {error!r}", file=sys.stderr)
+        print(f"submit failed: cannot derive the staging key: {error}", file=sys.stderr)
+        return None
+    try:
+        return client.emit_intake_payload(str(pkg_dir), source_repository, key)
     except OrchestratorCliError as error:
         # Covers both the `orchestrator` binary being unreachable and the
         # local emit-intake-payload subprocess itself refusing the package
@@ -184,22 +186,27 @@ def _stage(payload: dict, api: StagingApi, open_browser: bool) -> int:
             print(f"  recovery: {error.recovery}", file=sys.stderr)
         if error.code == "idempotency_conflict":
             print(
-                "  this revision was already staged from a different payload (a moved git "
-                "HEAD changes source_commit); confirm or withdraw that row on /review, or "
-                "re-run with --idempotency-key <new key>",
+                "  this key is already held -- usually by this revision staged from a different "
+                "payload (a commit moves source_commit), or by an intake already registered "
+                "under it; check /review, then confirm or withdraw that row, or re-run with "
+                "--idempotency-key <new key>",
                 file=sys.stderr,
             )
         return 1
 
     state = staged.get("state")
+    revision_id = staged.get("registered_revision_id")
+    review_path = staged.get("review_path")
+    if (state == "registered" and not revision_id) or not review_path:
+        print("submit failed: invalid_response: the staged intake is incomplete", file=sys.stderr)
+        return 1
     if state == "registered":
         print(
-            f"submit: this intake is already registered as revision "
-            f"{staged.get('registered_revision_id')} -- nothing was staged. Resume with: "
-            f"factory status --revision {staged.get('registered_revision_id')}"
+            f"submit: this intake is already registered as revision {revision_id} -- nothing "
+            f"was staged. Resume with: factory status --revision {revision_id}"
         )
         return 0
-    link = links.staged_intake(base_url_from_env(), str(staged.get("review_path", "")))
+    link = links.staged_intake(base_url_from_env(), str(review_path))
     if state != "staged":
         print(
             f"submit refused: the staged intake for this key is {state!r} and can never be "
@@ -215,7 +222,10 @@ def _stage(payload: dict, api: StagingApi, open_browser: bool) -> int:
         "factory submit registers nothing (ADR-0006 amendment 1): the intake is registered "
         "only when you press Confirm on that page, as yourself."
     )
-    print("Once confirmed, resume with: factory status --revision <id from the URL>")
+    print(
+        "Once confirmed, resume with: factory status --revision <id> -- the revision id is in "
+        "the /review/intakes/<id> page Confirm takes you to, not in the link above."
+    )
     return 0
 
 

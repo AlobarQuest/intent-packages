@@ -6,14 +6,8 @@ one.
 
 These FOUR are every page a `factory` verb actually links to: a staged intake
 (`submit`), the paste form (`submit --print`), a decomposition proposal
-(`status`), and a unit (`status`, `verify`). Two more once lived here --
-`intake(base_url, revision_id)` and `unit_evidence_pack(...)` -- alongside a
-docstring claiming "these four ... there is no fifth" while five existed and
-two had no caller at all. Both are deleted rather than kept warm: `submit`
-already tells the operator to resume with `factory status --revision <id>`
-rather than re-linking the intake page, and the evidence pack is fetched by
-`factory evidence`, not browsed. Add one
-back when a verb needs it, not before.
+(`status`), and a unit (`status`, `verify`). Add one when a verb needs it,
+not before; `test_links.py` fails on a builder with no caller.
 """
 
 from __future__ import annotations

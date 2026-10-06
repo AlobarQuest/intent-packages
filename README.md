@@ -187,6 +187,10 @@ of staging a second one. Two cases need a new key, passed with `--idempotency-ke
 - A row you withdrew can never be confirmed, and `submit` says so rather than printing a dead
   link.
 
+After you confirm, resume with `factory status --revision <id>` (the id is in the
+`/review/intakes/<id>` page Confirm lands on), not with `submit`: a re-run after a new commit
+draws `idempotency_conflict` rather than "already registered".
+
 **The escape hatch** is `factory submit --print`: it stages nothing and copies the payload to your
 clipboard for the `/review/intakes/new` paste form, exactly as `submit` did before staging existed.
 The paste form takes its idempotency key from its own form field, not the pasted payload.

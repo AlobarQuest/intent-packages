@@ -69,6 +69,7 @@ def _staging_api(handler):
     seen: list[httpx.Request] = []
 
     def recording(request):
+        assert request.url.path == "/api/v1/staged-intakes", request.url.path
         seen.append(request)
         return handler(request)
 
@@ -222,6 +223,23 @@ def test_submit_refuses_a_withdrawn_replay(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "'withdrawn'" in err
     assert "--idempotency-key" in err
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [{"review_path": ""}, {"state": "registered", "registered_revision_id": None}],
+)
+def test_submit_refuses_an_incomplete_staged_response(tmp_path, capsys, overrides):
+    """A response missing the page or the revision must not print a dead link
+    or `factory status --revision None`."""
+    api = _StubStagingApi(_staged_response(**overrides))
+    rc = journey.submit(
+        str(_approved_package(tmp_path)), "AlobarQuest/probe", client=FakeClient({}), api=api
+    )
+    assert rc == 1
+    out = capsys.readouterr()
+    assert "invalid_response" in out.err
+    assert "None" not in out.out
 
 
 def test_submit_open_opens_the_staged_review_page(tmp_path, monkeypatch):
