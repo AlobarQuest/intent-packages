@@ -1,9 +1,13 @@
 """The read/report verbs: submit, status, evidence.
 
-Every human gate here is a stop, not a step. `submit` prepares the intake
-payload, copies it, prints the /review link and exits -- it can never complete
-an intake, because the route requires a HUMAN actor and no HUMAN credential
-exists or ever will (ADR-0006).
+Every human gate here is a stop, not a step. `submit` STAGES the intake with
+the orchestrator (`POST /api/v1/staged-intakes`, as SYSTEM), prints the
+`/review/staged-intakes/{id}` link and exits. It never registers anything:
+a staged row is not a revision, and only a person pressing Confirm on that
+page registers it, because the confirm admits only a HUMAN actor and no HUMAN
+credential exists or ever will (ADR-0006 and its amendment 1, 2026-10-06).
+`submit --print` is the escape hatch: it copies the payload for the
+`/review/intakes/new` paste form instead of staging it.
 
 The derived reads these verbs run on (`resolve_revision`, `units_for`,
 `resolve_unit_id`, the read Protocol) live in `reads.py`, which `execution.py`
@@ -16,12 +20,12 @@ import json
 import subprocess
 import sys
 import time
-import uuid
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
+from intent_packages.canonical import CanonicalError, package_hash
 from intent_packages.factory import links, reads
 from intent_packages.factory.api import ApiError, OrchestratorApi, base_url_from_env
 from intent_packages.factory.orchestrator_cli import OrchestratorClient, OrchestratorCliError
@@ -47,6 +51,13 @@ class IntakeClient(Protocol):
     ) -> dict: ...
 
 
+class StagingApi(Protocol):
+    """The one `OrchestratorApi` method `submit` calls. There is no other: in
+    particular `submit` has no way to reach `POST /api/v1/package-intakes`."""
+
+    def stage_intake(self, payload: dict, /) -> dict: ...
+
+
 def _default_clipboard(text: str) -> None:
     subprocess.run(["pbcopy"], input=text, text=True, check=True)
 
@@ -66,6 +77,22 @@ def _print_refusal(pkg_dir: Path, status: object, current_state: object) -> None
     )
     print(f"  intent_packages transition {pkg_dir} --to ready_for_review", file=sys.stderr)
     print(f"  intent_packages approve {pkg_dir} --approver devon", file=sys.stderr)
+
+
+def staging_key(package: dict) -> str:
+    """The idempotency key a package revision is staged under.
+
+    Derived from the package id, its revision and its canonical hash (the hash
+    its approval binds to), so running `submit` again for the same approved
+    revision replays the row already staged rather than staging a second one.
+    The orchestrator keys the staged row AND the eventual registration on it.
+    Sixteen hex digits of the hash keep the key well inside the route's
+    200-character limit.
+    """
+    return (
+        f"factory-submit-{package['package_id']}-r{package['revision']}-"
+        f"{package_hash(package)[:16]}"
+    )
 
 
 def _copy_to_clipboard(text: str, clipboard: Clipboard) -> bool:
@@ -88,41 +115,29 @@ def _copy_to_clipboard(text: str, clipboard: Clipboard) -> bool:
     return True
 
 
-def submit(
-    package_path: str,
-    source_repository: str,
-    *,
-    open_browser: bool = False,
-    client: IntakeClient | None = None,
-    clipboard: Clipboard | None = None,
-) -> int:
-    """Stage an intake payload and hand off to `/review/intakes/new`, then stop.
-
-    This is a human gate (ADR-0006): package intake requires a HUMAN actor and
-    no HUMAN credential exists or ever will, so `submit` never calls the API --
-    it has no `api` parameter at all, and never imports `OrchestratorApi`.
-    Tasks 7-9 add their own `api` parameters to the sibling verbs in this
-    module; that is not a reason to carry an unused one here.
-    """
-    client = client or OrchestratorClient()
-
+def _emit_payload(
+    package_path: str, source_repository: str, idempotency_key: str, client: IntakeClient
+) -> dict | None:
+    """Load, refuse an unapproved package, and emit the verified payload. None on refusal."""
     pkg_dir = _resolve_package_dir(package_path)
     try:
         package = load_package(pkg_dir)
         lineage = load_lineage(pkg_dir)
     except LoadError as error:
         print(f"submit: {error}", file=sys.stderr)
-        return 1
+        return None
 
     status = package.get("status")
     current_state = lineage.get("current_state")
     if status != "approved" or current_state != "approved":
         _print_refusal(pkg_dir, status, current_state)
-        return 1
+        return None
 
-    idempotency_key = f"factory-submit-{uuid.uuid4()}"
     try:
-        payload = client.emit_intake_payload(str(pkg_dir), source_repository, idempotency_key)
+        key = idempotency_key or staging_key(package)
+        return client.emit_intake_payload(str(pkg_dir), source_repository, key)
+    except (KeyError, CanonicalError) as error:
+        print(f"submit failed: cannot derive the staging key: {error!r}", file=sys.stderr)
     except OrchestratorCliError as error:
         # Covers both the `orchestrator` binary being unreachable and the
         # local emit-intake-payload subprocess itself refusing the package
@@ -130,22 +145,25 @@ def submit(
         # -- that check lives one layer down in `orchestrator`'s own
         # emit-intake-payload command, not duplicated here.
         print(f"submit failed: {error}", file=sys.stderr)
-        return 1
+    return None
 
+
+def _hand_off_paste(payload: dict, clipboard: Clipboard, open_browser: bool) -> int:
+    """`--print`: copy the payload for the `/review/intakes/new` paste form, then stop."""
     text = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    copied = _copy_to_clipboard(text, clipboard or _default_clipboard)
+    copied = _copy_to_clipboard(text, clipboard)
 
     link = links.intake_new(base_url_from_env())
     if open_browser:
         webbrowser.open(link)
 
     if copied:
-        print(f"Intake payload staged and copied to your clipboard: {link}")
+        print(f"Intake payload copied to your clipboard for the paste form: {link}")
     else:
-        print(f"Intake payload staged (see the clipboard warning above): {link}")
+        print(f"Intake payload printed above for the paste form: {link}")
     print(
-        "This is a human gate (ADR-0006) -- factory submit stops here, waiting on your "
-        "approval in the browser; it never posts the intake itself."
+        "This is a human gate (ADR-0006) -- factory submit --print stops here; it never "
+        "posts the intake itself."
     )
     print(
         "Note: the form takes its idempotency key from the FORM FIELD, not the pasted "
@@ -154,6 +172,84 @@ def submit(
     )
     print("Once the form redirects, resume with: factory status --revision <id from the URL>")
     return 0
+
+
+def _stage(payload: dict, api: StagingApi, open_browser: bool) -> int:
+    """Stage the payload and hand off to its review page. Registers nothing."""
+    try:
+        staged = api.stage_intake(payload)
+    except ApiError as error:
+        print(f"submit refused: {error.code}: {error.message}", file=sys.stderr)
+        if error.recovery:
+            print(f"  recovery: {error.recovery}", file=sys.stderr)
+        if error.code == "idempotency_conflict":
+            print(
+                "  this revision was already staged from a different payload (a moved git "
+                "HEAD changes source_commit); confirm or withdraw that row on /review, or "
+                "re-run with --idempotency-key <new key>",
+                file=sys.stderr,
+            )
+        return 1
+
+    state = staged.get("state")
+    if state == "registered":
+        print(
+            f"submit: this intake is already registered as revision "
+            f"{staged.get('registered_revision_id')} -- nothing was staged. Resume with: "
+            f"factory status --revision {staged.get('registered_revision_id')}"
+        )
+        return 0
+    link = links.staged_intake(base_url_from_env(), str(staged.get("review_path", "")))
+    if state != "staged":
+        print(
+            f"submit refused: the staged intake for this key is {state!r} and can never be "
+            f"confirmed ({link}). Stage it again with --idempotency-key <new key>.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if open_browser:
+        webbrowser.open(link)
+    print(f"Intake staged for your decision: {link}")
+    print(
+        "factory submit registers nothing (ADR-0006 amendment 1): the intake is registered "
+        "only when you press Confirm on that page, as yourself."
+    )
+    print("Once confirmed, resume with: factory status --revision <id from the URL>")
+    return 0
+
+
+def submit(
+    package_path: str,
+    source_repository: str,
+    *,
+    open_browser: bool = False,
+    print_payload: bool = False,
+    idempotency_key: str = "",
+    client: IntakeClient | None = None,
+    clipboard: Clipboard | None = None,
+    api: StagingApi | None = None,
+    verbose: bool = False,
+) -> int:
+    """Stage an intake for a person to confirm at `/review/staged-intakes/{id}`, then stop.
+
+    This is a human gate (ADR-0006, amendment 1): `submit` POSTs the verified
+    payload to `/api/v1/staged-intakes` as SYSTEM, which holds it and registers
+    nothing; a person registers it by pressing Confirm. `submit` calls no other
+    route. `print_payload` (`--print`) skips staging and copies the payload for
+    the `/review/intakes/new` paste form instead -- the escape hatch.
+
+    `idempotency_key` overrides the derived `staging_key`, for re-staging after
+    a row was withdrawn or staged from a different payload.
+    """
+    payload = _emit_payload(
+        package_path, source_repository, idempotency_key, client or OrchestratorClient()
+    )
+    if payload is None:
+        return 1
+    if print_payload:
+        return _hand_off_paste(payload, clipboard or _default_clipboard, open_browser)
+    return _stage(payload, api or OrchestratorApi(verbose=verbose), open_browser)
 
 
 _DECIDED_PROPOSAL_STATES = frozenset({"approved", "rejected", "superseded"})

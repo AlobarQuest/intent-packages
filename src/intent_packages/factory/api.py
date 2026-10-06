@@ -213,6 +213,15 @@ class OrchestratorApi:
         return self._request_text(f"/api/v1/work-units/{unit_id}/evidence-pack/markdown")
 
     # -- writes ------------------------------------------------------------
+    def stage_intake(self, payload: dict) -> dict:
+        """Stage an intake for a person to confirm (ADR-0006 amendment 1).
+
+        SYSTEM only, and it registers nothing: the orchestrator holds the row until a person
+        presses Confirm on its `review_path`. It runs the registration's refusals first, so a
+        payload registration would refuse is refused here, with the same code.
+        """
+        return self._post_dict("/api/v1/staged-intakes", payload)
+
     def propose_decomposition(self, revision_id: str, proposal: dict) -> dict:
         return self._post_dict(
             f"/api/v1/package-intakes/{revision_id}/decomposition-proposals", proposal

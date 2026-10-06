@@ -83,10 +83,24 @@ def _build_parser() -> argparse.ArgumentParser:
     v = sub.add_parser("validate", help="validate an intent package")
     v.add_argument("path", help="path to a package directory or package.yaml")
 
-    s = sub.add_parser("submit", help="stage an intake payload and hand off to /review")
+    s = sub.add_parser(
+        "submit", help="stage an intake for you to confirm on /review (registers nothing)"
+    )
     s.add_argument("--package", required=True, help="package directory or package.yaml")
     s.add_argument("--source-repository", required=True, dest="source_repository")
     s.add_argument("--open", action="store_true", dest="open_browser", help="open /review")
+    s.add_argument(
+        "--print",
+        action="store_true",
+        dest="print_payload",
+        help="copy the payload for the /review/intakes/new paste form instead of staging it",
+    )
+    s.add_argument(
+        "--idempotency-key",
+        default="",
+        dest="idempotency_key",
+        help="override the derived staging key (to re-stage a withdrawn or conflicting row)",
+    )
 
     st = sub.add_parser("status", help="one screen for a revision, with the next action")
     st.add_argument("--revision", default="", help="revision id (default: $FACTORY_REVISION)")
@@ -255,7 +269,14 @@ def _run_validate(args: argparse.Namespace) -> int:
 def _run_submit(args: argparse.Namespace) -> int:
     from intent_packages.factory import journey
 
-    return journey.submit(args.package, args.source_repository, open_browser=args.open_browser)
+    return journey.submit(
+        args.package,
+        args.source_repository,
+        open_browser=args.open_browser,
+        print_payload=args.print_payload,
+        idempotency_key=args.idempotency_key,
+        verbose=args.verbose,
+    )
 
 
 def _run_status(args: argparse.Namespace) -> int:

@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 import yaml
@@ -43,59 +45,233 @@ def test_submit_refuses_an_unapproved_package(tmp_path, capsys):
     assert "intent_packages" in (out.err + out.out)
 
 
-def test_submit_stages_copies_and_stops(tmp_path, capsys, monkeypatch):
+TOKEN = "SENTINEL-TOKEN-7f3a"
+
+
+def _staged_response(**overrides):
+    body = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "state": "staged",
+        "idempotency_key": "k",
+        "package_id": "probe",
+        "revision": 1,
+        "staged_by": "orchestrator-system",
+        "staged_at": "2026-10-06T00:00:00Z",
+        "registered_revision_id": None,
+        "review_path": "/review/staged-intakes/11111111-1111-1111-1111-111111111111",
+    }
+    body.update(overrides)
+    return body
+
+
+def _staging_api(handler):
+    """The real `OrchestratorApi` over a MockTransport that records every request."""
+    seen: list[httpx.Request] = []
+
+    def recording(request):
+        seen.append(request)
+        return handler(request)
+
+    api = OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(recording),
+        token_resolver=lambda role: TOKEN,
+    )
+    return api, seen
+
+
+def test_submit_stages_the_payload_as_system_and_prints_the_review_link(
+    tmp_path, capsys, monkeypatch
+):
     monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
-    copied = {}
-    package = _approved_package(tmp_path)
+    payload = {"idempotency_key": "k", "expected_version": 0, "package_id": "probe"}
+    api, seen = _staging_api(lambda request: httpx.Response(201, json=_staged_response()))
     rc = journey.submit(
-        str(package),
+        str(_approved_package(tmp_path)),
         "AlobarQuest/probe",
+        client=FakeClient(payload),
+        api=api,
+        clipboard=lambda text: pytest.fail("submit must not touch the clipboard when staging"),
+    )
+    assert rc == 0
+    [request] = seen
+    assert request.method == "POST"
+    assert request.url.path == "/api/v1/staged-intakes"
+    assert request.headers["authorization"] == f"Bearer {TOKEN}"
+    assert request.headers["x-credential-key-id"] == "orchestrator-system"
+    assert json.loads(request.content) == payload
+    out = capsys.readouterr()
+    assert (
+        "https://sds.example/review/staged-intakes/11111111-1111-1111-1111-111111111111" in out.out
+    )
+    assert "registers nothing" in out.out
+    assert "factory status --revision" in out.out
+    assert TOKEN not in out.out + out.err
+
+
+def test_submit_derives_the_same_key_for_the_same_revision(tmp_path):
+    """A re-run must replay the staged row, so the key is a function of the
+    package revision and its hash -- never random -- and moves when the
+    package content does."""
+    package = _approved_package(tmp_path)
+    first, second = FakeClient({}), FakeClient({})
+    for client in (first, second):
+        journey.submit(
+            str(package),
+            "AlobarQuest/probe",
+            client=client,
+            api=_StubStagingApi(_staged_response()),
+        )
+    [(_, _, key_one)] = first.calls
+    [(_, _, key_two)] = second.calls
+    assert key_one == key_two
+    document = yaml.safe_load((package / "package.yaml").read_text())
+    expected = journey.staging_key(document)
+    assert key_one == expected
+    assert expected.startswith("factory-submit-probe-r1-")
+    assert len(expected) <= 200
+
+    document["title"] = str(document["title"]) + " (revised)"
+    assert journey.staging_key(document) != expected
+    document["revision"] = 2
+    assert "-r2-" in journey.staging_key(document)
+
+
+def test_submit_idempotency_key_override_reaches_the_emitter(tmp_path):
+    client = FakeClient({})
+    journey.submit(
+        str(_approved_package(tmp_path)),
+        "AlobarQuest/probe",
+        idempotency_key="restage-2",
+        client=client,
+        api=_StubStagingApi(_staged_response()),
+    )
+    assert client.calls[0][2] == "restage-2"
+
+
+class _StubStagingApi:
+    def __init__(self, response):
+        self._response = response
+        self.payloads = []
+
+    def stage_intake(self, payload):
+        self.payloads.append(payload)
+        return self._response
+
+
+@pytest.mark.parametrize("code", ["approval_required", "idempotency_conflict", "role_forbidden"])
+def test_submit_surfaces_the_orchestrator_refusal_and_fails(tmp_path, capsys, code):
+    api, _ = _staging_api(
+        lambda request: httpx.Response(
+            409,
+            json={"error": {"code": code, "message": "refused for a reason", "recovery": "fix"}},
+        )
+    )
+    rc = journey.submit(
+        str(_approved_package(tmp_path)),
+        "AlobarQuest/probe",
+        client=FakeClient({"idempotency_key": "k"}),
+        api=api,
+    )
+    assert rc == 1
+    out = capsys.readouterr()
+    assert f"{code}: refused for a reason" in out.err
+    assert "recovery: fix" in out.err
+    assert ("--idempotency-key" in out.err) == (code == "idempotency_conflict")
+    assert "staged for your decision" not in out.out
+    assert TOKEN not in out.out + out.err
+
+
+def test_submit_reports_a_missing_credential_without_a_traceback(tmp_path, capsys):
+    from intent_packages.factory.credentials import CredentialError
+
+    def no_credential(role):
+        raise CredentialError("no credential for orchestrator-system")
+
+    api = OrchestratorApi(
+        "https://sds.example",
+        transport=httpx.MockTransport(lambda request: pytest.fail("no request without a token")),
+        token_resolver=no_credential,
+    )
+    rc = journey.submit(
+        str(_approved_package(tmp_path)), "AlobarQuest/probe", client=FakeClient({}), api=api
+    )
+    assert rc == 1
+    assert "credential_unavailable" in capsys.readouterr().err
+
+
+def test_submit_reports_an_already_registered_replay(tmp_path, capsys):
+    """A re-run after the person confirmed replays the row: no new staging,
+    and the operator is pointed at the revision rather than at a dead page."""
+    api = _StubStagingApi(_staged_response(state="registered", registered_revision_id="rev-9"))
+    rc = journey.submit(
+        str(_approved_package(tmp_path)), "AlobarQuest/probe", client=FakeClient({}), api=api
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "already registered as revision rev-9" in out
+    assert "factory status --revision rev-9" in out
+
+
+def test_submit_refuses_a_withdrawn_replay(tmp_path, capsys):
+    api = _StubStagingApi(_staged_response(state="withdrawn"))
+    rc = journey.submit(
+        str(_approved_package(tmp_path)), "AlobarQuest/probe", client=FakeClient({}), api=api
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "'withdrawn'" in err
+    assert "--idempotency-key" in err
+
+
+def test_submit_open_opens_the_staged_review_page(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+    opened: list[str] = []
+    monkeypatch.setattr(journey.webbrowser, "open", opened.append)
+    journey.submit(
+        str(_approved_package(tmp_path)),
+        "AlobarQuest/probe",
+        open_browser=True,
+        client=FakeClient({}),
+        api=_StubStagingApi(_staged_response(review_path="/review/staged-intakes/s1")),
+    )
+    assert opened == ["https://sds.example/review/staged-intakes/s1"]
+
+
+def test_submit_print_copies_and_stops_without_staging(tmp_path, capsys, monkeypatch):
+    """`--print` is today's paste hand-off, unchanged, and it never stages."""
+    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
+
+    def _exploding_init(self, *args, **kwargs):
+        raise AssertionError("submit --print must not construct an OrchestratorApi")
+
+    monkeypatch.setattr(OrchestratorApi, "__init__", _exploding_init)
+    copied = {}
+    rc = journey.submit(
+        str(_approved_package(tmp_path)),
+        "AlobarQuest/probe",
+        print_payload=True,
         client=FakeClient({"idempotency_key": "k", "expected_version": 0}),
         clipboard=lambda text: copied.setdefault("text", text),
     )
     assert rc == 0
     out = capsys.readouterr().out
     assert "https://sds.example/review/intakes/new" in out
-    assert "waiting on your approval" in out
-    assert "factory status --revision" in out
+    assert "copied to your clipboard" in out
     assert '"idempotency_key"' in copied["text"]
 
 
-def test_submit_never_posts_an_intake(tmp_path, monkeypatch):
-    """ADR-0006: intake is a human gate. `submit` must never even construct an
-    `OrchestratorApi`, let alone call it. Patching `OrchestratorApi.__init__`
-    (the class itself, not one injected instance) forecloses ANY construction
-    anywhere in `submit`, including a future regression that constructs its
-    own `OrchestratorApi()` internally the way it already does for the
-    default `OrchestratorClient`."""
-    monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
-
-    def _exploding_init(self, *args, **kwargs):
-        raise AssertionError("submit must not construct an OrchestratorApi")
-
-    monkeypatch.setattr(OrchestratorApi, "__init__", _exploding_init)
-
-    package = _approved_package(tmp_path)
-    rc = journey.submit(
-        str(package),
-        "AlobarQuest/probe",
-        client=FakeClient({"idempotency_key": "k"}),
-        clipboard=lambda text: None,
-    )
-    assert rc == 0
-
-
-def test_submit_clipboard_failure_is_a_warning_not_a_lie(tmp_path, capsys):
+def test_submit_print_clipboard_failure_is_a_warning_not_a_lie(tmp_path, capsys):
     """A clipboard callable that fails must still surface the payload, and
     must never claim it was copied."""
 
     def failing_clipboard(text):
         raise RuntimeError("no clipboard on this session")
 
-    package = _approved_package(tmp_path)
     rc = journey.submit(
-        str(package),
+        str(_approved_package(tmp_path)),
         "AlobarQuest/probe",
+        print_payload=True,
         client=FakeClient({"idempotency_key": "k"}),
         clipboard=failing_clipboard,
     )
@@ -110,23 +286,21 @@ def test_submit_reports_orchestrator_cli_errors_cleanly(tmp_path, capsys):
     """`emit_intake_payload` failing (binary missing, or the local
     emit-intake-payload subprocess refusing the package for its own reasons,
     e.g. no matching lineage approval) must be a clean `submit failed:`, not a
-    raw traceback."""
+    raw traceback -- and nothing is staged."""
 
     class ExplodingClient:
         def emit_intake_payload(self, path, source_repository, idempotency_key):
             raise OrchestratorCliError("no lineage approval matches the canonical hash")
 
-    package = _approved_package(tmp_path)
+    api = _StubStagingApi(_staged_response())
     rc = journey.submit(
-        str(package),
-        "AlobarQuest/probe",
-        client=ExplodingClient(),
-        clipboard=lambda text: None,
+        str(_approved_package(tmp_path)), "AlobarQuest/probe", client=ExplodingClient(), api=api
     )
     assert rc == 1
     err = capsys.readouterr().err
     assert "submit failed:" in err
     assert "no lineage approval matches the canonical hash" in err
+    assert api.payloads == []
 
 
 def _fake_api(**overrides):

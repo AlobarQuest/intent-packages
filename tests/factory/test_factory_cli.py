@@ -206,98 +206,201 @@ class _FakeOrchestratorClient:
         return {"idempotency_key": idempotency_key, "source_repository": source_repository}
 
 
-def _patch_submit_boundaries(monkeypatch):
-    """Replace the two process boundaries `submit` reaches for by default: the
-    `orchestrator` subprocess and `pbcopy`."""
+SUBMIT_TOKEN = "SENTINEL-CLI-TOKEN-91c2"
+STAGED_PATH = "/review/staged-intakes/22222222-2222-2222-2222-222222222222"
+
+
+class _Boundaries:
+    """What the default process boundaries `submit` reaches for recorded."""
+
+    def __init__(self):
+        self.copied: list[str] = []
+        self.requests: list = []
+
+
+def _patch_submit_boundaries(monkeypatch, *, status=201, body=None):
+    """Replace the three process boundaries `submit` reaches for by default:
+    the `orchestrator` subprocess, `pbcopy`, and the network.
+
+    The network is replaced BELOW `OrchestratorApi` -- the real client is
+    constructed at `journey.OrchestratorApi`, with only its transport and token
+    resolver swapped -- so the headers, path, body and error mapping under test
+    are the production ones. Any request to a path other than
+    `/api/v1/staged-intakes` fails the test: `submit` may stage, never register.
+    """
+    import httpx
+
+    from intent_packages.factory import api as api_module
+
     _FakeOrchestratorClient.calls = []
-    copied: list[str] = []
+    seen = _Boundaries()
     monkeypatch.setattr(
         "intent_packages.factory.journey.OrchestratorClient", _FakeOrchestratorClient
     )
     monkeypatch.setattr(
-        "intent_packages.factory.journey._default_clipboard", lambda text: copied.append(text)
+        "intent_packages.factory.journey._default_clipboard", lambda text: seen.copied.append(text)
     )
-    return copied
+
+    def handler(request):
+        assert request.url.path == "/api/v1/staged-intakes", request.url.path
+        seen.requests.append(request)
+        return httpx.Response(
+            status,
+            json=body
+            if body is not None
+            else {
+                "id": "22222222-2222-2222-2222-222222222222",
+                "state": "staged",
+                "idempotency_key": "k",
+                "package_id": "probe",
+                "revision": 1,
+                "staged_by": "orchestrator-system",
+                "staged_at": "2026-10-06T00:00:00Z",
+                "registered_revision_id": None,
+                "review_path": STAGED_PATH,
+            },
+        )
+
+    real_api = api_module.OrchestratorApi
+
+    def _constructed_by_submit(*args, **kwargs):
+        return real_api(
+            *args,
+            transport=httpx.MockTransport(handler),
+            token_resolver=lambda role: SUBMIT_TOKEN,
+            **kwargs,
+        )
+
+    monkeypatch.setattr("intent_packages.factory.journey.OrchestratorApi", _constructed_by_submit)
+    return seen
+
+
+def _submit_argv(package, *extra):
+    return [
+        "submit",
+        "--package",
+        str(package),
+        "--source-repository",
+        "AlobarQuest/intent-packages",
+        *extra,
+    ]
 
 
 def test_submit_through_the_entrypoint(tmp_path, capsys, monkeypatch):
     """The whole verb, driven by `main(argv)`: parser wiring, package resolution,
-    payload emission, clipboard, deep link, and the resume instruction."""
+    payload emission, the staging POST, the review link, and the resume line."""
+    import json
+
     monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
-    copied = _patch_submit_boundaries(monkeypatch)
+    seen = _patch_submit_boundaries(monkeypatch)
     package = _approved_package_dir(tmp_path)
     capsys.readouterr()
 
-    rc = main(
-        ["submit", "--package", str(package), "--source-repository", "AlobarQuest/intent-packages"]
-    )
+    rc = main(["--verbose", *_submit_argv(package)])
     assert rc == 0
-    out = capsys.readouterr().out
-    assert "https://sds.example/review/intakes/new" in out
-    assert "waiting on your approval" in out
-    assert "factory status --revision" in out
-    # The parsed flags actually reached `emit_intake_payload`.
-    assert len(_FakeOrchestratorClient.calls) == 1
-    package_path, source_repository, idempotency_key = _FakeOrchestratorClient.calls[0]
+    captured = capsys.readouterr()
+    assert f"https://sds.example{STAGED_PATH}" in captured.out
+    assert "registers nothing" in captured.out
+    assert "factory status --revision" in captured.out
+    assert "POST /api/v1/staged-intakes -> 201" in captured.out
+    assert SUBMIT_TOKEN not in captured.out + captured.err
+    # The parsed flags actually reached `emit_intake_payload`...
+    [(package_path, source_repository, idempotency_key)] = _FakeOrchestratorClient.calls
     assert package_path == str(package)
     assert source_repository == "AlobarQuest/intent-packages"
-    assert idempotency_key.startswith("factory-submit-")
-    # ...and the emitted payload reached the clipboard.
-    assert len(copied) == 1
-    assert "factory-submit-" in copied[0]
+    assert idempotency_key.startswith("factory-submit-probe-r1-")
+    # ...and the emitted payload is exactly what was staged, as SYSTEM.
+    [request] = seen.requests
+    assert request.method == "POST"
+    assert request.headers["x-credential-key-id"] == "orchestrator-system"
+    assert request.headers["authorization"] == f"Bearer {SUBMIT_TOKEN}"
+    assert json.loads(request.content) == {
+        "idempotency_key": idempotency_key,
+        "source_repository": "AlobarQuest/intent-packages",
+    }
+    assert seen.copied == []
+
+
+def test_submit_through_the_entrypoint_rerun_stages_under_the_same_key(tmp_path, monkeypatch):
+    seen = _patch_submit_boundaries(monkeypatch)
+    package = _approved_package_dir(tmp_path)
+    assert main(_submit_argv(package)) == 0
+    assert main(_submit_argv(package)) == 0
+    first, second = (call[2] for call in _FakeOrchestratorClient.calls)
+    assert first == second
+    assert len(seen.requests) == 2
+
+
+def test_submit_through_the_entrypoint_passes_the_key_override(tmp_path, monkeypatch):
+    _patch_submit_boundaries(monkeypatch)
+    package = _approved_package_dir(tmp_path)
+    assert main(_submit_argv(package, "--idempotency-key", "restage-2")) == 0
+    assert _FakeOrchestratorClient.calls[0][2] == "restage-2"
+
+
+def test_submit_through_the_entrypoint_reports_a_refusal(tmp_path, capsys, monkeypatch):
+    _patch_submit_boundaries(
+        monkeypatch,
+        status=409,
+        body={
+            "error": {
+                "code": "intake_already_registered",
+                "message": "package revision is already registered",
+                "recovery": None,
+            }
+        },
+    )
+    package = _approved_package_dir(tmp_path)
+    capsys.readouterr()
+    assert main(_submit_argv(package)) == 1
+    captured = capsys.readouterr()
+    assert "intake_already_registered: package revision is already registered" in captured.err
+    assert SUBMIT_TOKEN not in captured.out + captured.err
 
 
 def test_submit_through_the_entrypoint_refuses_an_unapproved_package(tmp_path, capsys, monkeypatch):
     """The refusal path through the real wiring: a draft package must not even
-    reach `emit_intake_payload`, and the operator gets the `intent_packages`
-    commands that would fix it."""
-    _patch_submit_boundaries(monkeypatch)
+    reach `emit_intake_payload`, nothing is staged, and the operator gets the
+    `intent_packages` commands that would fix it."""
+    seen = _patch_submit_boundaries(monkeypatch)
     main(CREATE_PROBE + [str(tmp_path)])
     capsys.readouterr()
 
-    rc = main(
-        [
-            "submit",
-            "--package",
-            str(tmp_path / "probe"),
-            "--source-repository",
-            "AlobarQuest/probe",
-        ]
-    )
+    rc = main(_submit_argv(tmp_path / "probe"))
     assert rc == 1
     err = capsys.readouterr().err
     assert "is not approved" in err
     assert "intent_packages approve" in err
     assert _FakeOrchestratorClient.calls == []
+    assert seen.requests == []
 
 
-def test_submit_through_the_entrypoint_cannot_post_an_intake(tmp_path, monkeypatch):
-    """ADR-0006, proven on the path the CLI actually takes.
-
-    `test_journey.py` already forecloses `OrchestratorApi` construction inside
-    `journey.submit`; this does it for `main(["submit", ...])`, so a regression
-    that made `_run_submit` build a client (or route through a different
-    function) is caught too.
-    """
+def test_submit_print_through_the_entrypoint_copies_and_never_stages(tmp_path, capsys, monkeypatch):
+    """`--print`, the escape hatch, on the path the CLI actually takes: the
+    payload goes to the clipboard for the paste form, and no request is made."""
     monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
-    _patch_submit_boundaries(monkeypatch)
-
-    def _exploding_init(self, *args, **kwargs):
-        raise AssertionError("submit must not construct an OrchestratorApi")
-
-    from intent_packages.factory.api import OrchestratorApi as _Api
-
-    monkeypatch.setattr(_Api, "__init__", _exploding_init)
-
+    seen = _patch_submit_boundaries(monkeypatch)
     package = _approved_package_dir(tmp_path)
-    assert (
-        main(["submit", "--package", str(package), "--source-repository", "AlobarQuest/probe"]) == 0
-    )
+    capsys.readouterr()
+
+    assert main(_submit_argv(package, "--print")) == 0
+    out = capsys.readouterr().out
+    assert "https://sds.example/review/intakes/new" in out
+    assert "factory status --revision" in out
+    assert seen.requests == []
+    [text] = seen.copied
+    assert "factory-submit-probe-r1-" in text
 
 
-def test_submit_open_flag_reaches_the_browser(tmp_path, monkeypatch):
-    """`--open` is the only submit flag with an out-of-process effect; assert it
-    is wired rather than trusting the parser."""
+@pytest.mark.parametrize(
+    ("extra", "expected"),
+    [
+        ((), f"https://sds.example{STAGED_PATH}"),
+        (("--print",), "https://sds.example/review/intakes/new"),
+    ],
+)
+def test_submit_open_flag_reaches_the_browser(tmp_path, monkeypatch, extra, expected):
+    """`--open` opens the page that applies: the staged row, or the paste form."""
     monkeypatch.setenv("ORCHESTRATOR_API_URL", "https://sds.example")
     _patch_submit_boundaries(monkeypatch)
     opened: list[str] = []
@@ -306,20 +409,8 @@ def test_submit_open_flag_reaches_the_browser(tmp_path, monkeypatch):
     )
 
     package = _approved_package_dir(tmp_path)
-    assert (
-        main(
-            [
-                "submit",
-                "--package",
-                str(package),
-                "--source-repository",
-                "AlobarQuest/probe",
-                "--open",
-            ]
-        )
-        == 0
-    )
-    assert opened == ["https://sds.example/review/intakes/new"]
+    assert main(_submit_argv(package, "--open", *extra)) == 0
+    assert opened == [expected]
 
 
 def test_submit_without_open_does_not_touch_the_browser(tmp_path, monkeypatch):
@@ -331,9 +422,7 @@ def test_submit_without_open_does_not_touch_the_browser(tmp_path, monkeypatch):
 
     monkeypatch.setattr("intent_packages.factory.journey.webbrowser.open", _explode)
     package = _approved_package_dir(tmp_path)
-    assert (
-        main(["submit", "--package", str(package), "--source-repository", "AlobarQuest/probe"]) == 0
-    )
+    assert main(_submit_argv(package)) == 0
 
 
 def test_submit_requires_its_flags():

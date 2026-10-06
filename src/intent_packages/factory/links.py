@@ -4,14 +4,15 @@ Pure string composition, no I/O. Human gates are browser-only permanently
 (ADR-0006), so a deep link is the entire mechanism by which this CLI crosses
 one.
 
-These THREE are every page a `factory` verb actually links to: the intake form
-(`submit`), a decomposition proposal (`status`), and a unit (`status`,
-`verify`). Two more once lived here -- `intake(base_url, revision_id)` and
-`unit_evidence_pack(...)` -- alongside a docstring claiming "these four ...
-there is no fifth" while five existed and two had no caller at all. Both are
-deleted rather than kept warm: `submit` already tells the operator to resume
-with `factory status --revision <id>` rather than re-linking the intake page,
-and the evidence pack is fetched by `factory evidence`, not browsed. Add one
+These FOUR are every page a `factory` verb actually links to: a staged intake
+(`submit`), the paste form (`submit --print`), a decomposition proposal
+(`status`), and a unit (`status`, `verify`). Two more once lived here --
+`intake(base_url, revision_id)` and `unit_evidence_pack(...)` -- alongside a
+docstring claiming "these four ... there is no fifth" while five existed and
+two had no caller at all. Both are deleted rather than kept warm: `submit`
+already tells the operator to resume with `factory status --revision <id>`
+rather than re-linking the intake page, and the evidence pack is fetched by
+`factory evidence`, not browsed. Add one
 back when a verb needs it, not before.
 """
 
@@ -20,6 +21,12 @@ from __future__ import annotations
 
 def _root(base_url: str) -> str:
     return base_url.rstrip("/")
+
+
+def staged_intake(base_url: str, review_path: str) -> str:
+    """The orchestrator returns the page as a path (`/review/staged-intakes/{id}`), so this
+    joins it to the base rather than rebuilding it from the id."""
+    return f"{_root(base_url)}/{review_path.lstrip('/')}"
 
 
 def intake_new(base_url: str) -> str:

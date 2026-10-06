@@ -105,7 +105,7 @@ locally where it safely can, but it never invents an approval, a merge, or a hum
 | `validate` | Validate a package directory or `package.yaml`. |
 | `route` | Resolve a model from `routing-policy.toml` by `--surface` or `--change-class`. |
 | `decompose` | Author + validate a dependency-update decomposition proposal for an intaken revision. |
-| `submit` | Stage an intake payload, copy it, and print the `/review/intakes/new` link. Stops there. |
+| `submit` | SYSTEM: stage the intake with the orchestrator and print its `/review/staged-intakes/{id}` link, where you confirm it. Registers nothing. `--print` copies the payload for the `/review/intakes/new` paste form instead. |
 | `status` | One screen for a revision: intake, proposals, units, and the next action. `--wait` polls until a unit's state changes. |
 | `evidence` | Fetch a revision's or a unit's evidence pack (`--unit-key`; `--markdown` for the redacted PR-comment form). |
 | `ready` | SYSTEM: move a unit `DRAFT -> READY` (an authority approval alone never does this). |
@@ -123,7 +123,7 @@ Without `--submit` it validates and prints the proposal only. It never approves 
 
 ### Credentials
 
-`ready`, `dispatch`, `status`, `evidence` and decomposition submission use the **SYSTEM** role;
+`submit`, `ready`, `dispatch`, `status`, `evidence` and decomposition submission use the **SYSTEM** role;
 `verify` uses the **VERIFIER** role. Each resolves its bearer token from the environment first,
 falling back to Bitwarden Secrets Manager (`bws secret get`, keyed by the UUIDs in
 `.bws-secrets.toml`) when `BWS_ACCESS_TOKEN` is set:
@@ -159,6 +159,34 @@ only the request line.
 No `factory` verb can act as a human, and none ever will — there is no `--as-human`, `--human`,
 `--force`, or `--impersonate` flag, and the orchestrator's own decomposition- and
 authority-approval routes require a real `HUMAN` actor. Where the flow reaches a human gate
-(package intake, decomposition approval, authority approval), the CLI **stops**: it stages the
-payload, copies it to the clipboard, and prints a `/review` deep link for you to act on in a
-browser. `submit` is the clearest example — it can never complete an intake itself, by design.
+(package intake, decomposition approval, authority approval), the CLI **stops** and prints a
+`/review` deep link for you to act on in a browser. `submit` is the clearest example — it can never
+complete an intake itself, by design.
+
+### `submit`: the CLI stages, you confirm (ADR-0006 amendment 1)
+
+```bash
+factory submit --package packages/<id> --source-repository AlobarQuest/intent-packages [--open]
+```
+
+`submit` emits the verified payload (`orchestrator emit-intake-payload`, run locally) and POSTs it
+to `POST /api/v1/staged-intakes` as **SYSTEM**. The orchestrator runs every check registration
+would run and refuses with the same error code, which `submit` prints before exiting non-zero.
+Otherwise it holds the payload as a staged row and `submit` prints that row's page,
+`/review/staged-intakes/{id}`: what the package does, what it affects, and whether it can be backed
+out, then one Confirm button. **Staging registers nothing.** Only your Confirm, in a browser signed
+in to Alobar ID, registers the intake; no machine credential can.
+
+The staging key is `factory-submit-<package_id>-r<revision>-<first 16 hex of the canonical hash>`,
+so running `submit` again for the same approved revision replays the row it already staged instead
+of staging a second one. Two cases need a new key, passed with `--idempotency-key <key>`:
+
+- `idempotency_conflict`: the revision was staged from a different payload. The payload carries
+  the checkout's git HEAD (`source_commit`) and the package path, so a commit or a different
+  checkout changes it. Confirm the row already staged, or withdraw it on its page and re-stage.
+- A row you withdrew can never be confirmed, and `submit` says so rather than printing a dead
+  link.
+
+**The escape hatch** is `factory submit --print`: it stages nothing and copies the payload to your
+clipboard for the `/review/intakes/new` paste form, exactly as `submit` did before staging existed.
+The paste form takes its idempotency key from its own form field, not the pasted payload.

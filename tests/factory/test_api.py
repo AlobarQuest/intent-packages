@@ -63,7 +63,9 @@ def test_system_routes_use_the_system_credential():
     api = _api(handler)
     api.dispatch("u1", {"idempotency_key": "k", "runner_attempt": 1, "expected_version": 1})
     api.command("u1", "ready", {"idempotency_key": "k", "expected_version": 1})
+    api.stage_intake({"idempotency_key": "k", "expected_version": 0})
     assert seen == {
+        "/api/v1/staged-intakes": "orchestrator-system",
         "/api/v1/work-units/u1/dispatch": "orchestrator-system",
         "/api/v1/work-units/u1/commands/ready": "orchestrator-system",
     }
