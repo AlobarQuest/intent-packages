@@ -156,6 +156,7 @@ def test_build_envelope_uv_dual_site_orders_mutators_before_verifier(tmp_path):
         "uv add --frozen --optional dev 'ruff>=0.15.22'",
         "uv lock",
     ]
+    assert env["constraints"]["verify_commands"] == ["uv lock --check"]
 
 
 def test_build_envelope_shape_matches_contract(tmp_path):
@@ -178,6 +179,9 @@ def test_build_envelope_shape_matches_contract(tmp_path):
     ]
     assert env["constraints"]["mutation_commands"] == [
         "sed -i 's/^fastapi==0.139.0$/fastapi==0.139.2/' requirements.txt",
+    ]
+    assert env["constraints"]["verify_commands"] == [
+        "grep -qx 'fastapi==0.139.2' requirements.txt",
     ]
     assert env["capabilities"]["command.run"] == "allowed"
 
@@ -346,6 +350,9 @@ def test_build_envelope_npm_grants_the_build_and_verifies_with_npm_ci(tmp_path):
     grep = 'grep -q \'"typescript": "7.0.2"\' package.json'
     assert env["constraints"]["allowed_commands"] == [install, "npm run build", "npm ci", grep]
     assert env["constraints"]["mutation_commands"] == [install, "npm run build"]
+    # The build is a mutator, so it is not in the verify script, which is exactly the verifiers:
+    # finalize runs the same commands in the same order it ran before `verify_commands` existed.
+    assert env["constraints"]["verify_commands"] == ["npm ci", grep]
 
 
 def test_npm_verifier_runs_npm_ci_when_the_repo_tracks_a_lockfile(tmp_path):
@@ -373,3 +380,83 @@ def test_npm_verifier_omits_npm_ci_without_a_lockfile(tmp_path):
     assert dep.TOOLING_PROFILES["npm"].verifier_commands(
         tmp_path, "zod", "3.23.8", "3.24.0", sites
     ) == ['grep -q \'"zod": "3.24.0"\' package.json']
+
+
+def _envelopes_for_every_tooling(tmp_path):
+    """One real envelope per tooling profile, each built against its own minimal checkout."""
+    green = {"accepted_standards": [], "standards_touched": ["project"], "status": "green"}
+    pip_repo = tmp_path / "pip"
+    pip_repo.mkdir()
+    _write(pip_repo, "requirements.txt", "fastapi==0.139.0\n")
+    uv_repo = tmp_path / "uv"
+    uv_repo.mkdir()
+    _write(uv_repo, "pyproject.toml", '[dependency-groups]\ndev = ["ruff==0.15.21"]\n')
+    npm_repo = tmp_path / "npm"
+    npm_repo.mkdir()
+    _write(
+        npm_repo,
+        "package.json",
+        _json.dumps({"scripts": {"build": "tsc"}, "devDependencies": {"typescript": "5.9.3"}}),
+    )
+    _write(npm_repo, "package-lock.json", _json.dumps({"lockfileVersion": 3}))
+    cases = (
+        ("pip", pip_repo, "fastapi", "0.139.0", "0.139.2"),
+        ("uv", uv_repo, "ruff", "0.15.21", "0.15.22"),
+        ("npm", npm_repo, "typescript", "5.9.3", "7.0.2"),
+    )
+    for tooling, repo, package, old, new in cases:
+        sites = dep.TOOLING_PROFILES[tooling].discover_pin_sites(repo, package)
+        assert sites, tooling
+        yield (
+            tooling,
+            dep.build_envelope(
+                "AlobarQuest/brain", tooling, package, old, new, green, sites, repo=repo
+            ),
+        )
+
+
+def test_every_profile_s_verify_script_is_one_the_runner_accepts(tmp_path):
+    """SDS 1.1 3c-1: factory-runner and the orchestrator refuse anything else at ingress."""
+    for tooling, env in _envelopes_for_every_tooling(tmp_path):
+        constraints = env["constraints"]
+        verify = constraints["verify_commands"]
+        assert verify, tooling
+        assert all(command in constraints["allowed_commands"] for command in verify), tooling
+        assert not set(verify) & set(constraints["mutation_commands"]), tooling
+
+
+def test_declaring_the_verify_script_changes_nothing_finalize_runs(tmp_path):
+    """The script with the key (mutators in allowed order, then verify_commands) equals the
+    script without it (allowed_commands), so no profile envelope runs differently."""
+    for tooling, env in _envelopes_for_every_tooling(tmp_path):
+        constraints = env["constraints"]
+        mutations = set(constraints["mutation_commands"])
+        script = [command for command in constraints["allowed_commands"] if command in mutations]
+        assert script + constraints["verify_commands"] == constraints["allowed_commands"], tooling
+
+
+def test_a_profile_without_a_verifier_emits_no_verify_key(tmp_path, monkeypatch):
+    """Absent and empty differ at the runner: a present key must be non-empty."""
+    import dataclasses
+
+    profile = dep.TOOLING_PROFILES["pip"]
+    monkeypatch.setitem(
+        dep.TOOLING_PROFILES,
+        "pip",
+        dataclasses.replace(profile, verifier_commands=lambda *_args: []),
+    )
+    _write(tmp_path, "requirements.txt", "fastapi==0.139.0\n")
+    sites = dep.TOOLING_PROFILES["pip"].discover_pin_sites(tmp_path, "fastapi")
+
+    env = dep.build_envelope(
+        "AlobarQuest/brain",
+        "pip",
+        "fastapi",
+        "0.139.0",
+        "0.139.2",
+        {"accepted_standards": [], "standards_touched": ["project"], "status": "green"},
+        sites,
+        repo=tmp_path,
+    )
+
+    assert "verify_commands" not in env["constraints"]

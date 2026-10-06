@@ -96,8 +96,10 @@ def test_envelope_key_set_is_the_pinned_contract(tmp_path):
         "allowed_commands",
         "mutation_commands",
         "target_repository",
+        "verify_commands",
     }
     assert envelope["constraints"]["allowed_commands"][-1] == "uv lock --check"
+    assert envelope["constraints"]["verify_commands"] == ["uv lock --check"]
 
 
 def test_old_registry_name_is_gone():

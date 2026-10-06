@@ -216,7 +216,7 @@ def run(
         # It therefore executes every envelope command except those whose failure is
         # the assignment rather than a refusal -- see `commands_deferred_to_coding`.
         # The envelope itself is unnarrowed: the agent may run all of it, and
-        # `finalize-run` re-executes all of it after the work.
+        # `finalize-run` re-executes every mutator and then `verify_commands` after the work.
         deferred = commands_deferred_to_coding(local_repo, tooling)
         unknown = [command for command in deferred if command not in allowed]
         if unknown:
