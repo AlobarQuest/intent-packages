@@ -308,9 +308,9 @@ def commands_deferred_to_coding(repo: Path, tooling: str) -> tuple[str, ...]:
     the dependency graph cannot resolve, which no in-scope source change fixes, so
     authoring must run them. A build failing is the assignment, so authoring must not.
 
-    Deferred is not unenforced: `finalize-run` re-executes the whole of
-    `allowed_commands` after the coding phase, so the build still has to pass before
-    anything is pushed.
+    Deferred is not unenforced: `finalize-run` re-executes every mutator and then the
+    `verify_commands` script after the coding phase, so the build -- a mutator -- and the
+    gate components -- verifiers -- still have to pass before anything is pushed.
     """
     if tooling != "npm":
         return ()
@@ -425,16 +425,24 @@ def build_envelope(
     if not mutations:
         raise ProfileError(f"{tooling}: no mutation commands (no pin sites for {package}?)")
     verifiers = profile.verifier_commands(repo, package, old, new, sites)
+    # `allowed_commands` is the agent's whole Bash vocabulary; `verify_commands` is the script
+    # factory-runner executes after the mutators at finalize (SDS 1.1 item 3c-1). Declared
+    # explicitly so the vocabulary can grow without the script growing with it. Absent and empty
+    # are different to the runner -- a present key must be non-empty -- so a profile with no
+    # verifier emits no key and finalize replays `allowed_commands` as before.
+    constraints: dict = {
+        "allowed_commands": [*mutations, *verifiers],
+        "mutation_commands": list(mutations),
+        "target_repository": target_repo,
+    }
+    if verifiers:
+        constraints["verify_commands"] = list(verifiers)
     return {
         "budgets": dict(BUDGETS),
         "capabilities": dict(CAPABILITIES),
         "change_class": "dependency-update",
         "conformance": conformance,
-        "constraints": {
-            "allowed_commands": [*mutations, *verifiers],
-            "mutation_commands": list(mutations),
-            "target_repository": target_repo,
-        },
+        "constraints": constraints,
     }
 
 

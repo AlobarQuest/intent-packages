@@ -47,10 +47,14 @@ _AC_ID_COMMENT = (
 )
 
 _DEPENDENCY_UPDATE_ENVELOPE_COMMENT = (
-    "# allowed_commands is an ORDERED list the worker re-executes at finalize, not a\n"
-    "# permission set: put mutators first and the verifier last, or the recorded\n"
-    "# evidence attests to a tree that is not the one pushed. `make check` must never\n"
-    "# appear in this repo's envelope. Use `uv venv --clear`, never bare `uv venv`.\n"
+    "# allowed_commands is an ORDERED list, and also the agent's whole command vocabulary.\n"
+    "# Without verify_commands the worker re-executes all of it at finalize. With it, the\n"
+    "# worker runs the mutators in allowed_commands order, then verify_commands in its\n"
+    "# own order; verify_commands must be a subset of allowed_commands and share no\n"
+    "# command with mutation_commands, and nothing else is run. Either way, put\n"
+    "# mutators first and the verifier last, or the recorded evidence attests to a tree\n"
+    "# that is not the one pushed. `make check` must never appear in this repo's envelope.\n"
+    "# Use `uv venv --clear`, never bare `uv venv`.\n"
 )
 
 
