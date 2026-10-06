@@ -4,9 +4,12 @@ BASE = "https://sds.alobar.net"
 
 
 def test_every_link_builder():
-    """Three builders, and the module's docstring says three -- the previous
+    """Four builders, and the module's docstring says four -- the previous
     version of this test was named for five while the docstring claimed four,
     and two of the five had no caller anywhere (C4)."""
+    assert links.staged_intake(BASE, "/review/staged-intakes/s1") == (
+        f"{BASE}/review/staged-intakes/s1"
+    )
     assert links.intake_new(BASE) == f"{BASE}/review/intakes/new"
     assert links.decomposition_proposal(BASE, "p1") == f"{BASE}/review/decomposition-proposals/p1"
     assert links.unit(BASE, "u1") == f"{BASE}/review/units/u1"
@@ -29,10 +32,13 @@ def test_the_module_exposes_no_uncalled_builders():
     callers = "".join(
         Path(module.__file__ or "").read_text() for module in (journey, execution, verify)
     )
-    assert builders == {"intake_new", "decomposition_proposal", "unit"}
+    assert builders == {"staged_intake", "intake_new", "decomposition_proposal", "unit"}
     for name in builders:
         assert f"links.{name}(" in callers, f"links.{name} has no caller in a factory verb"
 
 
 def test_trailing_slash_on_base_is_normalised():
     assert links.intake_new(f"{BASE}/") == f"{BASE}/review/intakes/new"
+    assert links.staged_intake(f"{BASE}/", "/review/staged-intakes/s1") == (
+        f"{BASE}/review/staged-intakes/s1"
+    )
