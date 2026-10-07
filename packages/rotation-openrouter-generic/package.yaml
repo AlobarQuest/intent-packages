@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-openrouter-generic
 title: Standing rotation of the generic OpenRouter API key (openrouter-generic)
 revision: 1
-status: ready_for_review
+status: approved
 created_by: factory-create
 owner: devon
 created_at: '2026-10-07T12:42:59Z'

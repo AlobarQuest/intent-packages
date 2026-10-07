@@ -1,5 +1,5 @@
 package_id: rotation-openrouter-generic
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: c1b259d7f6b876cdeac9c425385917ecf4068e95c4497947ba14a3f1b9405d8b
@@ -13,5 +13,11 @@ transitions:
   at: '2026-10-07T12:44:02.849327+00:00'
   actor: claude-code-interactive
   event_id: evt-97c65e0d27d24e2cbac0fbe5d34a5e08
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: c1b259d7f6b876cdeac9c425385917ecf4068e95c4497947ba14a3f1b9405d8b
+  approver: devon
+  approved_at: '2026-10-07T12:47:35.451179+00:00'
+  commit: 8aba6c2d6d5ffe7749b50cfac604df8a7763a5f9
+  event_id: evt-71d406299d58414e81d1c526d5ccc93b
 grants: []
