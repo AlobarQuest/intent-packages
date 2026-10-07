@@ -1,0 +1,176 @@
+schema_version: 1
+package_id: orchestrator-tzdata-bump
+title: Bump tzdata to 2026.5 in orchestrator
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-10-07T18:24:29Z'
+supersedes: null
+reach:
+- source_repository
+profile: dependency-update
+profile_fields:
+  target_repo: AlobarQuest/orchestrator
+  package: tzdata
+  from_version: '2026.4'
+  to_version: '2026.5'
+  standing: false
+outcome:
+  what: >-
+    orchestrator's tzdata dependency moves to 2026.5. The declared constraint in
+    pyproject.toml goes from `tzdata>=2025.1` to `tzdata>=2026.5` and uv.lock re-resolves
+    tzdata from 2026.4 to 2026.5. Two files change and nothing else.
+  why: >-
+    It is the first factory unit to land in the orchestrator since Devon re-enabled it as a
+    factory target on 2026-10-07 (ADR-0015 amendment), and the release that ships it closes
+    Wave-2 exit clause 2: scripts/deploy_orchestrator.py's image-release step binds the unit
+    to the release and verifies it after deploy. tzdata was chosen because it is data only,
+    has one pin site, and is used for time-zone lookups the orchestrator's change windows
+    read, so a stale copy is a slow correctness risk rather than a feature gap.
+  beneficiary: >-
+    The delivery system, whose Wave-2 exit bar gains its post-deployment observation of a
+    release; and the orchestrator, which keeps current IANA time-zone data.
+  success_signal: >-
+    A pull request against AlobarQuest/orchestrator in which pyproject.toml declares
+    `tzdata>=2026.5`, uv.lock resolves tzdata 2026.5, `uv lock --check` exits 0, and the
+    repository's `Quality` job concludes success on the pull-request head.
+scope:
+  included:
+  - Raise the declared tzdata constraint and re-resolve uv.lock.
+  excluded:
+  - Any change to orchestrator's own source.
+  - >-
+    Deploying orchestrator. App Brain records this repository as inert, so a landed pull
+    request changes nothing that is running. The deploy is a separate act, run with
+    scripts/deploy_orchestrator.py after the unit completes.
+  - Any other outdated dependency, including Dependabot's open sqlalchemy 2.1 pull request.
+  non_goals:
+  - Changing how the orchestrator reads time zones.
+  assumptions:
+  - >-
+    tzdata 2026.5 (released 2026-10-03) is a data-only update compatible with orchestrator's
+    source. Verified to the extent that uv resolves the tree and the repository's `Quality`
+    job runs the full test suite on the pull-request head.
+  open_questions: []
+sources:
+- location: >-
+    Devon's decision on 2026-10-07 to make the orchestrator a factory target again and close
+    Wave-2 exit clause 2 with one factory unit landed and deployed there, with
+    source_repository reach. tzdata 2026.5 on PyPI is the signal that the upgrade exists.
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: >-
+    uv is the only tooling. The mutation is `uv add`, the verifier is `uv lock --check`.
+    `uv run` is excluded, and `make check` must never appear in this repository's envelope:
+    it needs Postgres and SECURITY_STANDARDS_DIR. The tests run in CI's `Quality` job.
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: >-
+    Do not dispatch this unit while an orchestrator deploy is between its prepare and finish
+    phases (ADR-0015 amendment of 2026-10-07).
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    A pull request against AlobarQuest/orchestrator moves tzdata to 2026.5 in both
+    pyproject.toml and uv.lock, changes no other file, and the repository's `Quality` job
+    concludes success on the pull-request head.
+  evidence_type: automated_check
+  evidence: >-
+    ci: the target repository's `Quality` job on the pull-request head, observed from
+    GitHub by the orchestrator rather than asserted by the caller.
+  approver: policy
+
+# allowed_commands is an ORDERED list, and also the agent's whole command vocabulary.
+# Without verify_commands the worker re-executes all of it at finalize. With it, the
+# worker runs the mutators in allowed_commands order, then verify_commands in its
+# own order; verify_commands must be a subset of allowed_commands and share no
+# command with mutation_commands, and nothing else is run. Either way, put
+# mutators first and the verifier last, or the recorded evidence attests to a tree
+# that is not the one pushed. `make check` must never appear in this repo's envelope.
+# Use `uv venv --clear`, never bare `uv venv`.
+#
+# `merge_to_main` stays under requires_approval, where ADR-0001 puts it. The decomposition
+# author projects it as `github.pr.merge`, and the approval it requires is the human
+# authority approval bound to that envelope's exact fingerprint.
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 360
+deliverables:
+  artifacts:
+  - >-
+    A pull request against AlobarQuest/orchestrator changing exactly pyproject.toml and
+    uv.lock, merged by the orchestrator once AC-001 is decided.
+  destination: AlobarQuest/orchestrator
+  recipient: devon
+  definition_of_done: >-
+    The pull request is merged, its diff confined to those two files, the unit is completed,
+    and the landing ledger has recorded the landing.
+  operator_responsibilities:
+  - A merge into a production system must trace to recorded permission - either express
+    permission given at the time of the merge, or a standing pre-authorization - recorded
+    as evidence bound to this work unit. A merge that cannot be traced to one of those
+    is a defect, whoever performed it. Outside production this constraint does not
+    apply.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    ADR-0015 amendment of 2026-10-07 - the orchestrator is a factory target again. Without it
+    dispatch admission refuses this unit as target_repository_not_declared.
+  - ADR-0020 - the factory closes its own loop.
+  required_people_systems: []
+  required_capabilities:
+  - merge_to_main
+  blocking_conditions:
+  - >-
+    The unit's authority envelope must grant `github.pr.merge` at `allowed` - the projection
+    of the `merge_to_main` term above into the unit capability vocabulary.
+risk:
+  failure_modes:
+  - >-
+    tzdata 2026.5 breaks a test and the `Quality` job fails on the pull-request head. The
+    pull request is not merged; nothing is affected, because a pull request is inert here.
+  - >-
+    uv resolves a wider set of transitive changes than expected. Visible in the diff before
+    any merge, and a stop condition.
+  max_impact: low
+  stop_conditions:
+  - The diff touches any file other than pyproject.toml and uv.lock.
+  rollback: >-
+    Before merge, close the pull request. After merge, revert the commit on orchestrator's
+    main; that deploys nothing, because the landing is inert. After a deploy, redeploy the
+    previous image with scripts/deploy_orchestrator.py.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'

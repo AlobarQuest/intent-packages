@@ -14,6 +14,7 @@
   "intent-packages-ruff-format": "318f73a71ec7bef1ea74bd57e0887145e51a3055d8e82495f84e0757f4d9de6f",
   "orchestrator-httpx2-bump": "7404f9710d07f9a70fd060de1b3d716a4a2d78c99a96f6e9dde0e6429b9bd5d1",
   "orchestrator-production-deploy": "2f6bc7da07aa00106cb6008fc8a85878e001652f6ec645bf25a37760d84c2e7d",
+  "orchestrator-tzdata-bump": "694bdf17d402365cb3c9284b92ec18d5462ad6d46ef1da6199b06f007e523af1",
   "pre-phase4-foundation-cleanliness": "b66d56799e8e0709d73e57b36d56f344f54b9a8bb6cb5c0b0f4e2823042a1824",
   "rotation-openrouter-generic": "c1b259d7f6b876cdeac9c425385917ecf4068e95c4497947ba14a3f1b9405d8b",
   "ws-2.2-domain-profiles": "7e3e296e625b41c43dbc2c8e4a2adb00a241e2330a835c6317a248adc7ef417b",
