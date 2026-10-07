@@ -18,6 +18,20 @@ PROFILE_FIELDS_SCHEMA = MapSpec(
         "owner": _s(str),
         "operating_procedure": _s(str),
         "external_systems": OptionalKey(ListSpec(_s(str))),
+        # ADR-0054. A STANDING package rotates one credential and is revised once per
+        # rotation (the ADR-0028 shape). Declared by the AUTHOR, never by the producer that
+        # revises it. The two fields below are required when it is set, and optional
+        # otherwise, so every package written before ADR-0054 validates and hashes as before.
+        "standing": OptionalKey(_s(bool)),
+        # The id this credential has in infraops' `.cred-consumers.toml`. A standing fact:
+        # written once by the author, never by a revision.
+        "credential_id": OptionalKey(_s(str)),
+        # What THIS revision rotates for: the per-revision value, as from_version/to_version
+        # are for a standing dependency-update package. A free string naming the trigger
+        # (e.g. '2026-10-07-exposure'), not a date: two rotations of one credential on one
+        # day must still be told apart, and a format rule here would be a second vocabulary.
+        # QUOTE IT: an unquoted 2026-10-07 loads as a YAML date and fails `str`.
+        "occurrence": OptionalKey(_s(str)),
     }
 )
 
@@ -28,6 +42,7 @@ TAG_TO_EVIDENCE_TYPE = {
 }
 
 _NON_EMPTY_STRING_FIELDS = ("owner", "operating_procedure")
+_STANDING_REQUIRED_FIELDS = ("credential_id", "occurrence")
 
 
 def _check_profile_fields(package: dict) -> list[str]:
@@ -45,6 +60,14 @@ def _check_profile_fields(package: dict) -> list[str]:
         value = fields.get(key)
         if isinstance(value, str) and not value.strip():
             errors.append(f"profile_fields.{key}: must be a non-empty string")
+    if fields.get("standing") is True:
+        for key in _STANDING_REQUIRED_FIELDS:
+            value = fields.get(key)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(
+                    f"profile_fields.{key}: required, as a non-empty string, when "
+                    "profile_fields.standing is true"
+                )
     return errors
 
 
