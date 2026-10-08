@@ -105,6 +105,20 @@ def test_error_envelope_is_surfaced_verbatim():
     assert error.value.current_version == 7
 
 
+def test_an_answer_with_no_orchestrator_envelope_names_the_url_it_came_from():
+    """Kills: a bare `HTTP 404`. With the localhost default, another local service answering is
+    indistinguishable from the orchestrator refusing unless the message says where it asked."""
+
+    def handler(request):
+        return httpx.Response(404, text="<html>not found</html>")
+
+    with pytest.raises(ApiError) as error:
+        _api(handler).get_intake("r1")
+    assert error.value.code == "http_error"
+    assert "https://sds.example/api/v1/package-intakes/r1" in str(error.value.message)
+    assert "ORCHESTRATOR_API_URL" in str(error.value.message)
+
+
 def test_401_is_annotated_and_not_retried():
     calls = []
 
