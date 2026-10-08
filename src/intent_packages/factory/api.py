@@ -270,7 +270,15 @@ def _error_from(response: httpx.Response) -> ApiError:
         body = {}
     detail = body.get("error") if isinstance(body, dict) else None
     if not isinstance(detail, dict):
-        detail = {"code": "http_error", "message": f"HTTP {response.status_code}"}
+        # No orchestrator error envelope: the answer may be from another service entirely (the
+        # default base URL is localhost, and whatever listens there answers). Name the URL.
+        detail = {
+            "code": "http_error",
+            "message": (
+                f"HTTP {response.status_code} from {response.request.url}, which is not an "
+                "orchestrator error; check ORCHESTRATOR_API_URL"
+            ),
+        }
     recovery = detail.get("recovery")
     if response.status_code == 401:
         recovery = _UNAUTHORIZED_RECOVERY
