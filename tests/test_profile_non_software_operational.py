@@ -228,3 +228,47 @@ def test_a_standing_rotation_package_is_revised_per_occurrence(
     assert [a["revision"] for a in approvals] == [1, 2]
     assert approvals[0]["approved_hash"] == first
     assert approvals[1]["approved_hash"] == package_hash(package) != first
+
+
+def test_the_approved_openrouter_rotation_package_hashes_as_approved():
+    """`destinations` is optional, so revision 1, approved before ADR-0055, is unchanged.
+
+    The literal is the `approved_hash` in that package's lineage.
+    """
+    pkg_dir = REPO_ROOT / "packages" / "rotation-openrouter-generic"
+    assert validate_package(pkg_dir) == []
+    package = yaml.safe_load((pkg_dir / "package.yaml").read_text(encoding="utf-8"))
+    assert "destinations" not in package["profile_fields"]
+    assert package_hash(package) == (
+        "c1b259d7f6b876cdeac9c425385917ecf4068e95c4497947ba14a3f1b9405d8b"
+    )
+
+
+DESTINATIONS = ["bws-secret Rotation / Keeper / openrouter-generic", "provider openrouter"]
+
+
+def test_a_sorted_unique_destination_list_is_accepted():
+    fields = dict(STANDING_FIELDS, destinations=DESTINATIONS)
+    assert profiles.validate_profile(_pkg(fields, VALID_AC)) == []
+
+
+@pytest.mark.parametrize(
+    ("destinations", "message"),
+    [
+        ([], "must name at least one destination"),
+        (["provider openrouter", " "], "each entry must be a non-blank, trimmed string"),
+        (["provider openrouter "], "each entry must be a non-blank, trimmed string"),
+        (list(reversed(DESTINATIONS)), "entries must be sorted and unique"),
+        (DESTINATIONS + DESTINATIONS[-1:], "entries must be sorted and unique"),
+    ],
+)
+def test_a_malformed_destination_list_is_refused(destinations, message):
+    fields = dict(STANDING_FIELDS, destinations=destinations)
+    errs = profiles.validate_profile(_pkg(fields, VALID_AC))
+    assert errs == [f"profile_fields.destinations: {message}"]
+
+
+def test_destinations_must_be_strings():
+    fields = dict(STANDING_FIELDS, destinations=[{"kind": "bws-secret"}])
+    errs = profiles.validate_profile(_pkg(fields, VALID_AC))
+    assert errs and all("destinations" in err for err in errs)
