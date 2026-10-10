@@ -32,6 +32,14 @@ PROFILE_FIELDS_SCHEMA = MapSpec(
         # day must still be told apart, and a format rule here would be a second vocabulary.
         # QUOTE IT: an unquoted 2026-10-07 loads as a YAML date and fails `str`.
         "occurrence": OptionalKey(_s(str)),
+        # ADR-0055. Everywhere this credential's value is minted, stored and consumed, one flat
+        # string per destination (consumer kind and destination), sorted and unique so a
+        # revision's diff shows exactly what changed. Written by the AUTHOR; the producer that
+        # revises a standing package carries it forward unchanged. Devon reads its change against
+        # the last approved revision before approving. Optional, as `standing` is: a package
+        # approved before ADR-0055 carries none and hashes as before. The rotation executor
+        # refuses unless this list, the unit envelope's and the registry's are equal.
+        "destinations": OptionalKey(ListSpec(_s(str))),
     }
 )
 
@@ -60,6 +68,9 @@ def _check_profile_fields(package: dict) -> list[str]:
         value = fields.get(key)
         if isinstance(value, str) and not value.strip():
             errors.append(f"profile_fields.{key}: must be a non-empty string")
+    destinations = fields.get("destinations")
+    if isinstance(destinations, list):
+        errors.extend(_destination_errors(destinations))
     if fields.get("standing") is True:
         for key in _STANDING_REQUIRED_FIELDS:
             value = fields.get(key)
@@ -69,6 +80,16 @@ def _check_profile_fields(package: dict) -> list[str]:
                     "profile_fields.standing is true"
                 )
     return errors
+
+
+def _destination_errors(destinations: list[str]) -> list[str]:
+    if not destinations:
+        return ["profile_fields.destinations: must name at least one destination"]
+    if any(not value.strip() or value != value.strip() for value in destinations):
+        return ["profile_fields.destinations: each entry must be a non-blank, trimmed string"]
+    if destinations != sorted(set(destinations)):
+        return ["profile_fields.destinations: entries must be sorted and unique"]
+    return []
 
 
 def validate(package: dict) -> list[str]:
