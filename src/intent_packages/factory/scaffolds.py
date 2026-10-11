@@ -37,6 +37,13 @@ from intent_packages.schema import ListSpec, MapSpec, OpenMapSpec, OptionalKey, 
 from intent_packages.validate import validate_package
 
 _PROSE_PLACEHOLDER = "<edit: describe this field>"
+# Fields whose entries have a format, so the generic prose placeholder would fail validation. Each
+# stub is valid and still reads as something to edit. `destinations` (ADR-0055) must hold exactly
+# one provider entry; the author replaces it with the credential's registry destinations, which
+# `rotation-worker compare-destinations` prints.
+_FIELD_STUBS: dict[str, object] = {
+    "destinations": ['provider name="<edit: the credential\'s provider>"'],
+}
 
 _AC_ID_COMMENT = (
     "# ac_id means two different things and nothing checks the difference:\n"
@@ -173,7 +180,10 @@ def _profile_fields(profile: DeliveryProfile) -> dict | None:
     spec = profile.profile_fields_schema
     if spec is None:
         return None
-    return {key: _stub_for(field) for key, field in spec.fields.items()}
+    return {
+        key: _FIELD_STUBS[key] if key in _FIELD_STUBS else _stub_for(field)
+        for key, field in spec.fields.items()
+    }
 
 
 def _budgets(profile: DeliveryProfile) -> dict[str, int | None]:

@@ -9,6 +9,7 @@ depth."""
 
 from __future__ import annotations
 
+from intent_packages.destination_format import destination_error
 from intent_packages.profiles._evidence_tags import check_evidence_tags
 from intent_packages.profiles.base import DeliveryProfile, EnrichmentSpec
 from intent_packages.schema import ListSpec, MapSpec, OptionalKey, _s, _walk
@@ -33,7 +34,7 @@ PROFILE_FIELDS_SCHEMA = MapSpec(
         # QUOTE IT: an unquoted 2026-10-07 loads as a YAML date and fails `str`.
         "occurrence": OptionalKey(_s(str)),
         # ADR-0055. Everywhere this credential's value is minted, stored and consumed, one flat
-        # string per destination (consumer kind and destination), sorted and unique so a
+        # string per destination in `destination_format`'s form, sorted and unique so a
         # revision's diff shows exactly what changed. Written by the AUTHOR; the producer that
         # revises a standing package carries it forward unchanged. Devon reads its change against
         # the last approved revision before approving. Optional, as `standing` is: a package
@@ -83,13 +84,18 @@ def _check_profile_fields(package: dict) -> list[str]:
 
 
 def _destination_errors(destinations: list[str]) -> list[str]:
-    if not destinations:
-        return ["profile_fields.destinations: must name at least one destination"]
-    if any(not value.strip() or value != value.strip() for value in destinations):
-        return ["profile_fields.destinations: each entry must be a non-blank, trimmed string"]
     if destinations != sorted(set(destinations)):
         return ["profile_fields.destinations: entries must be sorted and unique"]
-    return []
+    errors = [
+        f"profile_fields.destinations: {value!r}: {error}"
+        for value in destinations
+        if (error := destination_error(value)) is not None
+    ]
+    # The executor renders a registry entry as its provider plus its consumers, so a list without
+    # exactly one provider can never equal it.
+    if sum(value.startswith("provider ") for value in destinations) != 1:
+        errors.append("profile_fields.destinations: must hold exactly one provider entry")
+    return errors
 
 
 def validate(package: dict) -> list[str]:
