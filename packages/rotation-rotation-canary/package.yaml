@@ -1,0 +1,207 @@
+schema_version: 1
+package_id: rotation-rotation-canary
+title: Standing rotation of the rotation canary (rotation-canary)
+revision: 1
+status: approved
+created_by: factory-create
+owner: devon
+created_at: '2026-10-11T20:04:24Z'
+supersedes: null
+reach:
+- external_system
+profile: non-software-operational
+profile_fields:
+  owner: devon
+  operating_procedure: >-
+    The rotation executor (orchestrator src/rotation_worker/) works this rotation with its fake
+    adapter, whose provider is a state file inside the rotation-executor VM. The decomposition is
+    the adapter's fixed plan: unit mint (mint, stage, verify_new), unit store (store,
+    verify_consumers), a person's attestation that the runtime-fetch consumer holds the new
+    value, and unit retire (verify_consumers, retire_old, confirm_dead). The executor checks each
+    unit against git before claiming it and works every step through its contract, which holds
+    ADR-0055 decision 3's invariants. Evidence carries fingerprints and probe status codes only.
+  external_systems:
+  - Bitwarden Secrets Manager — the keeper, and the staging and quarantine secrets, in Rotation /
+    Work
+  - The fake adapter's provider, a state file in the rotation-executor VM
+  standing: true
+  credential_id: rotation-canary
+  occurrence: '2026-10-11-requested'
+  destinations:
+  - 'bws-secret uuid="29bb7360-7b7b-40d5-a49b-b4e00149bd63"'
+  - 'provider name="fake"'
+  - 'runtime-fetch repo="orchestrator" ref="none; a person attests"'
+outcome:
+  what: >-
+    The rotation canary (registry id rotation-canary, class rotation-canary) is replaced: a new
+    value is minted, staged, verified, stored in the keeper, attested at its consumer, and the
+    old value is revoked and proven dead.
+  why: >-
+    ADR-0055 increment 4 requires the rotation executor to run end to end on production before
+    it touches a real credential. The canary has no real provider, so every step of the
+    executor's path runs with nothing live at stake.
+  beneficiary: >-
+    Devon, and every later rotation the executor works, which inherits a path already proven on
+    production.
+  success_signal: >-
+    All three units complete with each step's evidence filed, the keeper holds a value different
+    from the one it started with, the old value probes dead and the new one live, and no staging
+    or quarantine secret is left in Rotation / Work.
+scope:
+  included:
+  - The fake adapter's three units and the one attestation between the second and the third.
+  excluded:
+  - Any real provider, any real credential, and any hosted consumer.
+  non_goals:
+  - Proving a real provider's probe; that is each real adapter's own increment.
+  assumptions:
+  - The rotation executor's timer is enabled in the rotation-executor VM.
+  open_questions: []
+sources:
+- location: >-
+    orchestrator docs/decisions/0055-*.md and
+    docs/superpowers/plans/2026-10-10-rotation-increment-4-executor-handoff.md, item 9.
+  authority_level: authoritative
+  required_version: '2026-10-10'
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: One session.
+  technology: The rotation executor at the orchestrator revision installed in the VM.
+  policy_legal: null
+  privacy_security: >-
+    No value appears in a transcript, a tool argument, a log or evidence; values are identified
+    by sha256 prefix and length only.
+  compatibility: null
+  quality_accessibility: null
+  operational: >-
+    Every unit sets touches_no_hosted_service, so a claim asks no live_estate change window.
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    A new value is minted that differs from the keeper's current value.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the mint step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-002
+  condition: >-
+    The new value is staged in Rotation / Work and the old value quarantined beside it.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the stage step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-003
+  condition: >-
+    The new value probes live after a known-bad control probes refused.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the verify_new step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-004
+  condition: >-
+    The keeper holds the new value.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-005
+  condition: >-
+    Every machine-verifiable destination holds the new value.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the verify_consumers step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-006
+  condition: >-
+    Every destination holds the new value, re-verified before anything is revoked.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire unit's verify_consumers step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-007
+  condition: >-
+    The old value is revoked at the provider.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire_old step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-008
+  condition: >-
+    The old value probes dead and the new one live, and the staging and quarantine secrets are deleted.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the confirm_dead step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+authority:
+  allowed:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  - secret_write
+  requires_approval: []
+  prohibited:
+  - repository_write
+  - infra_mutation
+  - outward_publish
+  - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - A rotated canary value in the keeper, and terminal work units carrying each step's evidence.
+  destination: the production ledger
+  recipient: devon
+  definition_of_done: >-
+    The three units are completed and every acceptance criterion carries evidence and an
+    adjudication.
+  operator_responsibilities:
+  - >-
+    A person attests at /review that the runtime-fetch consumer holds the new value, with its
+    fingerprint from the store unit's evidence.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - ADR-0055 and its increment 4 handoff.
+  required_people_systems:
+  - The rotation executor in the rotation-executor VM
+  - Bitwarden Secrets Manager
+  required_capabilities:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  - secret_write
+  blocking_conditions:
+  - The executor refuses a unit at its checks; the refusal names the reason.
+risk:
+  failure_modes:
+  - A contract refusal fails a unit partway; the executor resumes from BWS on a retry.
+  max_impact: >-
+    None outside the canary: its value authenticates nothing, and nothing but the executor reads
+    it.
+  stop_conditions:
+  - A value appears anywhere it should not.
+  rollback: >-
+    Nothing to roll back: the canary authenticates nothing. A stranded staging or quarantine
+    secret is deleted by hand from Rotation / Work.
+  escalation_target: devon
+verification:
+  independent_review:
+  - The verifier and the /review gates adjudicate each criterion against its evidence.
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: The next increment that changes the executor's contract.
+  signals: []
+  owner: devon
+applicable_standards:
+  project: '1.0'
+  security: '1.0'
