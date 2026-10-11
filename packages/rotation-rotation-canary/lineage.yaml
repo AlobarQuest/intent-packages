@@ -1,0 +1,17 @@
+package_id: rotation-rotation-canary
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 6df8c079393039248428d19a9f0be288d8351903b0e63e3b339c57bd308f243f
+  created_at: '2026-10-11T20:04:24Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-11T20:05:38.031838+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-11T20:05:38.031838+00:00'
+  actor: claude-code-interactive
+  event_id: evt-3200260711f248868bfff3bad89107d1
+approvals: []
+grants: []
