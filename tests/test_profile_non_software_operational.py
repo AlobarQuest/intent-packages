@@ -244,7 +244,10 @@ def test_the_approved_openrouter_rotation_package_hashes_as_approved():
     )
 
 
-DESTINATIONS = ["bws-secret Rotation / Keeper / openrouter-generic", "provider openrouter"]
+DESTINATIONS = [
+    'bws-secret uuid="9661da8f-ac66-4e97-a31f-b42500bb849c"',
+    'provider name="openrouter"',
+]
 
 
 def test_a_sorted_unique_destination_list_is_accepted():
@@ -255,9 +258,11 @@ def test_a_sorted_unique_destination_list_is_accepted():
 @pytest.mark.parametrize(
     ("destinations", "message"),
     [
-        ([], "must name at least one destination"),
-        (["provider openrouter", " "], "each entry must be a non-blank, trimmed string"),
-        (["provider openrouter "], "each entry must be a non-blank, trimmed string"),
+        ([], "must hold exactly one provider entry"),
+        (DESTINATIONS[:1], "must hold exactly one provider entry"),
+        (['provider name="a"', 'provider name="b"'], "must hold exactly one provider entry"),
+        ([" ", DESTINATIONS[1]], "' ': unknown consumer kind ''"),
+        ([DESTINATIONS[1] + " "], "'provider name=\"openrouter\" ': not in canonical form"),
         (list(reversed(DESTINATIONS)), "entries must be sorted and unique"),
         (DESTINATIONS + DESTINATIONS[-1:], "entries must be sorted and unique"),
     ],
@@ -272,3 +277,11 @@ def test_destinations_must_be_strings():
     fields = dict(STANDING_FIELDS, destinations=[{"kind": "bws-secret"}])
     errs = profiles.validate_profile(_pkg(fields, VALID_AC))
     assert errs and all("destinations" in err for err in errs)
+
+
+def test_a_destination_outside_the_format_is_refused():
+    fields = dict(STANDING_FIELDS, destinations=["provider openrouter"])
+    errs = profiles.validate_profile(_pkg(fields, VALID_AC))
+    assert errs == [
+        "profile_fields.destinations: 'provider openrouter': provider needs field 'name' next"
+    ]
