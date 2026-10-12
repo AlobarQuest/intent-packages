@@ -230,18 +230,14 @@ def test_a_standing_rotation_package_is_revised_per_occurrence(
     assert approvals[1]["approved_hash"] == package_hash(package) != first
 
 
-def test_the_approved_openrouter_rotation_package_hashes_as_approved():
-    """`destinations` is optional, so revision 1, approved before ADR-0055, is unchanged.
-
-    The literal is the `approved_hash` in that package's lineage.
-    """
+def test_the_openrouter_rotation_package_lists_its_keeper_and_provider():
+    """Revision 2, written for the rotation executor (ADR-0055 increment 5): the keeper is the
+    credential's only consumer, so the list is the keeper and the provider."""
     pkg_dir = REPO_ROOT / "packages" / "rotation-openrouter-generic"
     assert validate_package(pkg_dir) == []
     package = yaml.safe_load((pkg_dir / "package.yaml").read_text(encoding="utf-8"))
-    assert "destinations" not in package["profile_fields"]
-    assert package_hash(package) == (
-        "c1b259d7f6b876cdeac9c425385917ecf4068e95c4497947ba14a3f1b9405d8b"
-    )
+    assert package["revision"] == 2
+    assert package["profile_fields"]["destinations"] == DESTINATIONS
 
 
 DESTINATIONS = [

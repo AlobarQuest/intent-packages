@@ -1,11 +1,16 @@
 package_id: rotation-openrouter-generic
-current_state: approved
+current_state: ready_for_review
 revisions:
 - revision: 1
   hash: c1b259d7f6b876cdeac9c425385917ecf4068e95c4497947ba14a3f1b9405d8b
   created_at: '2026-10-07T12:42:59Z'
   author: claude-code-interactive
   snapshotted_at: '2026-10-07T12:44:02.849327+00:00'
+- revision: 2
+  hash: c39235f374650a713db9114784d2593964030038ef00989e49e1c5f1a7414f8f
+  created_at: '2026-10-12T17:18:48.820948+00:00'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-12T17:20:05.209203+00:00'
 transitions:
 - kind: transition
   from: draft
@@ -13,6 +18,18 @@ transitions:
   at: '2026-10-07T12:44:02.849327+00:00'
   actor: claude-code-interactive
   event_id: evt-97c65e0d27d24e2cbac0fbe5d34a5e08
+- kind: revision
+  from: approved
+  to: draft
+  at: '2026-10-12T17:18:48.820948+00:00'
+  actor: claude-code-interactive
+  event_id: evt-a0b9b1cbe14847c4a658304e17640b6e
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-12T17:20:05.209203+00:00'
+  actor: claude-code-interactive
+  event_id: evt-e525028f53a446228e077b183db006c5
 approvals:
 - revision: 1
   approved_hash: c1b259d7f6b876cdeac9c425385917ecf4068e95c4497947ba14a3f1b9405d8b
