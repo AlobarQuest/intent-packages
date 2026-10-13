@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: rotation-openrouter-generic
 title: Standing rotation of the generic OpenRouter API key (openrouter-generic)
-revision: 2
+revision: 3
 status: ready_for_review
 created_by: factory-create
 owner: devon
@@ -20,14 +20,14 @@ profile_fields:
     between them. There is no human act: the keeper is the credential's only consumer, and the
     executor reads it back. The executor checks each unit against git before claiming it and
     works every step through its contract, which holds ADR-0055 decision 3's invariants. It
-    mints with the OpenRouter management key, which it reads from Rotation / OpenRouter only
-    while a step mints or revokes; every minted key carries a $5 credit limit and an expiry 400
+    mints with the OpenRouter management key, which it reads from Rotation / Admin only while a
+    step mints or revokes; every minted key carries a $5 credit limit and an expiry 400
     days out. Evidence carries fingerprints, probe status codes and notes only.
   external_systems:
   - OpenRouter — the management API that mints and deletes keys, key-info, and a zero-cost chat
     completion on a :free model as the probe
-  - Bitwarden Secrets Manager — the keeper in Rotation / Keeper / openrouter-generic, the staging
-    and quarantine secrets in Rotation / Work, and the management key in Rotation / OpenRouter
+  - Bitwarden Secrets Manager — the keeper in Rotation / Keepers, the staging and quarantine
+    secrets in Rotation / Work, and the management key in Rotation / Admin
   standing: true
   credential_id: openrouter-generic
   occurrence: '2026-10-12-requested'
@@ -64,7 +64,7 @@ scope:
   - Changing what uses OpenRouter; nothing on the Mac reads the key after increment 5.
   assumptions:
   - The rotation executor's timer is enabled in the VM at a revision carrying the adapter.
-  - The executor's root reads Rotation / OpenRouter and writes Rotation / Keeper / openrouter-generic.
+  - The executor's root reads Rotation / Admin and writes Rotation / Keepers (ADR-0055 amendment 6).
   open_questions: []
 sources:
 - location: >-

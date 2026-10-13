@@ -231,12 +231,12 @@ def test_a_standing_rotation_package_is_revised_per_occurrence(
 
 
 def test_the_openrouter_rotation_package_lists_its_keeper_and_provider():
-    """Revision 2, written for the rotation executor (ADR-0055 increment 5): the keeper is the
+    """Revision 3, written for the rotation executor (ADR-0055 increment 5): the keeper is the
     credential's only consumer, so the list is the keeper and the provider."""
     pkg_dir = REPO_ROOT / "packages" / "rotation-openrouter-generic"
     assert validate_package(pkg_dir) == []
     package = yaml.safe_load((pkg_dir / "package.yaml").read_text(encoding="utf-8"))
-    assert package["revision"] == 2
+    assert package["revision"] == 3
     assert package["profile_fields"]["destinations"] == DESTINATIONS
 
 
