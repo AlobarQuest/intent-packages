@@ -21,7 +21,9 @@ IDENTITY_FIELDS: dict[str, tuple[str, ...]] = {
     "provider": ("name",),
     "bws-secret": ("uuid",),
     "coolify-env": ("instance", "resource_type", "uuid", "key", "redeploy"),
-    "coolify-env-hash": ("instance", "resource_type", "uuid", "key"),
+    # `entry` is the key id inside the variable's JSON whose hash this credential's bearer is
+    # (orchestrator ADR-0055 amendment 9).
+    "coolify-env-hash": ("instance", "resource_type", "uuid", "key", "entry"),
     "gh-actions-secret": ("repo", "name"),
     "keychain": ("service", "account"),
     "runtime-fetch": ("repo", "ref"),
