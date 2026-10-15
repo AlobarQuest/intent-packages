@@ -5,7 +5,7 @@ package's destination list, the unit envelope's and the credential's registry en
 all three are written in one format. A string is a `kind`, then each of that kind's identity fields
 as `name=<JSON value>`, in the fixed order `IDENTITY_FIELDS` gives, separated by single spaces:
 
-    bws-secret uuid="9661da8f-ac66-4e97-a31f-b42500bb849c"
+    bws-secret uuid="00000000-0000-0000-0000-000000000000"
     provider name="openrouter"
 
 `tests/fixtures/rotation_destination_format.json` is byte-identical with the orchestrator's copy
