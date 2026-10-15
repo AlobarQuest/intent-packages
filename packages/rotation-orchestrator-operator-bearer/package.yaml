@@ -1,0 +1,296 @@
+schema_version: 1
+package_id: rotation-orchestrator-operator-bearer
+title: Standing rotation of the orchestrator operator bearer (orchestrator-operator-bearer)
+revision: 1
+status: ready_for_review
+created_by: factory-create
+owner: devon
+created_at: '2026-10-15T14:06:54Z'
+supersedes: null
+reach:
+- external_system
+- live_estate
+profile: non-software-operational
+profile_fields:
+  owner: devon
+  operating_procedure: >-
+    The rotation executor (orchestrator src/rotation_worker/) works this rotation with its
+    orchestrator adapter, from the rotation-executor VM. The decomposition is the adapter's fixed
+    plan: unit mint (mint, stage, host, verify_new, store, verify_consumers), then unit retire
+    (verify_consumers, retire_old, confirm_dead), with Devon's completion of the first unit
+    between them. Each unit restarts the orchestrator, so each is claimed only in the live_estate
+    window, and the executor confirms no dispatched run is live before each write and each
+    restart. The executor mints a random bearer itself; host rewrites ORCHESTRATOR_M2M_CREDENTIALS
+    in both Coolify rows from what the running orchestrator loaded (GET /api/v1/m2m-identities),
+    changing only the orchestrator-operator entry: its new hash, with the old hash as previous
+    for seven days. It writes Coolify with the token in Rotation / Coolify, read only while a step
+    hosts or retires, and only the application and variable the approved destination names.
+    There is no human act: the bearer's readers fetch the keeper by UUID when they run, so the
+    keeper readback verifies them. Evidence carries fingerprints, probe status codes and notes
+    only.
+  external_systems:
+  - >-
+    The orchestrator — its M2M identities route, which shows the hash each entry loaded, and the
+    status ledger as the probe (200 for an accepted bearer, 401 for a refused one)
+  - Production Coolify — the orchestrator application's ORCHESTRATOR_M2M_CREDENTIALS rows and restart
+  - >-
+    Bitwarden Secrets Manager — the keeper in Rotation / Keepers, the staging and quarantine
+    secrets in Rotation / Work, and the Coolify token in Rotation / Coolify
+  standing: true
+  credential_id: orchestrator-operator-bearer
+  occurrence: '2026-10-15-requested'
+  destinations:
+  - 'bws-secret uuid="bd71bed1-4aac-4af8-9094-b4970180bc59"'
+  - 'coolify-env-hash instance="prod" resource_type="application" uuid="eqj5l7k705fhi12x9i74fqf0" key="ORCHESTRATOR_M2M_CREDENTIALS" entry="orchestrator-operator"'
+  - 'provider name="orchestrator"'
+outcome:
+  what: >-
+    The orchestrator operator bearer (registry id orchestrator-operator-bearer, key id
+    orchestrator-operator, agent claude-code-interactive) is replaced by a bearer the executor
+    mints, the orchestrator accepts only the new one, and the keeper holds it.
+  why: >-
+    ADR-0055 increment 6 rotates the first bearer the orchestrator itself issues, and the first
+    rotation whose consumer is a hosted service, with every gate clicked. The operator bearer
+    goes first because its only readers are operator sessions, which fetch the keeper when they
+    run (ADR-0055 amendment 9, decision 1).
+  beneficiary: >-
+    Devon, whose operator bearer stops being a value set by hand on 2026-07-30; and every later
+    orchestrator bearer, which inherits a hosted path proven on production.
+  success_signal: >-
+    Both units complete with each step's evidence filed, the keeper holds a value different from
+    the one it started with, the orchestrator's identities route shows the new hash with no
+    previous, the old value probes 401 and the new one 200 beside a refused random bearer, no
+    staging or quarantine secret is left in Rotation / Work, and the next security-drift run
+    reports no rotation finding for orchestrator-operator-bearer.
+scope:
+  included:
+  - The orchestrator adapter's two units, worked by the rotation executor.
+  excluded:
+  - >-
+    Every other entry in ORCHESTRATOR_M2M_CREDENTIALS. The executor rewrites only the
+    orchestrator-operator entry and refuses to rotate its own.
+  - >-
+    The observer and drift-reporter bearers, and change-manager's bearers, which are later
+    rotations in increment 6.
+  - Recording the rotation in security-drift's rotation state, which is HQ's act after the run.
+  non_goals:
+  - Changing which sessions use the operator bearer, or its role.
+  assumptions:
+  - >-
+    The rotation executor's timer is enabled in the VM at a revision carrying the orchestrator
+    adapter, with coolify_url, orchestrator_application and admin_secrets.orchestrator set.
+  - >-
+    The keeper is in Rotation / Keepers, where sds-operator reads it by a direct grant (proven
+    2026-10-15 with a canary and an empty HOME) and the root reads and writes it.
+  open_questions: []
+sources:
+- location: >-
+    orchestrator docs/decisions/0055-credential-rotation-runs-in-a-pull-based-executor.md,
+    amendment 9 (the orchestrator's bearers).
+  authority_level: authoritative
+  required_version: '2026-10-14'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    orchestrator docs/superpowers/plans/2026-10-14-rotation-increment-6-plan.md
+  authority_level: authoritative
+  required_version: '2026-10-14'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    orchestrator .cred-consumers.toml, credential orchestrator-operator-bearer: its keeper and
+    its hashed entry in the orchestrator's credentials setting.
+  authority_level: authoritative
+  required_version: '2026-10-15'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    orchestrator docs/operations/rotation-executor.md, "The orchestrator's bearers" and the two
+    sections on a stalled rotation and a failed restart.
+  authority_level: authoritative
+  required_version: '2026-10-15'
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: >-
+    Two live_estate windows at most: the mint unit in one, the retire unit in the same or the
+    next, inside the seven days the old value stays accepted.
+  technology: The rotation executor at the orchestrator revision installed in the VM.
+  policy_legal: null
+  privacy_security: >-
+    No bearer value appears in a transcript, a tool argument, a log or evidence. Values are
+    identified by sha256 prefix and length only; the hashes the orchestrator stores are never
+    printed either.
+  compatibility: >-
+    The executor refuses any setting the orchestrator's boot would refuse, applying the same
+    rules before it writes.
+  quality_accessibility: null
+  operational: >-
+    No unit sets touches_no_hosted_service, so every claim asks the live_estate change window
+    (02:00 to 06:00 America/New_York). Never restart while a dispatched run is live; the
+    executor checks before each write and each restart.
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    A new bearer is minted, and its fingerprint differs from the keeper's current value.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the mint step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-002
+  condition: >-
+    The new bearer is staged in Rotation / Work.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the stage step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-003
+  condition: >-
+    Both Coolify rows of ORCHESTRATOR_M2M_CREDENTIALS carry the new bearer's hash for
+    orchestrator-operator with the old one as previous, the orchestrator restarted, and its
+    identities route shows the new hash loaded.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the host step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-004
+  condition: >-
+    The new bearer answers 200 at the status ledger, beside a random bearer refused 401 by the
+    same probe.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the verify_new step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-005
+  condition: >-
+    The old bearer is quarantined in Rotation / Work and the keeper reads back the new bearer.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-006
+  condition: >-
+    Every destination holds the new bearer: the keeper reads it back, and the orchestrator
+    accepts it by probe beside a refused random bearer.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the mint unit's verify_consumers step's rotation-step/1 evidence, filed by the
+    rotation executor.
+  approver: devon
+- id: AC-007
+  condition: >-
+    Every destination still holds the new bearer, re-read and re-probed before anything is
+    retired.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire unit's verify_consumers step's rotation-step/1 evidence, filed by the
+    rotation executor.
+  approver: devon
+- id: AC-008
+  condition: >-
+    The entry's previous hash was the quarantined bearer's, the setting was written without it
+    in both rows, and the orchestrator restarted and loaded it.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire_old step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-009
+  condition: >-
+    The old bearer is refused 401 and the new one answers 200, each beside a refused random
+    bearer, and the staging and quarantine secrets are deleted.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the confirm_dead step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+authority:
+  allowed:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  - secret_write
+  - infra_mutation
+  requires_approval: []
+  prohibited:
+  - repository_write
+  - outward_publish
+  - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - A rotated bearer in the keeper, and terminal work units carrying each step's evidence.
+  destination: the production ledger
+  recipient: devon
+  definition_of_done: >-
+    Both units are completed, every acceptance criterion carries evidence and an adjudication,
+    and security-drift reports no rotation finding for orchestrator-operator-bearer.
+  operator_responsibilities:
+  - Devon approves this revision, the change record, the decomposition, and each /review gate.
+  - >-
+    For this revision only, Devon consented on 2026-10-14 to the session driving the /review and
+    change-record clicks in his browser (ADR-0055 amendment 9, decision 4); those clicks are
+    attributed to him and the run's report records the consent.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    ADR-0055 amendment 9 and Devon's increment 6 decisions of 2026-10-14: the operator bearer
+    first, the identities route as the executor's source for the setting, and the session
+    clicking this run's gates.
+  required_people_systems:
+  - The rotation executor in the rotation-executor VM
+  - The orchestrator and production Coolify
+  - Bitwarden Secrets Manager
+  required_capabilities:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  - secret_write
+  - infra_mutation
+  blocking_conditions:
+  - The executor refuses a unit at its checks; the refusal names the reason.
+  - A dispatched run is live; the executor waits rather than restart.
+risk:
+  failure_modes:
+  - >-
+    A contract refusal fails a unit partway; the executor resumes from BWS and the identities
+    route on a retry after a requeue.
+  - >-
+    A mint unit stalls after host with no attempts left: finish or undo it within the seven days
+    the old value stays accepted, as the runbook's "If a rotation stalls after host" says.
+  - >-
+    The restarted orchestrator doesn't boot: Coolify keeps no old container, so the orchestrator
+    is down until the change is undone by hand in both rows and restarted (measured on a
+    throwaway application, 2026-10-15).
+  max_impact: >-
+    The orchestrator down until a hand undo and restart, if a restart fails to boot; or operator
+    sessions refused if a stalled rotation passes its seven days. Other identities' entries are
+    never changed.
+  stop_conditions:
+  - A value appears anywhere it should not.
+  - The orchestrator doesn't come back after a restart.
+  rollback: >-
+    Before retire_old: set the entry's token_hash back to previous.token_hash and delete
+    previous, in both rows, restart, and delete the staging secret; the keeper still holds the
+    old value until store. After retire_old the recovery is forward: run the rotation again.
+  escalation_target: devon
+verification:
+  independent_review:
+  - Devon adjudicates each criterion against its evidence at /review.
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: The next rotation of orchestrator-operator-bearer, which arrives as a new revision.
+  signals: []
+  owner: devon
+applicable_standards:
+  project: '1.0'
+  security: '1.0'
