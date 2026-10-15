@@ -1,0 +1,17 @@
+package_id: rotation-orchestrator-operator-bearer
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 852ca67e4fbd5771191828124376ca3a6f393d93dc1215e3b8e037ed36db4472
+  created_at: '2026-10-15T14:06:54Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-15T14:07:53.815986+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-15T14:07:53.815986+00:00'
+  actor: claude-code-interactive
+  event_id: evt-f1b1c1bad18a4e94a6016a23b868fec3
+approvals: []
+grants: []
