@@ -1,0 +1,17 @@
+package_id: rotation-orchestrator-drift-reporter-bearer
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 274b3dfc0e9056a70b4c77f9acee7369e130a7ea81706a4120dc0a291c91ea6d
+  created_at: '2026-10-18T15:36:20Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-18T15:37:05.160244+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-18T15:37:05.160244+00:00'
+  actor: claude-code-interactive
+  event_id: evt-2e16aea0d6e049a38c78a3b7ed6ea618
+approvals: []
+grants: []
