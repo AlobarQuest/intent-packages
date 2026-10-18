@@ -1,5 +1,5 @@
 package_id: rotation-orchestrator-observer-bearer
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: de91342b515a94bfdcff2e9e793007d4450caf6049209ad90695c8e9c5be3669
@@ -13,5 +13,11 @@ transitions:
   at: '2026-10-18T15:35:36.629356+00:00'
   actor: claude-code-interactive
   event_id: evt-95157dc56de54e178be45a41ffcd0e67
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: de91342b515a94bfdcff2e9e793007d4450caf6049209ad90695c8e9c5be3669
+  approver: devon
+  approved_at: '2026-10-18T16:05:34.676461+00:00'
+  commit: 2c6c5c6ea125c6cced6fa6bf4a8ec36b665e4035
+  event_id: evt-fed65c2fff0a4d9d9763b0671e6f0b75
 grants: []
