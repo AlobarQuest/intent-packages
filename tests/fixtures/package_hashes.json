@@ -17,6 +17,7 @@
   "orchestrator-tzdata-bump": "694bdf17d402365cb3c9284b92ec18d5462ad6d46ef1da6199b06f007e523af1",
   "pre-phase4-foundation-cleanliness": "b66d56799e8e0709d73e57b36d56f344f54b9a8bb6cb5c0b0f4e2823042a1824",
   "rotation-openrouter-generic": "e85b188de498db3805edc20bd87ab74da92ec46f1787e260510d9a08f106f2ec",
+  "rotation-orchestrator-observer-bearer": "de91342b515a94bfdcff2e9e793007d4450caf6049209ad90695c8e9c5be3669",
   "rotation-orchestrator-operator-bearer": "852ca67e4fbd5771191828124376ca3a6f393d93dc1215e3b8e037ed36db4472",
   "rotation-rotation-canary": "6df8c079393039248428d19a9f0be288d8351903b0e63e3b339c57bd308f243f",
   "ws-2.2-domain-profiles": "7e3e296e625b41c43dbc2c8e4a2adb00a241e2330a835c6317a248adc7ef417b",
