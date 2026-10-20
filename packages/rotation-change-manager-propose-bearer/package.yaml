@@ -1,0 +1,321 @@
+schema_version: 1
+package_id: rotation-change-manager-propose-bearer
+title: Standing rotation of the change-manager propose bearer (change-manager-propose-bearer)
+revision: 1
+status: ready_for_review
+created_by: factory-create
+owner: devon
+created_at: '2026-10-20T14:58:27Z'
+supersedes: null
+reach:
+- external_system
+- live_estate
+profile: non-software-operational
+profile_fields:
+  owner: devon
+  operating_procedure: >-
+    The rotation executor (orchestrator src/rotation_worker/) works this rotation with its change-
+    manager adapter, from the rotation-executor VM. The decomposition is the adapter's fixed plan:
+    unit mint (mint, stage, host, verify_new, store, verify_consumers), then unit retire
+    (verify_consumers, retire_old, confirm_dead), with Devon's completion of the first unit between
+    them. Each unit restarts change-manager, so each is claimed only in the live_estate window, and
+    a unit that writes waits unclaimed while any registered change-manager reader's Healthchecks
+    check shows as started, then asks again before writing and before restarting. The executor mints
+    a random bearer itself; host writes M2M_TOKEN_PROPOSE in both Coolify rows as the propose
+    entry's new hash with the old hash as previous for seven days, built from the old and new values
+    alone, because nothing reports what change-manager loaded. Before it writes, it reads the other
+    three change-manager keepers and refuses a value any of them holds, since a shared previous
+    stops change-manager booting. It confirms each write by probing GET /api/landing-policy (200 for
+    an accepted bearer, 401 for a refused one, beside a random bearer), and writes Coolify with the
+    token in Rotation / Coolify, read only while a step hosts or retires, and only the application
+    and variable the approved destination names. There is no human act: each of the bearer's four
+    scheduled readers fetches the keeper by UUID when it runs and is verified by its Healthchecks
+    check (run-bump-proposer.sh (06:50, writing runs only, Healthchecks check sds-bump-proposer);
+    run-change-proposer.sh (hourly, writing runs only, Healthchecks check sds-change-proposer); run-
+    rotation-proposer.sh (06:30, writing runs only, Healthchecks check sds-rotation-proposer); run-
+    work-carrier.sh (07:05, registering runs only, Healthchecks check sds-work-carrier)); the retire
+    unit waits unclaimed until every one has run since the keeper's revision. Evidence carries
+    fingerprints, probe status codes and notes only.
+  external_systems:
+  - >-
+    change-manager — GET /api/landing-policy as the probe (200 for an accepted bearer, 401 for a
+    refused one), behind Cloudflare with a named User-Agent
+  - Production Coolify — the change-manager application's M2M_TOKEN_PROPOSE rows and restart
+  - >-
+    Bitwarden Secrets Manager — this keeper and the other three change-manager keepers in
+    Rotation / Keepers, the staging and quarantine secrets in Rotation / Work, and the Coolify
+    token in Rotation / Coolify
+  - Healthchecks — the started state of every registered change-manager reader's check, and the
+    last runs of sds-bump-proposer, sds-change-proposer, sds-rotation-proposer, sds-work-carrier
+  standing: true
+  credential_id: change-manager-propose-bearer
+  occurrence: '2026-10-20-requested'
+  destinations:
+  - 'bws-secret uuid="acccb346-4baa-43ec-a1d4-b4a400c048ee"'
+  - 'coolify-env-hash instance="prod" resource_type="application" uuid="re45tafypao3nly3qa9a79dp" key="M2M_TOKEN_PROPOSE" entry="propose"'
+  - 'provider name="change-manager"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-bump-proposer.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-change-proposer.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-rotation-proposer.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-work-carrier.sh"'
+outcome:
+  what: >-
+    The change-manager propose bearer (registry id change-manager-propose-bearer, scope propose,
+    variable M2M_TOKEN_PROPOSE) is replaced by a bearer the executor mints, change-manager accepts
+    only the new one, and the keeper holds it.
+  why: >-
+    It is the third of change-manager's four bearers on the rotation executor, after the observe and
+    read bearers (ADR-0055 increment 6). Its value was set by hand when the scope was created.
+  beneficiary: >-
+    Devon, whose lanes (sds-bump-proposer, sds-change-proposer, sds-rotation-proposer, sds-work-
+    carrier) call change-manager with a bearer the executor rotates rather than one set by hand.
+  success_signal: >-
+    Both units complete with each step's evidence filed, the keeper holds a value different from
+    the one it started with, the old value probes 401 and the new one 200 beside a refused random
+    bearer, change-manager serves with M2M_TOKEN_PROPOSE holding the new hash and no previous, no
+    staging or quarantine secret is left in Rotation / Work, and the next security-drift run
+    reports no rotation finding for change-manager-propose-bearer.
+scope:
+  included:
+  - The change-manager adapter's two units, worked by the rotation executor.
+  excluded:
+  - >-
+    change-manager's other three bearer variables (M2M_TOKEN, M2M_TOKEN_OBSERVE, M2M_TOKEN_READ).
+    The executor writes only M2M_TOKEN_PROPOSE, and reads the other keepers only to refuse a shared
+    value.
+  - The observe, read and full bearers, each rotated by its own package.
+  - Recording the rotation in security-drift's rotation state, which is HQ's act after the run.
+  non_goals:
+  - Changing which lanes use the propose bearer, or change-manager's scopes.
+  assumptions:
+  - >-
+    The rotation executor's timer is enabled in the VM at a revision carrying the change-manager
+    adapter (orchestrator 3e94dc3 or later), with coolify_url and admin_secrets set.
+  - >-
+    All four change-manager keepers are in Rotation / Keepers, where the broad machine account
+    behind BWS_ACCESS_TOKEN_VPS_BACKUP and BWS_ACCESS_TOKEN_INFRA_DRIFT reads each by a direct
+    grant and the root reads and writes them, each confirmed with an empty HOME after the move
+    (2026-10-19).
+  - >-
+    The executor reaches production Coolify over the tailnet, whose VPS node key no longer
+    expires (2026-10-19).
+  open_questions: []
+sources:
+- location: >-
+    orchestrator docs/decisions/0055-credential-rotation-runs-in-a-pull-based-executor.md,
+    amendment 9 ("The change-manager adapter").
+  authority_level: authoritative
+  required_version: '2026-10-18'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    change-manager .cred-consumers.toml, credential change-manager-propose-bearer: its keeper, its
+    hashed entry in M2M_TOKEN_PROPOSE, and its four scheduled readers with the Healthchecks check
+    each pings.
+  authority_level: authoritative
+  required_version: '2026-10-20'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    change-manager docs/operations/bearer-settings.md, the bearer variable's format and boot
+    rules.
+  authority_level: authoritative
+  required_version: '2026-10-18'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    orchestrator docs/operations/rotation-executor.md, "change-manager's bearers", "Scheduled
+    readers", and "If a change-manager rotation stalls after host".
+  authority_level: authoritative
+  required_version: '2026-10-18'
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: >-
+    The mint unit in one live_estate window; the retire unit in a later window, once
+    every scheduled reader has run since the keeper's revision; the slowest runs daily.
+  technology: The rotation executor at the orchestrator revision installed in the VM.
+  policy_legal: null
+  privacy_security: >-
+    No bearer value appears in a transcript, a tool argument, a log or evidence. Values are
+    identified by sha256 prefix and length only; the hashes change-manager stores are never
+    printed either.
+  compatibility: >-
+    The executor refuses any setting change-manager's boot would refuse that it can see: a value
+    any other change-manager keeper holds, and a host without an overlap.
+  quality_accessibility: null
+  operational: >-
+    No unit sets touches_no_hosted_service, so every claim asks the live_estate change window
+    (02:00 to 06:00 America/New_York). A unit that writes waits while any registered
+    change-manager reader's check shows as started, and asks again before each write and each
+    restart.
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    A new bearer is minted, and its fingerprint differs from the keeper's current value.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the mint step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-002
+  condition: >-
+    The new bearer is staged in Rotation / Work.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the stage step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-003
+  condition: >-
+    Both Coolify rows of M2M_TOKEN_PROPOSE carry the new bearer's hash for the propose entry with
+    the old one as previous, change-manager restarted, and the new bearer answers 200 at the
+    probe three times running.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the host step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-004
+  condition: >-
+    The new bearer answers 200 at /api/landing-policy, beside a random bearer refused 401 by the
+    same probe.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the verify_new step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-005
+  condition: >-
+    The old bearer is quarantined in Rotation / Work and the keeper reads back the new bearer.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-006
+  condition: >-
+    The keeper reads back the new bearer and change-manager accepts it by probe beside a refused
+    random bearer; the scheduled readers are counted, and each switches on its next run.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the mint unit's verify_consumers step's rotation-step/1 evidence, filed by the
+    rotation executor.
+  approver: devon
+- id: AC-007
+  condition: >-
+    Every destination still holds the new bearer, re-read and re-probed, and every scheduled
+    reader has run since the keeper's revision.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire unit's verify_consumers step's rotation-step/1 evidence, filed by the
+    rotation executor.
+  approver: devon
+- id: AC-008
+  condition: >-
+    The propose entry's previous hash was the quarantined bearer's, the variable was written
+    without it in both rows, change-manager restarted, and the old bearer is refused 401 three
+    times running.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire_old step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-009
+  condition: >-
+    The old bearer is refused 401 and the new one answers 200, each beside a refused random
+    bearer, and the staging and quarantine secrets are deleted.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the confirm_dead step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+authority:
+  allowed:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  - secret_write
+  - infra_mutation
+  requires_approval: []
+  prohibited:
+  - repository_write
+  - outward_publish
+  - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - A rotated bearer in the keeper, and terminal work units carrying each step's evidence.
+  destination: the production ledger
+  recipient: devon
+  definition_of_done: >-
+    Both units are completed, every acceptance criterion carries evidence and an adjudication,
+    and security-drift reports no rotation finding for change-manager-propose-bearer.
+  operator_responsibilities:
+  - Devon approves this revision, the change record, the decomposition, and each /review gate.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    ADR-0055 amendment 9, "The change-manager adapter": one registry row per reader with its
+    read, the probe route, and the restart wait (2026-10-18).
+  required_people_systems:
+  - The rotation executor in the rotation-executor VM
+  - change-manager and production Coolify
+  - Bitwarden Secrets Manager
+  - Healthchecks
+  required_capabilities:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  - secret_write
+  - infra_mutation
+  blocking_conditions:
+  - The executor refuses a unit at its checks; the refusal names the reason.
+  - >-
+    A sibling change-manager keeper the root can't find or read fails host before anything is
+    written.
+  - A registered change-manager reader stays started past the wait; the step refuses.
+risk:
+  failure_modes:
+  - >-
+    A contract refusal fails a unit partway; the executor resumes from BWS and the probe on a
+    retry after a requeue.
+  - >-
+    A mint unit stalls after host with no attempts left: finish or undo it within the seven days
+    the old value stays accepted, as the runbook's "If a change-manager rotation stalls after
+    host" says.
+  - >-
+    A restart cuts short drift-audit.sh's change-manager sync, which has no check to wait on;
+    that costs one night's sync, not the run.
+  - >-
+    A written value change-manager's boot refuses takes change-manager down until the variable
+    is undone by hand in both rows and restarted; the executor refuses every such value it can
+    see before writing.
+  max_impact: >-
+    change-manager down until a hand undo and restart, if a restart fails to boot; or
+    its readers refused if a stalled rotation passes its seven days. The other three bearer
+    variables are never written.
+  stop_conditions:
+  - A value appears anywhere it should not.
+  - change-manager doesn't come back after a restart.
+  rollback: >-
+    Before retire_old: set M2M_TOKEN_PROPOSE to the propose entry with previous.token_hash as its
+    token_hash and no previous, in both rows, restart, and delete the staging secret; the keeper
+    still holds the old value until store. After retire_old the recovery is forward: run the
+    rotation again.
+  escalation_target: devon
+verification:
+  independent_review:
+  - Devon adjudicates each criterion against its evidence at /review.
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: The next rotation of change-manager-propose-bearer, which arrives as a new revision.
+  signals: []
+  owner: devon
+applicable_standards:
+  project: '1.0'
+  security: '1.0'

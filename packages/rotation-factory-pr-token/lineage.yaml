@@ -1,0 +1,17 @@
+package_id: rotation-factory-pr-token
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 8f7527c69f341d4e59ed4fb2694d532b7eae6c889242f1fea0628977f0e75d11
+  created_at: '2026-10-20T14:58:27Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-20T15:02:02.491271+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-20T15:02:02.491271+00:00'
+  actor: claude-code-interactive
+  event_id: evt-6c7fb2d74d864136a31f80262a51e650
+approvals: []
+grants: []

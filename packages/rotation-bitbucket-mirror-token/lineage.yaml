@@ -1,0 +1,17 @@
+package_id: rotation-bitbucket-mirror-token
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 53d600d976b0589c8811c2cfe3094b562fc094395bae441bba529dceb259f847
+  created_at: '2026-10-20T14:58:27Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-20T15:02:02.751703+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-20T15:02:02.751703+00:00'
+  actor: claude-code-interactive
+  event_id: evt-d7a0a84e134a4ae98e217ebe87f44ed9
+approvals: []
+grants: []

@@ -1,0 +1,267 @@
+schema_version: 1
+package_id: rotation-github-finegrained-mirror
+title: Standing rotation of the mirror's GitHub PAT (github-finegrained-mirror)
+revision: 1
+status: ready_for_review
+created_by: factory-create
+owner: devon
+created_at: '2026-10-20T14:58:27Z'
+supersedes: null
+reach:
+- external_system
+profile: non-software-operational
+profile_fields:
+  owner: devon
+  operating_procedure: >-
+    The rotation executor (orchestrator src/rotation_worker/) works this rotation with its github-
+    pat adapter, from the rotation-executor VM. The decomposition is the adapter's fixed plan: a
+    human act in which Devon creates a new fine-grained PAT in GitHub's console with the registry
+    entry's replacement_scope (Contents read and Metadata on owned repositories) and pastes it into
+    the staging secret rotation/github-finegrained-mirror/<occurrence>/staging in Rotation / Work;
+    unit store (verify_new, store, distribute, verify_consumers); then unit retire
+    (verify_consumers, retire_old, confirm_dead), with Devon's completion of the store unit between
+    them. Distribute writes nothing here: the PAT has no copy beyond the keeper. Neither unit writes
+    a hosted service, so both set touches_no_hosted_service. The mirror's Coolify application
+    fetches the keeper from BWS with its own machine account at the start of each hourly cycle and
+    is verified by its Healthchecks check github-to-bitbucket-mirror; the retire unit waits
+    unclaimed until it has run since the keeper's revision. Retire revokes the old PAT by value at
+    POST /credentials/revoke with no credential, then confirm_dead rechecks GET /user until it
+    answers 401. Evidence carries fingerprints, probe status codes and notes only.
+  external_systems:
+  - >-
+    GitHub — GET /user as the probe (200 for a live PAT, 401 for a malformed one) and POST
+    /credentials/revoke
+  - >-
+    Bitwarden Secrets Manager — the keeper in Rotation / Keepers and the staging and quarantine
+    secrets in Rotation / Work
+  - >-
+    Healthchecks — the last run of github-to-bitbucket-mirror
+  standing: true
+  credential_id: github-finegrained-mirror
+  occurrence: '2026-10-20-requested'
+  destinations:
+  - 'bws-secret uuid="c85e33ad-1c18-4f53-9326-b40301077959"'
+  - 'provider name="github"'
+  - 'runtime-fetch repo="github-to-bitbucket-mirror" ref="mirror.py"'
+outcome:
+  what: >-
+    The mirror's fine-grained GitHub PAT (registry id github-finegrained-mirror) is replaced by a
+    new least-privilege PAT Devon creates, the keeper holds it, the mirror reads it, and the old PAT
+    is revoked.
+  why: >-
+    The old PAT was exposed in the mirror's container logs on 2026-06-20 and in Codex logs on
+    2026-07-02, and its disposition is reissue-least-privilege. Increment 7 moved the mirror to
+    fetch the keeper from BWS each cycle, so a rotation no longer needs a Coolify edit (ADR-0055
+    amendment 10).
+  beneficiary: >-
+    Devon, whose GitHub-to-Bitbucket mirror runs on a least-privilege PAT the executor stores and
+    revokes.
+  success_signal: >-
+    Every unit completes with each step's evidence filed, the keeper holds a value different from
+    the one it started with, the mirror's check is up after a run since the keeper's revision, the
+    old PAT answers 401 at GET /user and the new one 200, no staging or quarantine secret is left in
+    Rotation / Work, and the next security-drift run reports no rotation finding for github-
+    finegrained-mirror.
+scope:
+  included:
+  - >-
+    The github-pat adapter's human act and two units, worked by the rotation executor and Devon.
+  excluded:
+  - >-
+    The mirror's Bitbucket token, rotated by its own package.
+  - >-
+    Recording the rotation in security-drift's rotation state, which is HQ's act after the run.
+  non_goals:
+  - >-
+    Changing what the mirror mirrors.
+  assumptions:
+  - >-
+    The rotation executor's timer is enabled in the VM at a revision carrying the github-pat adapter
+    (orchestrator 88f8407 or later).
+  - >-
+    The keeper c85e33ad is moved to Rotation / Keepers before the first run, with a direct read
+    grant for the mirror's machine account, and the root reads and writes it, confirmed with an
+    empty HOME after the move. On 2026-10-20 it was in Ops / Platform and the root couldn't read it.
+  - >-
+    The mirror fetches both tokens from BWS each cycle (github-to-bitbucket-mirror #2) and pings its
+    Healthchecks check only after a cycle that fetched and synced.
+  open_questions: []
+sources:
+- location: >-
+    orchestrator docs/decisions/0055-credential-rotation-runs-in-a-pull-based-executor.md, amendment
+    10 (increment 7 decisions).
+  authority_level: authoritative
+  required_version: '2026-10-19'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    orchestrator docs/operations/rotation-executor.md, "GitHub PATs and the Atlassian token", "Mint
+    and stage a value by hand" and "Scheduled readers".
+  authority_level: authoritative
+  required_version: '2026-10-20'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    infraops-mcp-server .cred-consumers.toml, credential github-finegrained-mirror: its keeper, its
+    replacement_scope, and its scheduled reader with the Healthchecks check it pings.
+  authority_level: authoritative
+  required_version: '2026-10-20'
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: >-
+    The human act whenever Devon is at the console; the store unit at its next pass; the retire unit
+    once the mirror has run since the keeper's revision, which it does hourly.
+  technology: The rotation executor at the orchestrator revision installed in the VM.
+  policy_legal: null
+  privacy_security: >-
+    No token value appears in a transcript, a tool argument, a log or evidence. Values are
+    identified by sha256 prefix and length only. A person pastes the new value into the staging
+    secret in the Bitwarden console and clears the clipboard after.
+  compatibility: null
+  quality_accessibility: null
+  operational: >-
+    Both units set touches_no_hosted_service: neither writes a hosted service, so neither asks the
+    live_estate window.
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    The staged PAT answers 200 at GET /user, beside a malformed github_pat_ value refused 401 by the
+    same probe.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store unit's verify_new step's rotation-step/1 evidence, filed by the rotation
+    executor.
+  approver: devon
+- id: AC-002
+  condition: >-
+    The old PAT is quarantined in Rotation / Work and the keeper reads back the new one.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-003
+  condition: >-
+    Distribute writes nothing: the PAT has no copy beyond the keeper.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the distribute step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-004
+  condition: >-
+    The keeper reads back the new PAT; the mirror is counted, and switches on its next cycle.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store unit's verify_consumers step's rotation-step/1 evidence, filed by the
+    rotation executor.
+  approver: devon
+- id: AC-005
+  condition: >-
+    The keeper still holds the new PAT, and the mirror has run since the keeper's revision.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire unit's verify_consumers step's rotation-step/1 evidence, filed by the
+    rotation executor.
+  approver: devon
+- id: AC-006
+  condition: >-
+    The old PAT was revoked by value at POST /credentials/revoke (202).
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire_old step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-007
+  condition: >-
+    The old PAT answers 401 at GET /user and the new one 200, each beside a malformed value refused
+    401, and the staging and quarantine secrets are deleted.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the confirm_dead step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+authority:
+  allowed:
+  - credential_revoke
+  - secret_read
+  - secret_write
+  requires_approval: []
+  prohibited:
+  - credential_create
+  - repository_write
+  - infra_mutation
+  - outward_publish
+  - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - A rotated token in the keeper, and terminal work units carrying each step's evidence.
+  destination: the production ledger
+  recipient: devon
+  definition_of_done: >-
+    Every unit is completed, every acceptance criterion carries evidence and an adjudication, every
+    human act is resolved, and security-drift reports no rotation finding for github-finegrained-
+    mirror.
+  operator_responsibilities:
+  - >-
+    Devon approves this revision, the change record and the decomposition, performs and resolves
+    each human act, and adjudicates each /review gate.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    ADR-0055 amendment 10: the github-pat adapter and the mirror's BWS fetch (2026-10-19).
+  required_people_systems:
+  - The rotation executor in the rotation-executor VM
+  - GitHub
+  - Bitwarden Secrets Manager
+  - Healthchecks
+  - Devon, at GitHub's and Bitwarden's consoles
+  required_capabilities:
+  - credential_revoke
+  - secret_read
+  - secret_write
+  blocking_conditions:
+  - >-
+    The executor refuses a unit at its checks; the refusal names the reason.
+  - >-
+    A mirror that stops pinging its check holds the retire unit unclaimed.
+risk:
+  failure_modes:
+  - >-
+    The new PAT lacks access the mirror needs: verify_new proves only that it authenticates, so the
+    mirror's next cycle fails and pings /fail. Before retire the old PAT still works; create a
+    corrected PAT and run again.
+  - >-
+    A contract refusal fails a unit partway; the executor resumes from BWS on a retry after a
+    requeue.
+  max_impact: >-
+    The mirror stops syncing until a corrected PAT is stored, if the new PAT's scope is wrong; after
+    retire, the old PAT can't be restored.
+  stop_conditions:
+  - A value appears anywhere it should not.
+  - The mirror's check goes down after store.
+  rollback: >-
+    Before retire_old the old PAT stays valid; the recovery is a requeue or a new PAT. After
+    retire_old the revoke can't be undone; the recovery is forward: create a new PAT and run the
+    rotation again.
+  escalation_target: devon
+verification:
+  independent_review:
+  - Devon adjudicates each criterion against its evidence at /review.
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: The next rotation of github-finegrained-mirror, which arrives as a new revision.
+  signals: []
+  owner: devon
+applicable_standards:
+  project: '1.0'
+  security: '1.0'

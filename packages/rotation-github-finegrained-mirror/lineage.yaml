@@ -1,0 +1,17 @@
+package_id: rotation-github-finegrained-mirror
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: c13857657ecaa25e5f964bcf918da644b690bf95cda6ea6fa1944bab545d94d9
+  created_at: '2026-10-20T14:58:27Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-20T15:02:02.622865+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-20T15:02:02.622865+00:00'
+  actor: claude-code-interactive
+  event_id: evt-05ad5b21aa9a4ed79c962a2298a4fb24
+approvals: []
+grants: []
