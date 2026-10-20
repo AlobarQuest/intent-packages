@@ -1,5 +1,5 @@
 package_id: rotation-change-manager-propose-bearer
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 2d8eaec39c62919ebfd47e2e8d9b2b35701951d6e9ce612377de581479146cbf
@@ -13,5 +13,11 @@ transitions:
   at: '2026-10-20T15:02:02.362425+00:00'
   actor: claude-code-interactive
   event_id: evt-4d4b3e77ff8a4be7938ac7f3ff8d008f
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 2d8eaec39c62919ebfd47e2e8d9b2b35701951d6e9ce612377de581479146cbf
+  approver: devon
+  approved_at: '2026-10-20T17:24:29.735796+00:00'
+  commit: d808484e93f69a3e2e9f8e33a0e9160e077ceac7
+  event_id: evt-9d158107604642749b37394021c1511b
 grants: []

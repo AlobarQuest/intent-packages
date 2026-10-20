@@ -1,5 +1,5 @@
 package_id: rotation-github-finegrained-mirror
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: c13857657ecaa25e5f964bcf918da644b690bf95cda6ea6fa1944bab545d94d9
@@ -13,5 +13,11 @@ transitions:
   at: '2026-10-20T15:02:02.622865+00:00'
   actor: claude-code-interactive
   event_id: evt-05ad5b21aa9a4ed79c962a2298a4fb24
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: c13857657ecaa25e5f964bcf918da644b690bf95cda6ea6fa1944bab545d94d9
+  approver: devon
+  approved_at: '2026-10-20T17:24:30.017247+00:00'
+  commit: d808484e93f69a3e2e9f8e33a0e9160e077ceac7
+  event_id: evt-ea62c02c94414df0a2391c4aa02c4235
 grants: []
