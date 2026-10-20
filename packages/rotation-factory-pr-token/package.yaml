@@ -1,0 +1,297 @@
+schema_version: 1
+package_id: rotation-factory-pr-token
+title: Standing rotation of the factory's GitHub PAT (factory-pr-token)
+revision: 1
+status: ready_for_review
+created_by: factory-create
+owner: devon
+created_at: '2026-10-20T14:58:27Z'
+supersedes: null
+reach:
+- external_system
+profile: non-software-operational
+profile_fields:
+  owner: devon
+  operating_procedure: >-
+    The rotation executor (orchestrator src/rotation_worker/) works this rotation with its github-
+    pat adapter, from the rotation-executor VM. The decomposition is the adapter's fixed plan: a
+    human act in which Devon creates a new fine-grained PAT in GitHub's console (never a regenerated
+    one, which kills the old value at once) and pastes it into the staging secret rotation/factory-
+    pr-token/<occurrence>/staging in Rotation / Work; unit store (verify_new, store, distribute,
+    verify_consumers); then unit retire (verify_consumers, retire_old, confirm_dead), with Devon's
+    completion of the store unit between them. Neither unit writes a hosted service, so both set
+    touches_no_hosted_service and aren't held to the live_estate window. Distribute writes each
+    FACTORY_PR_TOKEN Actions secret through the rotation GitHub App, with a token minted for that
+    one repository and exactly secrets write and metadata read. A copy counts as switched only when
+    its repository's hourly secret-fingerprint.yml report shows the keeper's fingerprint, and the
+    scheduled reader portfolio-scan is verified by its Healthchecks check; the retire unit waits
+    unclaimed until every copy and the reader have switched, and while a dispatched factory run is
+    live, because the revoke would fail that run's push. Retire revokes the old PAT by value at POST
+    /credentials/revoke with no credential, then confirm_dead rechecks GET /user until it answers
+    401. Evidence carries fingerprints, probe status codes and notes only.
+  external_systems:
+  - >-
+    GitHub — GET /user as the probe (200 for a live PAT, 401 for a malformed one), POST
+    /credentials/revoke, and the rotation App's Actions-secret writes and workflow-log reads
+  - >-
+    Bitwarden Secrets Manager — the keeper in Rotation / Keepers and the staging and quarantine
+    secrets in Rotation / Work, and the rotation App's private key in Rotation / Admin
+  - >-
+    Healthchecks — the last run of portfolio-scan
+  - >-
+    The orchestrator — whether a dispatched factory run is live, before and during retire
+  standing: true
+  credential_id: factory-pr-token
+  occurrence: '2026-10-20-requested'
+  destinations:
+  - 'bws-secret uuid="a3240c2e-92d7-4b32-a726-b49b0135565a"'
+  - 'gh-actions-secret repo="AlobarQuest/brain" name="FACTORY_PR_TOKEN"'
+  - 'gh-actions-secret repo="AlobarQuest/change-manager" name="FACTORY_PR_TOKEN"'
+  - 'gh-actions-secret repo="AlobarQuest/infraops-mcp-server" name="FACTORY_PR_TOKEN"'
+  - 'gh-actions-secret repo="AlobarQuest/intent-packages" name="FACTORY_PR_TOKEN"'
+  - 'gh-actions-secret repo="AlobarQuest/orchestrator" name="FACTORY_PR_TOKEN"'
+  - 'gh-actions-secret repo="AlobarQuest/security-standards" name="FACTORY_PR_TOKEN"'
+  - 'provider name="github"'
+  - 'runtime-fetch repo="project-standards" ref="integrations/portfolio-scan.sh"'
+outcome:
+  what: >-
+    The factory's fine-grained GitHub PAT (registry id factory-pr-token) is replaced by a new PAT
+    Devon creates, every Actions copy and the keeper hold it, and the old PAT is revoked.
+  why: >-
+    It is the PAT the factory's reusable workflow pushes and opens pull requests with, held in six
+    repositories' Actions secrets; increment 7 built the Actions-secret writer and the github-pat
+    adapter so its rotation stops being a set of hand edits (ADR-0055 amendment 10).
+  beneficiary: >-
+    Devon, whose factory runs push with a PAT the executor distributes and revokes rather than one
+    copied by hand.
+  success_signal: >-
+    Every unit completes with each step's evidence filed, the keeper holds a value different from
+    the one it started with, each of the six repositories' secret-fingerprint reports shows the
+    keeper's fingerprint, the old PAT answers 401 at GET /user and the new one 200, no staging or
+    quarantine secret is left in Rotation / Work, and the next security-drift run reports no
+    rotation finding for factory-pr-token.
+scope:
+  included:
+  - >-
+    The github-pat adapter's human act and two units, worked by the rotation executor and Devon.
+  excluded:
+  - >-
+    Any repository not in the registry entry's six Actions copies. A repository gaining a copy needs
+    the rotation App installed and the secret added to its report first.
+  - >-
+    Recording the rotation in security-drift's rotation state, which is HQ's act after the run.
+  non_goals:
+  - >-
+    Changing the PAT's permissions or which workflows use it.
+  assumptions:
+  - >-
+    The rotation executor's timer is enabled in the VM at a revision carrying the github-pat adapter
+    and the Actions-secret writer (orchestrator 88f8407 or later), with github_app_id and
+    github_app_key_id set.
+  - >-
+    The keeper a3240c2e is moved to Rotation / Keepers before the first run, with a direct read
+    grant for every account that reads it (the sds-operator account behind portfolio-scan), and the
+    root reads and writes it, confirmed with an empty HOME after the move. On 2026-10-20 it was in
+    SDS Operator and the root couldn't read it.
+  - >-
+    The registry's rotation precondition holds: the new PAT's repository-access list (settings page
+    only; no API) covers every factory target and factory-runner before any copy is set, and its
+    permissions are at least the current PAT's (Contents, Pull requests and Workflows read and
+    write).
+  - >-
+    The rotation App alobar-sds-rotation is installed on brain, change-manager, infraops-mcp-server,
+    intent-packages, orchestrator and security-standards, and each one's secret-fingerprint.yml
+    report has succeeded within three hours.
+  open_questions: []
+sources:
+- location: >-
+    orchestrator docs/decisions/0055-credential-rotation-runs-in-a-pull-based-executor.md, amendment
+    10 (increment 7 decisions).
+  authority_level: authoritative
+  required_version: '2026-10-19'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    orchestrator docs/operations/rotation-executor.md, "GitHub PATs and the Atlassian token", "Mint
+    and stage a value by hand" and "Scheduled readers".
+  authority_level: authoritative
+  required_version: '2026-10-20'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    factory-runner .cred-consumers.toml, credential factory-pr-token: its keeper, its six Actions
+    copies, its scheduled reader with the Healthchecks check it pings, and its rotation
+    precondition.
+  authority_level: authoritative
+  required_version: '2026-10-20'
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: >-
+    The human act whenever Devon is at the console; the store unit at its next pass; the retire unit
+    once every copy's hourly report and the 03:00 portfolio-scan have run since the keeper's
+    revision.
+  technology: The rotation executor at the orchestrator revision installed in the VM.
+  policy_legal: null
+  privacy_security: >-
+    No token value appears in a transcript, a tool argument, a log or evidence. Values are
+    identified by sha256 prefix and length only. A person pastes the new value into the staging
+    secret in the Bitwarden console and clears the clipboard after.
+  compatibility: null
+  quality_accessibility: null
+  operational: >-
+    Both units set touches_no_hosted_service: neither writes a hosted service, so neither asks the
+    live_estate window. The retire unit waits unclaimed while a dispatched factory run is live, and
+    the revoke asks again and refuses if one started since.
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    The staged PAT answers 200 at GET /user, beside a malformed github_pat_ value refused 401 by the
+    same probe.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store unit's verify_new step's rotation-step/1 evidence, filed by the rotation
+    executor.
+  approver: devon
+- id: AC-002
+  condition: >-
+    The old PAT is quarantined in Rotation / Work and the keeper reads back the new one.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-003
+  condition: >-
+    Each of the six FACTORY_PR_TOKEN Actions secrets is written through the rotation App, and each
+    write's updated_at moved.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the distribute step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-004
+  condition: >-
+    The keeper reads back the new PAT; the Actions copies and portfolio-scan are counted, and each
+    switches when its report or its next run shows the new value.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store unit's verify_consumers step's rotation-step/1 evidence, filed by the
+    rotation executor.
+  approver: devon
+- id: AC-005
+  condition: >-
+    Every Actions copy's secret-fingerprint report shows the keeper's fingerprint, and portfolio-
+    scan has run since the keeper's revision.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire unit's verify_consumers step's rotation-step/1 evidence, filed by the
+    rotation executor.
+  approver: devon
+- id: AC-006
+  condition: >-
+    No dispatched factory run was live, and the old PAT was revoked by value at POST
+    /credentials/revoke (202).
+  evidence_type: external_attestation
+  evidence: >-
+    external: the retire_old step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-007
+  condition: >-
+    The old PAT answers 401 at GET /user and the new one 200, each beside a malformed value refused
+    401, and the staging and quarantine secrets are deleted.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the confirm_dead step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+authority:
+  allowed:
+  - credential_revoke
+  - secret_read
+  - secret_write
+  requires_approval: []
+  prohibited:
+  - credential_create
+  - repository_write
+  - infra_mutation
+  - outward_publish
+  - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - A rotated token in the keeper, and terminal work units carrying each step's evidence.
+  destination: the production ledger
+  recipient: devon
+  definition_of_done: >-
+    Every unit is completed, every acceptance criterion carries evidence and an adjudication, every
+    human act is resolved, and security-drift reports no rotation finding for factory-pr-token.
+  operator_responsibilities:
+  - >-
+    Devon approves this revision, the change record and the decomposition, performs and resolves
+    each human act, and adjudicates each /review gate.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    ADR-0055 amendment 10: the rotation App, the Actions-secret writer and its fingerprint read, and
+    the github-pat adapter (2026-10-19).
+  required_people_systems:
+  - The rotation executor in the rotation-executor VM
+  - GitHub and the rotation App alobar-sds-rotation
+  - Bitwarden Secrets Manager
+  - Healthchecks
+  - Devon, at GitHub's and Bitwarden's consoles
+  required_capabilities:
+  - credential_revoke
+  - secret_read
+  - secret_write
+  blocking_conditions:
+  - >-
+    The executor refuses a unit at its checks; the refusal names the reason.
+  - >-
+    A repository whose newest successful secret-fingerprint report is older than three hours refuses
+    the unit before its claim.
+  - >-
+    A dispatched factory run that stays live holds the retire unit unclaimed.
+risk:
+  failure_modes:
+  - >-
+    The new PAT lacks a repository or permission the factory needs: verify_new proves only that it
+    authenticates, so a factory run fails after store. Before retire the old PAT still works; create
+    a corrected PAT and run again.
+  - >-
+    A contract refusal fails a unit partway; the executor resumes from BWS on a retry after a
+    requeue.
+  - >-
+    A copy's report stops (GitHub turns a schedule off after 60 days without repository activity):
+    the unit is refused until the report is re-enabled.
+  max_impact: >-
+    Factory runs fail to push until a corrected PAT is distributed, if the new PAT's access list is
+    wrong; after retire, the old PAT can't be restored.
+  stop_conditions:
+  - A value appears anywhere it should not.
+  - A factory run fails with an authentication error after store.
+  rollback: >-
+    Before retire_old the old PAT stays valid, so every copy works whichever value it holds, and the
+    recovery is a requeue or a new PAT. After retire_old the revoke can't be undone; the recovery is
+    forward: create a new PAT and run the rotation again.
+  escalation_target: devon
+verification:
+  independent_review:
+  - Devon adjudicates each criterion against its evidence at /review.
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: The next rotation of factory-pr-token, which arrives as a new revision.
+  signals: []
+  owner: devon
+applicable_standards:
+  project: '1.0'
+  security: '1.0'

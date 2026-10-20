@@ -1,0 +1,17 @@
+package_id: rotation-change-manager-propose-bearer
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 2d8eaec39c62919ebfd47e2e8d9b2b35701951d6e9ce612377de581479146cbf
+  created_at: '2026-10-20T14:58:27Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-20T15:02:02.362425+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-20T15:02:02.362425+00:00'
+  actor: claude-code-interactive
+  event_id: evt-4d4b3e77ff8a4be7938ac7f3ff8d008f
+approvals: []
+grants: []
