@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-orchestrator-drift-reporter-bearer
 title: Standing rotation of the orchestrator drift-reporter bearer (orchestrator-drift-reporter-bearer)
 revision: 2
-status: ready_for_review
+status: approved
 created_by: factory-create
 owner: devon
 created_at: '2026-10-18T15:36:20Z'

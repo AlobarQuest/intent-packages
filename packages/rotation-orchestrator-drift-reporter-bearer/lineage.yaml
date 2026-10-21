@@ -1,5 +1,5 @@
 package_id: rotation-orchestrator-drift-reporter-bearer
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 274b3dfc0e9056a70b4c77f9acee7369e130a7ea81706a4120dc0a291c91ea6d
@@ -37,4 +37,10 @@ approvals:
   approved_at: '2026-10-21T13:15:34.201576+00:00'
   commit: c0f950203a996215c12a9d5aeb05f68d88228eef
   event_id: evt-32a5b6d853284dcda44ae36c93786f3a
+- revision: 2
+  approved_hash: c7fa4ec3dd56d2d081af466b9a466e6420dc128313cc799441cb748c58fc5a7b
+  approver: devon
+  approved_at: '2026-10-21T13:39:38.215663+00:00'
+  commit: 0c2771ef17f5349d156bfd6a1c62045793fae7f4
+  event_id: evt-21e7e96d9fa142829723d5eaf38d16ba
 grants: []
