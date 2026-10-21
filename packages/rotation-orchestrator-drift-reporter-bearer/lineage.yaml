@@ -1,5 +1,5 @@
 package_id: rotation-orchestrator-drift-reporter-bearer
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 274b3dfc0e9056a70b4c77f9acee7369e130a7ea81706a4120dc0a291c91ea6d
@@ -13,5 +13,11 @@ transitions:
   at: '2026-10-18T15:37:05.160244+00:00'
   actor: claude-code-interactive
   event_id: evt-2e16aea0d6e049a38c78a3b7ed6ea618
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 274b3dfc0e9056a70b4c77f9acee7369e130a7ea81706a4120dc0a291c91ea6d
+  approver: devon
+  approved_at: '2026-10-21T13:15:34.201576+00:00'
+  commit: c0f950203a996215c12a9d5aeb05f68d88228eef
+  event_id: evt-32a5b6d853284dcda44ae36c93786f3a
 grants: []
