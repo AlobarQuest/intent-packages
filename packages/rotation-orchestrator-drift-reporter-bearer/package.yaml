@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-orchestrator-drift-reporter-bearer
 title: Standing rotation of the orchestrator drift-reporter bearer (orchestrator-drift-reporter-bearer)
-revision: 1
-status: approved
+revision: 2
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-18T15:36:20Z'
@@ -41,7 +41,7 @@ profile_fields:
     secrets in Rotation / Work, and the Coolify token in Rotation / Coolify
   standing: true
   credential_id: orchestrator-drift-reporter-bearer
-  occurrence: '2026-10-18-requested'
+  occurrence: '2026-10-21-requested'
   destinations:
   - 'bws-secret uuid="8998c4ea-453c-4ae1-9b5c-b49500b8dacc"'
   - 'coolify-env-hash instance="prod" resource_type="application" uuid="eqj5l7k705fhi12x9i74fqf0" key="ORCHESTRATOR_M2M_CREDENTIALS" entry="orchestrator-drift-reporter"'
