@@ -1,5 +1,5 @@
 package_id: rotation-bws-tok-brain-ops
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: f267bee094334f6c61e2970426951973e637e751525e1dd883d8395ebcfe0c94
@@ -13,5 +13,11 @@ transitions:
   at: '2026-10-22T14:02:51.699111+00:00'
   actor: claude-code-interactive
   event_id: evt-7a7733c7f011491f9aa142f7a33bf0e1
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: f267bee094334f6c61e2970426951973e637e751525e1dd883d8395ebcfe0c94
+  approver: devon
+  approved_at: '2026-10-22T14:50:50.246102+00:00'
+  commit: 6083bb9ff73f49e4e5fa2336c8110c0c86b06a70
+  event_id: evt-129b4dba458b4d4d934e8a1702a1d4a1
 grants: []
