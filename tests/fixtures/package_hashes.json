@@ -17,6 +17,7 @@
   "orchestrator-tzdata-bump": "694bdf17d402365cb3c9284b92ec18d5462ad6d46ef1da6199b06f007e523af1",
   "pre-phase4-foundation-cleanliness": "b66d56799e8e0709d73e57b36d56f344f54b9a8bb6cb5c0b0f4e2823042a1824",
   "rotation-bitbucket-mirror-token": "53d600d976b0589c8811c2cfe3094b562fc094395bae441bba529dceb259f847",
+  "rotation-bws-tok-brain-ops": "f267bee094334f6c61e2970426951973e637e751525e1dd883d8395ebcfe0c94",
   "rotation-change-manager-observe-bearer": "50b8b0f7629b801587d6f6807f000107245a1ef35d70c446b15a8b98152c2201",
   "rotation-change-manager-propose-bearer": "2d8eaec39c62919ebfd47e2e8d9b2b35701951d6e9ce612377de581479146cbf",
   "rotation-change-manager-read-bearer": "1db52d427c3c6be785c01635f36e12a0a4ba5a16a57785d75e6655d85837182d",
