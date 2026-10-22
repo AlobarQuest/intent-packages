@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-change-manager-read-bearer
 title: Standing rotation of the change-manager read bearer (change-manager-read-bearer)
-revision: 1
-status: approved
+revision: 2
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-20T14:58:27Z'
@@ -15,10 +15,15 @@ profile_fields:
   owner: devon
   operating_procedure: >-
     The rotation executor (orchestrator src/rotation_worker/) works this rotation with its change-
-    manager adapter, from the rotation-executor VM. The decomposition is the adapter's fixed plan:
-    unit mint (mint, stage, host, verify_new, store, verify_consumers), then unit retire
-    (verify_consumers, retire_old, confirm_dead), with Devon's completion of the first unit between
-    them. Each unit restarts change-manager, so each is claimed only in the live_estate window, and
+    manager-distributed adapter, from the rotation-executor VM. The decomposition is the adapter's
+    fixed plan: unit mint (mint, stage, host, verify_new, store, distribute, verify_consumers), then
+    unit retire (verify_consumers, retire_old, confirm_dead), with Devon's completion of the first
+    unit between them. Distribute writes the orchestrator's held copy, ORCHESTRATOR_CHANGE_RECORD_TOKEN,
+    in both Coolify rows and restarts the orchestrator, asking before the write and again before the
+    restart whether a restart would strand a dispatched run, and refusing if it would; it then waits
+    until the orchestrator's executor-only held-credentials route reports the new value's
+    fingerprint, and each verify_consumers counts the copy switched only while it does (ADR-0055
+    amendment 13). Each unit restarts change-manager, so each is claimed only in the live_estate window, and
     a unit that writes waits unclaimed while any registered change-manager reader's Healthchecks
     check shows as started, then asks again before writing and before restarting. The executor mints
     a random bearer itself; host writes M2M_TOKEN_READ in both Coolify rows as the read entry's new
@@ -39,7 +44,11 @@ profile_fields:
   - >-
     change-manager — GET /api/landing-policy as the probe (200 for an accepted bearer, 401 for a
     refused one), behind Cloudflare with a named User-Agent
-  - Production Coolify — the change-manager application's M2M_TOKEN_READ rows and restart
+  - Production Coolify — the change-manager application's M2M_TOKEN_READ rows and restart, and the
+    orchestrator application's ORCHESTRATOR_CHANGE_RECORD_TOKEN rows and restart
+  - >-
+    The orchestrator — GET /api/v1/held-credentials, the fingerprint of the held copy it loaded, and
+    the live units a restart would strand
   - >-
     Bitwarden Secrets Manager — this keeper and the other three change-manager keepers in
     Rotation / Keepers, the staging and quarantine secrets in Rotation / Work, and the Coolify
@@ -52,6 +61,7 @@ profile_fields:
   destinations:
   - 'bws-secret uuid="314f276d-55ca-4ddc-a24d-b4a3013508cd"'
   - 'coolify-env-hash instance="prod" resource_type="application" uuid="re45tafypao3nly3qa9a79dp" key="M2M_TOKEN_READ" entry="read"'
+  - 'coolify-env-held instance="prod" resource_type="application" uuid="eqj5l7k705fhi12x9i74fqf0" key="ORCHESTRATOR_CHANGE_RECORD_TOKEN"'
   - 'provider name="change-manager"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-bump-proposer.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-estate-landing.sh"'
@@ -61,7 +71,7 @@ outcome:
   what: >-
     The change-manager read bearer (registry id change-manager-read-bearer, scope read,
     variable M2M_TOKEN_READ) is replaced by a bearer the executor mints, change-manager accepts
-    only the new one, and the keeper holds it.
+    only the new one, and the keeper and the orchestrator's held copy hold it.
   why: >-
     It is the second of change-manager's four bearers on the rotation executor, after the observe
     bearer completed on 2026-10-20 (ADR-0055 increment 6). Its value was set by hand when the scope
@@ -74,10 +84,14 @@ outcome:
     the one it started with, the old value probes 401 and the new one 200 beside a refused random
     bearer, change-manager serves with M2M_TOKEN_READ holding the new hash and no previous, no
     staging or quarantine secret is left in Rotation / Work, and the next security-drift run
-    reports no rotation finding for change-manager-read-bearer.
+    reports no rotation finding for change-manager-read-bearer. The orchestrator reports the new
+    value's fingerprint for ORCHESTRATOR_CHANGE_RECORD_TOKEN, and its change-manager reads succeed.
 scope:
   included:
-  - The change-manager adapter's two units, worked by the rotation executor.
+  - The change-manager-distributed adapter's two units, worked by the rotation executor.
+  - >-
+    The orchestrator's held copy of the read bearer, ORCHESTRATOR_CHANGE_RECORD_TOKEN, which the
+    executor writes and restarts the orchestrator for.
   excluded:
   - >-
     change-manager's other three bearer variables (M2M_TOKEN, M2M_TOKEN_OBSERVE, M2M_TOKEN_PROPOSE).
@@ -89,8 +103,10 @@ scope:
   - Changing which lanes use the read bearer, or change-manager's scopes.
   assumptions:
   - >-
-    The rotation executor's timer is enabled in the VM at a revision carrying the change-manager
-    adapter (orchestrator 3e94dc3 or later), with coolify_url and admin_secrets set.
+    The rotation executor's timer is enabled in the VM at a revision carrying the
+    change-manager-distributed adapter (orchestrator ADR-0055 amendment 13), with coolify_url,
+    orchestrator_application and admin_secrets set, and the production orchestrator serves
+    GET /api/v1/held-credentials.
   - >-
     All four change-manager keepers are in Rotation / Keepers, where the broad machine account
     behind BWS_ACCESS_TOKEN_VPS_BACKUP and BWS_ACCESS_TOKEN_INFRA_DRIFT reads each by a direct
@@ -109,11 +125,18 @@ sources:
   trust: trusted_instruction
   sensitivity: internal
 - location: >-
-    change-manager .cred-consumers.toml, credential change-manager-read-bearer: its keeper, its
-    hashed entry in M2M_TOKEN_READ, and its four scheduled readers with the Healthchecks check each
-    pings.
+    orchestrator docs/decisions/0055-credential-rotation-runs-in-a-pull-based-executor.md,
+    amendment 13 ("A credential the orchestrator holds for another service is a destination").
   authority_level: authoritative
-  required_version: '2026-10-20'
+  required_version: '2026-10-22'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    change-manager .cred-consumers.toml, credential change-manager-read-bearer: its keeper, its
+    hashed entry in M2M_TOKEN_READ, the orchestrator's held copy, and its four scheduled readers
+    with the Healthchecks check each pings.
+  authority_level: authoritative
+  required_version: '2026-10-22'
   trust: trusted_instruction
   sensitivity: internal
 - location: >-
@@ -124,8 +147,8 @@ sources:
   trust: trusted_instruction
   sensitivity: internal
 - location: >-
-    orchestrator docs/operations/rotation-executor.md, "change-manager's bearers", "Scheduled
-    readers", and "If a change-manager rotation stalls after host".
+    orchestrator docs/operations/rotation-executor.md, "change-manager's bearers", "Held copies",
+    "Scheduled readers", and "If a change-manager rotation stalls after host".
   authority_level: authoritative
   required_version: '2026-10-18'
   trust: trusted_instruction
@@ -148,7 +171,8 @@ constraints:
     No unit sets touches_no_hosted_service, so every claim asks the live_estate change window
     (02:00 to 06:00 America/New_York). A unit that writes waits while any registered
     change-manager reader's check shows as started, and asks again before each write and each
-    restart.
+    restart. Distribute restarts the orchestrator, and refuses while a restart would strand a
+    dispatched run.
   other: []
 
 # ac_id means two different things and nothing checks the difference:
@@ -197,23 +221,33 @@ acceptance:
   approver: devon
 - id: AC-006
   condition: >-
-    The keeper reads back the new bearer and change-manager accepts it by probe beside a refused
-    random bearer; the scheduled readers are counted, and each switches on its next run.
+    Both Coolify rows of the orchestrator's ORCHESTRATOR_CHANGE_RECORD_TOKEN hold the new bearer,
+    the orchestrator restarted with no dispatched run stranded, and its held-credentials route
+    reports the new bearer's fingerprint.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the distribute step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-007
+  condition: >-
+    The keeper reads back the new bearer, the orchestrator reports it loaded for its held copy, and
+    change-manager accepts it by probe beside a refused random bearer; the scheduled readers are
+    counted, and each switches on its next run.
   evidence_type: external_attestation
   evidence: >-
     external: the mint unit's verify_consumers step's rotation-step/1 evidence, filed by the
     rotation executor.
   approver: devon
-- id: AC-007
+- id: AC-008
   condition: >-
-    Every destination still holds the new bearer, re-read and re-probed, and every scheduled
-    reader has run since the keeper's revision.
+    Every destination still holds the new bearer, re-read, re-probed and the held copy re-asked,
+    and every scheduled reader has run since the keeper's revision.
   evidence_type: external_attestation
   evidence: >-
     external: the retire unit's verify_consumers step's rotation-step/1 evidence, filed by the
     rotation executor.
   approver: devon
-- id: AC-008
+- id: AC-009
   condition: >-
     The read entry's previous hash was the quarantined bearer's, the variable was written
     without it in both rows, change-manager restarted, and the old bearer is refused 401 three
@@ -222,7 +256,7 @@ acceptance:
   evidence: >-
     external: the retire_old step's rotation-step/1 evidence, filed by the rotation executor.
   approver: devon
-- id: AC-009
+- id: AC-010
   condition: >-
     The old bearer is refused 401 and the new one answers 200, each beside a refused random
     bearer, and the staging and quarantine secrets are deleted.
@@ -261,6 +295,9 @@ dependencies:
   - >-
     ADR-0055 amendment 9, "The change-manager adapter": one registry row per reader with its
     read, the probe route, and the restart wait (2026-10-18).
+  - >-
+    ADR-0055 amendment 13: the orchestrator's held copy is a destination, written at distribute and
+    read back on its held-credentials route (2026-10-22).
   required_people_systems:
   - The rotation executor in the rotation-executor VM
   - change-manager and production Coolify
@@ -278,6 +315,7 @@ dependencies:
     A sibling change-manager keeper the root can't find or read fails host before anything is
     written.
   - A registered change-manager reader stays started past the wait; the step refuses.
+  - A dispatched run is live when distribute would restart the orchestrator; the step refuses.
 risk:
   failure_modes:
   - >-
@@ -294,6 +332,10 @@ risk:
     A written value change-manager's boot refuses takes change-manager down until the variable
     is undone by hand in both rows and restarted; the executor refuses every such value it can
     see before writing.
+  - >-
+    Distribute stops after writing the orchestrator's copy and before its restart; change-manager
+    accepts both values until retire, so nothing breaks, and a retry writes the copy again
+    and restarts.
   max_impact: >-
     change-manager down until a hand undo and restart, if a restart fails to boot; or
     its readers refused if a stalled rotation passes its seven days. The other three bearer
@@ -301,6 +343,7 @@ risk:
   stop_conditions:
   - A value appears anywhere it should not.
   - change-manager doesn't come back after a restart.
+  - The orchestrator doesn't come back after distribute's restart.
   rollback: >-
     Before retire_old: set M2M_TOKEN_READ to the read entry with previous.token_hash as its
     token_hash and no previous, in both rows, restart, and delete the staging secret; the keeper
