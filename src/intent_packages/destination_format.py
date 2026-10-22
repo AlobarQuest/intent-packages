@@ -24,6 +24,9 @@ IDENTITY_FIELDS: dict[str, tuple[str, ...]] = {
     # `entry` is the key id inside the variable's JSON whose hash this credential's bearer is
     # (orchestrator ADR-0055 amendment 9).
     "coolify-env-hash": ("instance", "resource_type", "uuid", "key", "entry"),
+    # A value the application holds in its settings to call another service (orchestrator
+    # ADR-0055 amendment 13).
+    "coolify-env-held": ("instance", "resource_type", "uuid", "key"),
     "gh-actions-secret": ("repo", "name"),
     "keychain": ("service", "account"),
     "runtime-fetch": ("repo", "ref"),
