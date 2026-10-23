@@ -1,0 +1,270 @@
+schema_version: 1
+package_id: rotation-bws-sds-operator-token
+title: Standing rotation of the sds-operator BWS machine token (bws-sds-operator-token)
+revision: 1
+status: ready_for_review
+created_by: factory-create
+owner: devon
+created_at: '2026-10-23T16:30:00Z'
+supersedes: null
+reach:
+- external_system
+- operator_machine
+profile: non-software-operational
+profile_fields:
+  owner: devon
+  operating_procedure: >-
+    The rotation executor (orchestrator src/rotation_worker/) works this rotation with its
+    bws-machine-token adapter, from its Keychain instance on the Mac, which holds the token
+    (ADR-0055 amendment 12). The decomposition is the adapter's fixed plan: a human act in which
+    Devon creates a new access token for the same machine account in the Bitwarden web app and runs
+    rotation-worker stage, which takes it at a hidden prompt into the staging Keychain item
+    rotation/bws-sds-operator-token/<occurrence>/staging and prints its fingerprint; unit store
+    (verify_new, store, distribute); unit verify (verify_consumers), which reads the Keychain item
+    back, waits unclaimed until each of the twelve registered readers has run since the switch, and
+    proves the old token still logs in; a human act in which Devon revokes the old
+    token in the web app, only after the verify unit completes; and unit confirm (confirm_dead),
+    which the executor claims no earlier than 75 minutes after the revoke is recorded. No unit
+    writes a hosted service, so each sets touches_no_hosted_service. The probe is a fresh login: a
+    new Bitwarden SDK client in a child process with an empty HOME and the token on stdin, which
+    logs in for a live token and answers invalid_client for a revoked or random one. The token is
+    the read-only sds-operator identity, which reads only the SDS Operator project. Eleven
+    orchestrator lanes and the portfolio scan read it each run and are verified by their
+    Healthchecks checks, which needs the Keychain instance's read-only Healthchecks key.
+    drift-audit.sh's mint-follow-ups step and the on-demand readers read the Keychain item fresh and
+    are verified by its read-back alone (Devon, 2026-10-23). No reader holds it across runs.
+    Evidence carries fingerprints, probe status codes and notes only.
+  external_systems:
+  - >-
+    Bitwarden Secrets Manager — a fresh login with the token as the probe, and the web app
+    (Machine accounts, Access tokens), where Devon creates and revokes tokens
+  - >-
+    The Mac's login Keychain — the keeper Claude/BWS_ACCESS_TOKEN_SDS and the executor's staging,
+    quarantine and Healthchecks key items under its own service
+  - >-
+    Healthchecks — the last runs of the portfolio-scan check and eleven orchestrator lanes' checks,
+    read with the Keychain instance's read-only key
+  standing: true
+  credential_id: bws-sds-operator-token
+  occurrence: '2026-10-23-requested'
+  destinations:
+  - 'keychain service="Claude" account="BWS_ACCESS_TOKEN_SDS"'
+  - 'provider name="bitwarden-sm"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-activation-sweep.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-bump-proposer.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-deploy-watcher.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-estate-landing.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-inert-landing.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-landing-ledger.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-pin-watcher.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-revision-watcher.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-rotation-proposer.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-tool-installer.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-work-carrier.sh"'
+  - 'runtime-fetch repo="project-standards" ref="integrations/portfolio-scan.sh"'
+outcome:
+  what: >-
+    The sds-operator BWS machine token (registry id bws-sds-operator-token, of the read-only sds-operator
+    machine account) is replaced by a new token Devon
+    creates, its Keychain item holds the new token, and the old token is revoked and proved dead.
+  why: >-
+    It was minted by hand on 2026-07-30, and every SDS lane on the Mac bootstraps with it, so it
+    should be a token the SDS rotates (ADR-0055 amendment 12).
+  beneficiary: >-
+    Devon, whose BWS machine tokens the SDS rotates with two web-app acts and no other hand work.
+  success_signal: >-
+    Every unit completes and both human acts are resolved, the Keychain item holds a token different
+    from the one it started with, the old token is refused and the new one logs in at a fresh
+    login, no staging or quarantine item is left, and the next security-drift run reports no
+    rotation finding for bws-sds-operator-token.
+scope:
+  included:
+  - >-
+    The bws-machine-token adapter's two human acts and three units, worked by the rotation
+    executor's Keychain instance and Devon.
+  excluded:
+  - >-
+    Every other BWS machine token, each rotated by its own package.
+  - >-
+    Recording the rotation in the registry, which is HQ's act after the run.
+  non_goals:
+  - >-
+    Changing what the token can read.
+  assumptions:
+  - >-
+    The executor's Keychain instance is installed on the Mac at an orchestrator revision carrying
+    the bws-machine-token adapter and the wait for other rotations' overlaps (ea4b4f3 or later),
+    with its read-only Healthchecks key item present and named in its configuration, with its own bearer registered, and the orchestrator names it in
+    ORCHESTRATOR_ROTATION_KEYCHAIN_EXECUTOR_AGENT_ID.
+  - >-
+    The new token is created for the same machine account, sds-operator, so it reads only the SDS
+    Operator project.
+  open_questions: []
+sources:
+- location: >-
+    orchestrator docs/decisions/0055-credential-rotation-runs-in-a-pull-based-executor.md, amendment
+    12 (BWS machine tokens rotate through a second executor on the Mac).
+  authority_level: authoritative
+  required_version: '2026-10-21'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    orchestrator docs/operations/rotation-executor.md, "BWS machine tokens: the Keychain instance".
+  authority_level: authoritative
+  required_version: '2026-10-22'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: >-
+    orchestrator .cred-consumers.toml, credential bws-sds-operator-token: its keeper and its twelve scheduled
+    readers with the check each pings.
+  authority_level: authoritative
+  required_version: '2026-10-23'
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: >-
+    The first human act whenever Devon is at the web app; the store unit at its next pass outside
+    02:00 to 07:35 New York time while no other rotation is mid-overlap; the verify unit once every
+    registered reader has run since the switch, within a day; the revoke after verify
+    completes; the confirm unit 75 minutes after the revoke is recorded.
+  technology: The rotation executor's Keychain instance at the orchestrator revision installed on the Mac.
+  policy_legal: null
+  privacy_security: >-
+    No token value appears in a transcript, a tool argument, a process argument, a log or evidence.
+    Values are identified by sha256 prefix and length only. Devon types the new token at a hidden
+    prompt and clears the clipboard after.
+  compatibility: null
+  quality_accessibility: null
+  operational: >-
+    Every unit sets touches_no_hosted_service: none writes a hosted service, so none asks the
+    live_estate window.
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    The staged token logs in at a fresh login, beside a random token refused by the same probe.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store unit's verify_new step's rotation-step/1 evidence, filed by the rotation
+    executor.
+  approver: devon
+- id: AC-002
+  condition: >-
+    The old token is quarantined in the executor's Keychain service and the keeper reads back the
+    new one.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the store step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-003
+  condition: >-
+    Every other Keychain item that held the old token holds the new one; this token has none.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the distribute step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+- id: AC-004
+  condition: >-
+    The Keychain item reads back the new token, each of the twelve registered readers has run since
+    the switch, and the old token still logs in, beside a random token refused, before Devon revokes
+    it.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the verify unit's verify_consumers step's rotation-step/1 evidence, filed by the
+    rotation executor.
+  approver: devon
+- id: AC-005
+  condition: >-
+    At least 75 minutes after Devon's revoke, the old token is refused and the new one logs in at a
+    fresh login, each beside a random token refused, and the staging and quarantine items are
+    deleted.
+  evidence_type: external_attestation
+  evidence: >-
+    external: the confirm_dead step's rotation-step/1 evidence, filed by the rotation executor.
+  approver: devon
+authority:
+  allowed:
+  - secret_read
+  - secret_write
+  requires_approval: []
+  prohibited:
+  - credential_create
+  - credential_revoke
+  - repository_write
+  - infra_mutation
+  - outward_publish
+  - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - A rotated token in the keeper, and terminal work units carrying each step's evidence.
+  destination: the production ledger
+  recipient: devon
+  definition_of_done: >-
+    Every unit is completed, every acceptance criterion carries evidence and an adjudication, every
+    human act is resolved, and security-drift reports no rotation finding for bws-sds-operator-token.
+  operator_responsibilities:
+  - >-
+    Devon approves this revision, the change record and the decomposition, performs and resolves
+    each human act, and adjudicates each /review gate.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    ADR-0055 amendment 12: the Keychain instance, its identity and the bws-machine-token adapter
+    (2026-10-21).
+  required_people_systems:
+  - The rotation executor's Keychain instance on the Mac
+  - Bitwarden Secrets Manager
+  - Devon, at the Bitwarden web app and the hidden prompt
+  required_capabilities:
+  - secret_read
+  - secret_write
+  blocking_conditions:
+  - >-
+    The executor refuses a unit at its checks; the refusal names the reason.
+risk:
+  failure_modes:
+  - >-
+    The new token belongs to another machine account: verify_new proves only that it logs in, so
+    the keeper then holds a token that reads different projects, and the lanes' next runs fail;
+    their checks show it before the revoke, so the old token is still live to fall back to.
+  - >-
+    Devon revokes the old token before the verify unit completes: verify refuses, because the old
+    token no longer logs in, and the rotation stops before confirm.
+  - >-
+    A contract refusal fails a unit partway; the executor resumes from the Keychain on a retry after
+    a requeue.
+  max_impact: >-
+    The keeper holds a token for the wrong account until a corrected one is stored; after the
+    revoke, the old token can't be restored. Every SDS lane on the Mac fails until a working token
+    is in the item.
+  stop_conditions:
+  - A value appears anywhere it should not.
+  - A Keychain item reads back neither the old token nor the new one.
+  - A registered reader's run after the switch fails.
+  rollback: >-
+    Before Devon's revoke the old token stays valid and is quarantined; the recovery is a requeue or
+    a new token. After the revoke the recovery is forward: create a new token and run the rotation
+    again.
+  escalation_target: devon
+verification:
+  independent_review:
+  - Devon adjudicates each criterion against its evidence at /review.
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: The next rotation of bws-sds-operator-token, which arrives as a new revision.
+  signals: []
+  owner: devon
+applicable_standards:
+  project: '1.0'
+  security: '1.0'
