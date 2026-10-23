@@ -1,5 +1,5 @@
 package_id: rotation-bws-tok-ops-mini-20260730
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 8220202e029079a598c5b0d93bcf332d2357ade2f8c282a9292d7d48160084b4
@@ -13,5 +13,11 @@ transitions:
   at: '2026-10-23T14:10:13.102204+00:00'
   actor: claude-code-interactive
   event_id: evt-cd9d6979aa72424aa0c79af635b9ed56
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 8220202e029079a598c5b0d93bcf332d2357ade2f8c282a9292d7d48160084b4
+  approver: devon
+  approved_at: '2026-10-23T14:21:49.828612+00:00'
+  commit: fe0471b378e27deab462fff52dec60e87293673c
+  event_id: evt-7d1c4300322a47b1979f194e8305e73e
 grants: []

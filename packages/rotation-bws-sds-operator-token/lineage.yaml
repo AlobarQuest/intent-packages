@@ -1,5 +1,5 @@
 package_id: rotation-bws-sds-operator-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 9022fff32d309424dff2f44b2a754fd6b056a0689a534482272e22a212920807
@@ -13,5 +13,11 @@ transitions:
   at: '2026-10-23T14:17:30.003778+00:00'
   actor: claude-code-interactive
   event_id: evt-e11d8b61dcb24ffdba8c58c9fb568f88
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 9022fff32d309424dff2f44b2a754fd6b056a0689a534482272e22a212920807
+  approver: devon
+  approved_at: '2026-10-23T14:21:49.971759+00:00'
+  commit: fe0471b378e27deab462fff52dec60e87293673c
+  event_id: evt-f382030b73b94e008cc20f701d2738d0
 grants: []
