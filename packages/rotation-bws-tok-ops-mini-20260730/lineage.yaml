@@ -1,0 +1,17 @@
+package_id: rotation-bws-tok-ops-mini-20260730
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 8220202e029079a598c5b0d93bcf332d2357ade2f8c282a9292d7d48160084b4
+  created_at: '2026-10-23T16:00:00Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-23T14:10:13.102204+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-23T14:10:13.102204+00:00'
+  actor: claude-code-interactive
+  event_id: evt-cd9d6979aa72424aa0c79af635b9ed56
+approvals: []
+grants: []
