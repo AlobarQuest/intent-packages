@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-change-manager-read-bearer
 title: Standing rotation of the change-manager read bearer (change-manager-read-bearer)
 revision: 2
-status: ready_for_review
+status: approved
 created_by: factory-create
 owner: devon
 created_at: '2026-10-20T14:58:27Z'
