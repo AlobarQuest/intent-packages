@@ -1,5 +1,5 @@
 package_id: rotation-change-manager-full-bearer
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: b85e34f33a5383deb19b8753bcca4e0fed1f00e19c9f56d95a4b7587105550bc
@@ -37,4 +37,10 @@ approvals:
   approved_at: '2026-10-23T12:49:49.238357+00:00'
   commit: 83d0f289ce83cb064b3a3e6ac504705ad814f5ef
   event_id: evt-20f5a4da66fa43bea5d9d1eff0b6f311
+- revision: 2
+  approved_hash: 379bab59b5798b10ee8ed10649bcf10a7a4c5b2a5ebd58c91ecff92d17b3d936
+  approver: devon
+  approved_at: '2026-10-26T13:23:40.297899+00:00'
+  commit: 85b857b8a9355827bed89da4ff8b68f01421fce7
+  event_id: evt-dbd1aebb003e42249ea400bccdbf9204
 grants: []
