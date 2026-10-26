@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-bws-tok-content-mini
 title: Standing rotation of the content-mini BWS machine token (bws-tok-content-mini)
 revision: 2
-status: ready_for_review
+status: approved
 created_by: factory-create
 owner: devon
 created_at: '2026-10-23T14:30:00Z'
