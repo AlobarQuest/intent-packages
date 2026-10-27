@@ -2,7 +2,7 @@ schema_version: 1
 package_id: project-standards-ruff-bump
 title: Bump ruff to 0.17.3 in project-standards
 revision: 1
-status: ready_for_review
+status: approved
 created_by: factory-create
 owner: devon
 created_at: '2026-10-27T15:40:17Z'
