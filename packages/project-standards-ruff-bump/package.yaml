@@ -1,0 +1,171 @@
+schema_version: 1
+package_id: project-standards-ruff-bump
+title: Bump ruff to 0.17.3 in project-standards
+revision: 1
+status: ready_for_review
+created_by: factory-create
+owner: devon
+created_at: '2026-10-27T15:40:17Z'
+supersedes: null
+reach:
+- source_repository
+profile: dependency-update
+profile_fields:
+  target_repo: AlobarQuest/project-standards
+  package: ruff
+  from_version: 0.17.1
+  to_version: 0.17.3
+  standing: false
+outcome:
+  what: >-
+    project-standards' ruff dependency moves to 0.17.3. The pin in `[dependency-groups].dev`
+    of pyproject.toml goes from `ruff==0.17.1` to `ruff==0.17.3` and uv.lock re-resolves ruff
+    from 0.17.1 to 0.17.3. Two files change and nothing else.
+  why: >-
+    It is the first factory unit on project-standards since Devon made it a factory target
+    again (orchestrator ADR-0015 amendment 2026-10-27). ruff is a development-time linter with
+    one pin site and no runtime role, so the bump exercises the whole dependency-update path
+    (mutate, verify, pull request, named-check evidence, landing) against a change whose blast
+    radius is the repository's own lint step.
+  beneficiary: >-
+    The delivery system, which gains its first factory unit on project-standards; and
+    project-standards, which keeps a current linter.
+  success_signal: >-
+    A pull request against AlobarQuest/project-standards in which pyproject.toml pins
+    `ruff==0.17.3`, uv.lock resolves ruff 0.17.3, `uv lock --check` exits 0, and the
+    repository's `Lint, type-check, and test` job concludes success on the pull-request head.
+scope:
+  included:
+  - Raise the ruff pin in `[dependency-groups].dev` and re-resolve uv.lock.
+  excluded:
+  - Any change to project-standards' own source, tests or ruff configuration.
+  - Any other dependency, including the pyright pin.
+  non_goals:
+  - Changing which ruff rules project-standards enables.
+  assumptions:
+  - >-
+    ruff 0.17.3 is a patch-level release compatible with project-standards' ruff
+    configuration. Measured: a clean clone of project-standards at c4b7668 passes `make check`
+    (733 tests), and `ruff@0.17.3 check` and `ruff@0.17.3 format --check` report no changes,
+    so the bump changes no lint result.
+  - >-
+    ruff is pinned at exactly one site: `[dependency-groups].dev`. The
+    `[project.optional-dependencies].dev` list holds only pytest.
+  open_questions: []
+sources:
+- location: >-
+    Devon's decision on 2026-10-27 to make project-standards a factory target again and run
+    its first factory unit as a ruff bump. ruff 0.17.3 on PyPI is the signal that the upgrade
+    exists.
+  authority_level: authoritative
+  required_version: null
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: >-
+    uv is the only tooling. The mutation is `uv add --group dev ruff==0.17.3` (or the
+    equivalent pin edit followed by `uv lock`), and the verifier is `uv lock --check`. The
+    tests run in the repository's `Lint, type-check, and test` job.
+  policy_legal: null
+  privacy_security: null
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: >-
+    A pull request against AlobarQuest/project-standards moves ruff to 0.17.3 in both
+    pyproject.toml and uv.lock, changes no other file, and the repository's
+    `Lint, type-check, and test` job concludes success on the pull-request head.
+  evidence_type: automated_check
+  evidence: >-
+    ci: check name `Lint, type-check, and test` (the job in project-standards' Quality
+    workflow) on the pull-request head, observed from GitHub by the orchestrator rather than
+    asserted by the caller.
+  approver: policy
+
+# allowed_commands is an ORDERED list, and also the agent's whole command vocabulary.
+# Without verify_commands the worker re-executes all of it at finalize. With it, the
+# worker runs the mutators in allowed_commands order, then verify_commands in its
+# own order; verify_commands must be a subset of allowed_commands and share no
+# command with mutation_commands, and nothing else is run. Either way, put
+# mutators first and the verifier last, or the recorded evidence attests to a tree
+# that is not the one pushed. `make check` must never appear in this repo's envelope.
+# Use `uv venv --clear`, never bare `uv venv`.
+#
+# `merge_to_main` stays under requires_approval, where ADR-0001 puts it. The decomposition
+# author projects it as `github.pr.merge`, and the approval it requires is the human
+# authority approval bound to that envelope's exact fingerprint.
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  requires_approval:
+  - merge_to_main
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 360
+deliverables:
+  artifacts:
+  - >-
+    A pull request against AlobarQuest/project-standards changing exactly pyproject.toml and
+    uv.lock, merged by the orchestrator once AC-001 is decided.
+  destination: AlobarQuest/project-standards
+  recipient: devon
+  definition_of_done: >-
+    The pull request is merged, its diff confined to those two files, the unit is completed,
+    and the landing ledger has recorded the landing.
+  operator_responsibilities:
+  - A merge into a production system must trace to recorded permission - either express
+    permission given at the time of the merge, or a standing pre-authorization - recorded
+    as evidence bound to this work unit. A merge that cannot be traced to one of those
+    is a defect, whoever performed it. Outside production this constraint does not
+    apply.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - >-
+    Orchestrator ADR-0015 amendment 2026-10-27 - project-standards is a factory target again.
+    Without it dispatch admission refuses this unit as target_repository_not_declared.
+  required_people_systems: []
+  required_capabilities:
+  - merge_to_main
+  blocking_conditions:
+  - >-
+    The unit's authority envelope must grant `github.pr.merge` at `allowed` - the projection
+    of the `merge_to_main` term above into the unit capability vocabulary.
+risk:
+  failure_modes:
+  - >-
+    ruff 0.17.3 reports new findings or reformats files and the `Lint, type-check, and test`
+    job fails on the pull-request head. The pull request is not merged; nothing is affected.
+  - >-
+    uv resolves a wider set of transitive changes than expected. Visible in the diff before
+    any merge, and a stop condition.
+  max_impact: low
+  stop_conditions:
+  - The diff touches any file other than pyproject.toml and uv.lock.
+  rollback: >-
+    Before merge, close the pull request. After merge, revert the commit on project-standards' main.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'
