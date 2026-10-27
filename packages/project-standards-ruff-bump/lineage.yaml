@@ -1,0 +1,23 @@
+package_id: project-standards-ruff-bump
+current_state: approved
+revisions:
+- revision: 1
+  hash: 0cb7b0fd36ece7b1d05028c67444b2b063b64d6ceb2785f756d6d319e5f19047
+  created_at: '2026-10-27T15:40:17Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-27T15:40:37.607519+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-27T15:40:37.607519+00:00'
+  actor: claude-code-interactive
+  event_id: evt-d7433833ec624c4d8cdc5cad07a5a9c0
+approvals:
+- revision: 1
+  approved_hash: 0cb7b0fd36ece7b1d05028c67444b2b063b64d6ceb2785f756d6d319e5f19047
+  approver: devon
+  approved_at: '2026-10-27T15:44:50.587553+00:00'
+  commit: 157a7d07a81224f4ad924369980272e07daa4f1d
+  event_id: evt-715b8d2f2dee4740a949e9d28f82ae0c
+grants: []
