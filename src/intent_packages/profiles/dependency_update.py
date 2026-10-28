@@ -408,14 +408,6 @@ TOOLING_PROFILES: dict[str, ToolingProfile] = {
 }
 
 
-# The ONE place a created standing package states what happens to the pull request
-# after it opens: the definition of done reads it, so a change to the merging rule is
-# one edit here and not a hunt through the template.
-_MERGE_STATEMENT = (
-    "The factory merges its own pull request once the repository's named check passes "
-    "on the head; the human gates that remain sit outside this package."
-)
-
 STANDING_CREATED_BY = "create-standing"
 
 
@@ -586,7 +578,9 @@ def render_standing_package(
             "recipient": owner,
             "definition_of_done": (
                 "The pull request exists and the repository's named check is green on its "
-                "head. " + _MERGE_STATEMENT
+                "head. The factory merges its own pull request once the repository's named "
+                "check passes on the head; the human gates that remain sit outside this "
+                "package."
             ),
             "operator_responsibilities": [
                 "A merge into a production system must trace to recorded permission - either "
@@ -610,7 +604,8 @@ def render_standing_package(
                 "the pull request stays open and nothing is affected, because a pull "
                 "request is inert here.",
                 "The resolution pulls a wider set of transitive changes than expected. "
-                "Visible in the diff before any merge.",
+                "Visible in the pull request, and the named check must pass before the factory "
+                "merges.",
             ],
             "max_impact": "low",
             "stop_conditions": [

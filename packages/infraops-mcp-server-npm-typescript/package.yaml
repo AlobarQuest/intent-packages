@@ -179,7 +179,7 @@ risk:
     inert here.
   - >-
     The resolution pulls a wider set of transitive changes than expected. Visible
-    in the diff before any merge.
+    in the pull request, and the named check must pass before the factory merges.
   max_impact: low
   stop_conditions:
   - The diff touches a file outside the source tree, its manifest and its lockfile.

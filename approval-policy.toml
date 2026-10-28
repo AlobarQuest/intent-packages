@@ -140,6 +140,14 @@ entire classifiable Tier C population across all six cascade repositories -- and
 landing there is inert, so nothing that is running changes when one of these pull
 requests lands. Whether a granted repository is inert is not decided here: the bump
 proposer only creates packages for inert ones, and admission re-checks the grant.
+
+merge_to_main moves from `authority_requires_approval` to `authority_allowed`
+(2026-10-28; orchestrator docs/superpowers/specs/2026-10-27-bridge-layer-design.md,
+Part 3, Devon's decision 3). WHY it needs no per-unit approval: the factory merges its
+own pull request once the repository's named check passes on the head, and the target
+repositories are inert, so a landing deploys nothing and a regretted merge is a revert.
+The human gates that remain sit outside the package: the approval of the decomposition,
+and merge admission's authority approval bound to the exact envelope.
 """
 decided = "2026-10-28"
 targets_from = "sds-member-record:dependency_updates"
