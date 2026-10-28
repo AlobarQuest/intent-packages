@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-change-manager-read-bearer
 title: Standing rotation of the change-manager read bearer (change-manager-read-bearer)
-revision: 2
-status: approved
+revision: 3
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-20T14:58:27Z'
@@ -66,6 +66,7 @@ profile_fields:
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-bump-proposer.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-estate-landing.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-inert-landing.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-membership-check.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-work-carrier.sh"'
 outcome:
   what: >-

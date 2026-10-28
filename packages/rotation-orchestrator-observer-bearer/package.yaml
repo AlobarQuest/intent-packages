@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-orchestrator-observer-bearer
 title: Standing rotation of the orchestrator observer bearer (orchestrator-observer-bearer)
-revision: 1
-status: approved
+revision: 2
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-18T15:35:36Z'
@@ -55,11 +55,14 @@ profile_fields:
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-activation-sweep.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-bump-proposer.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-deploy-watcher.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-fork-harden.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-landing-ledger.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-membership-check.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-pin-watcher.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-revision-watcher.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-rotation-proposer.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-tool-installer.sh"'
+  - 'runtime-fetch repo="project-standards" ref="integrations/portfolio-scan.sh"'
 outcome:
   what: >-
     The orchestrator observer bearer (registry id orchestrator-observer-bearer, key id

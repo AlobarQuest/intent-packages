@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-factory-pr-token
 title: Standing rotation of the factory's GitHub PAT (factory-pr-token)
-revision: 1
-status: approved
+revision: 2
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-20T14:58:27Z'
@@ -50,6 +50,7 @@ profile_fields:
   - 'gh-actions-secret repo="AlobarQuest/infraops-mcp-server" name="FACTORY_PR_TOKEN"'
   - 'gh-actions-secret repo="AlobarQuest/intent-packages" name="FACTORY_PR_TOKEN"'
   - 'gh-actions-secret repo="AlobarQuest/orchestrator" name="FACTORY_PR_TOKEN"'
+  - 'gh-actions-secret repo="AlobarQuest/project-standards" name="FACTORY_PR_TOKEN"'
   - 'gh-actions-secret repo="AlobarQuest/security-standards" name="FACTORY_PR_TOKEN"'
   - 'provider name="github"'
   - 'runtime-fetch repo="project-standards" ref="integrations/portfolio-scan.sh"'
