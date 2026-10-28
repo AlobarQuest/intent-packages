@@ -138,14 +138,15 @@ rationale = """
 Scope is the SDS member record's `dependency_updates` grant, not a list kept here.
 ADR-0028's whole point is that the bar can be raised or lowered by one edit, and
 that edit is now the grant on the member: withdrawing it takes the repository out
-of policy approval at the next consultation, and granting it brings one in. The grant began as one repository, infraops-mcp-server (2026-08-19): where the
+of policy approval at the next consultation, and granting it brings one in. The
+grant began as one repository, infraops-mcp-server (2026-08-19): where the
 cascade-refused remainder actually was -- its three open npm majors were the
 entire classifiable Tier C population across all six cascade repositories. A granted
 target either lands inertly (`source_repository`) or redeploys on landing
 (`live_estate`); the package declares which, and whether that declaration matches the
 estate is checked at orchestrator dispatch against App Brain, not here. A pull request to
 a redeploying target also needs a person's merge approval, an approved change record and
-the change window (Ruling 2). `max_impact` stays `low` for both reaches: the bump passes
+the change window (orchestrator ADR-0025 amendment 2). `max_impact` stays `low` for both reaches: the bump passes
 the repository's own build and tests, a person approves a redeploying merge, and a revert
 restores service.
 
