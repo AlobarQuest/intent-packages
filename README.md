@@ -27,6 +27,7 @@ PYTHONPATH=src python3 -m intent_packages <command>
 | `approve <path>` | Devon-only: bind approval to the current revision's hash. |
 | `revise <path>` | Register a new revision after a material intent edit. |
 | `verify-approval <path> [--revision N]` | Mechanically confirm a revision was approved. |
+| `create-standing --target-repo <owner/name> --package <dep> --ecosystem <npm\|pip\|uv> --from <v> --to <v> [--out packages]` | Write a draft standing dependency-update package `<repo>-<ecosystem>-<dep-slug>` (no `human_review` criterion, reach `source_repository`) and print its directory. Refuses an existing directory or an ecosystem without tooling. Then run `transition --to ready_for_review` and `approve --by-policy`. |
 
 ## Layout
 

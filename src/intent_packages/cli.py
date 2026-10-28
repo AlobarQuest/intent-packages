@@ -1,4 +1,5 @@
-"""CLI: validate / hash / transition / approve / revise / supersede / verify-approval."""
+"""CLI: validate / hash / transition / approve / revise / supersede / verify-approval /
+create-standing."""
 
 import argparse
 import subprocess
@@ -51,6 +52,16 @@ def main(argv: list[str] | None = None) -> int:
         dest="ledger_only",
         help="skip the tamper-evident chain check (prints an UNVERIFIED CHAIN warning)",
     )
+    p_standing = sub.add_parser(
+        "create-standing",
+        help="write a draft standing dependency-update package; prints its directory",
+    )
+    p_standing.add_argument("--target-repo", required=True, help="owner/name")
+    p_standing.add_argument("--package", required=True, help="the dependency's name")
+    p_standing.add_argument("--ecosystem", required=True, help="npm, pip or uv")
+    p_standing.add_argument("--from", required=True, dest="from_version")
+    p_standing.add_argument("--to", required=True, dest="to_version")
+    p_standing.add_argument("--out", default="packages", help="parent directory")
     args = parser.parse_args(argv)
     if args.cmd == "hash":
         from intent_packages.canonical import package_hash
@@ -70,6 +81,17 @@ def main(argv: list[str] | None = None) -> int:
         return _run_supersede(args)
     if args.cmd == "verify-approval":
         return _run_verify_approval(args)
+    if args.cmd == "create-standing":
+        from intent_packages.factory.scaffolds import create_standing
+
+        return create_standing(
+            args.target_repo,
+            args.package,
+            args.ecosystem,
+            args.from_version,
+            args.to_version,
+            args.out,
+        )
     return 0
 
 
