@@ -7,7 +7,6 @@ drive the real CLI entry point, then that lifecycle, against what it wrote.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -64,15 +63,11 @@ def test_create_standing_writes_a_package_that_validates(tmp_path, capsys) -> No
     assert lineage["revisions"][0]["hash"] == package_hash(package)
 
 
-def test_the_created_package_is_approvable_by_policy(tmp_path, monkeypatch, fake_registry) -> None:
+def test_the_created_package_is_approvable_by_policy(
+    tmp_path, monkeypatch, fake_registry, member_record
+) -> None:
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    shipped = approval_policy.default_policy_path().read_text(encoding="utf-8")
-    policy = tmp_path / "approval-policy.toml"
-    policy.write_text(
-        re.sub(r"target_repositories = \[[^\]]*\]", f'target_repositories = ["{REPO}"]', shipped),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(approval_policy, "default_policy_path", lambda: policy)
+    member_record(REPO)
     out = tmp_path / "packages"
     assert _create(out) == 0
     pkg_dir = out / "example-app-npm-zod"
@@ -82,7 +77,7 @@ def test_the_created_package_is_approvable_by_policy(tmp_path, monkeypatch, fake
     do_approve(
         pkg_dir,
         emitter=StubEmitter(),
-        approver="policy:dependency-update@v1",
+        approver="policy:dependency-update@v2",
         commit="abc1234",
         now=NOW,
     )

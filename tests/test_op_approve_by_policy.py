@@ -29,7 +29,7 @@ from intent_packages.operations import (
 NOW = "2026-08-19T12:00:00Z"
 COMMIT = "abc1234"
 STANDING = Path("packages/infraops-mcp-server-npm-zod")
-POLICY_APPROVER = "policy:dependency-update@v1"
+POLICY_APPROVER = "policy:dependency-update@v2"
 
 
 class StubEmitter:
@@ -51,7 +51,7 @@ def _fill(pkg_dir: Path, *, before: str = "3.25.76", after: str = "4.4.3") -> No
 
 
 @pytest.fixture
-def standing(tmp_path, monkeypatch, fake_registry) -> Path:
+def standing(tmp_path, monkeypatch, fake_registry, member_record) -> Path:
     """The shipped standing package, copied out and REWOUND to an unfilled draft shell.
 
     **The rewind is the point, and it was learned the hard way.** These tests are about the
@@ -63,6 +63,7 @@ def standing(tmp_path, monkeypatch, fake_registry) -> Path:
     reading `illegal transition: 'approved' -> 'ready_for_review'`.
     """
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
+    member_record("AlobarQuest/infraops-mcp-server")
     pkg_dir = tmp_path / STANDING.name
     shutil.copytree(STANDING, pkg_dir)
     _rewind(pkg_dir)

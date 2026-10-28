@@ -43,6 +43,18 @@
 # same commit that teaches the loader the new version and ships the code reading
 # any new field. The loader accepts exactly the versions it knows.
 #
+# SCHEMA 2 (2026-10-28) moved where a grant's target repositories come from. Schema 1
+# kept a hand-kept, case-sensitive `target_repositories` list in this file; schema 2
+# replaces it with `targets_from = "sds-member-record:<service>"`, and the SDS member
+# record is the authority for scope (Devon, 2026-10-27). A package's target qualifies
+# when a non-retired member's grant for that service is `granted`, compared
+# case-folded. Each schema version has exactly one source: a schema-1 document carries
+# the list, a schema-2 document carries `targets_from`, and neither accepts the other's
+# field. The record is read on every consultation (intent_packages.members); when it
+# cannot be read -- no observer token, a transport error, a non-2xx, a body that is not
+# the record's shape -- policy objects with `member_record_unreadable: <cause>` and the
+# revision waits for a person. Unreadable is never an approval.
+#
 # WHAT THIS DOCUMENT CANNOT CHECK, stated so that it is a known residual rather
 # than a discovery. ADR-0028 describes the pre-decision as "this repository,
 # this ecosystem, these update types". Only the first is checkable here: a
@@ -61,7 +73,7 @@
 # part of a standing grant that must not move: where the work lands, what it may
 # touch, what it may spend, and who adjudicates it.
 
-version = 1
+version = 2
 
 # ---------------------------------------------------------------------------
 # The four profiles with no policy grant. Each declares WHY, because a row that
@@ -118,16 +130,19 @@ decided = "2026-08-19"
 
 [profile.dependency-update.grant]
 rationale = """
-Deliberately one repository. ADR-0028's whole point is that the bar can be
-raised or lowered by editing this table, so it starts at the narrowest useful
-setting and widens on evidence. infraops-mcp-server is where the cascade-refused
-remainder actually is -- measured 2026-08-19, its three open npm majors are the
-entire classifiable Tier C population across all six cascade repositories -- and
-App Brain records a landing there as inert, so nothing that is running changes
-when one of these pull requests lands.
+Scope is the SDS member record's `dependency_updates` grant, not a list kept here.
+ADR-0028's whole point is that the bar can be raised or lowered by one edit, and
+that edit is now the grant on the member: withdrawing it takes the repository out
+of policy approval at the next consultation, and granting it brings one in. The
+grant began as one repository, infraops-mcp-server (2026-08-19): where the
+cascade-refused remainder actually was -- its three open npm majors were the
+entire classifiable Tier C population across all six cascade repositories -- and a
+landing there is inert, so nothing that is running changes when one of these pull
+requests lands. Whether a granted repository is inert is not decided here: the bump
+proposer only creates packages for inert ones, and admission re-checks the grant.
 """
-decided = "2026-08-19"
-target_repositories = ["AlobarQuest/infraops-mcp-server"]
+decided = "2026-10-28"
+targets_from = "sds-member-record:dependency_updates"
 
 # EXACTLY, not a subset. A revision that reaches anywhere else is a different
 # kind of work wearing this profile's name, and `source_repository` is the reach

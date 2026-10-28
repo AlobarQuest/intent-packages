@@ -71,9 +71,15 @@ def policy():
     return load_policy()
 
 
+@pytest.fixture(autouse=True)
+def _infraops_is_granted(member_record):
+    """The member double: infraops-mcp-server holds the `dependency_updates` grant."""
+    member_record("AlobarQuest/infraops-mcp-server")
+
+
 def test_the_shipped_artifact_loads_and_covers_every_registered_profile(policy) -> None:
     assert set(policy.grants) == set(PROFILES)
-    assert policy.version == 1
+    assert policy.version == 2
 
 
 def test_a_conformant_revision_draws_no_objection(policy) -> None:
@@ -83,14 +89,14 @@ def test_a_conformant_revision_draws_no_objection(policy) -> None:
 
 
 def test_the_approver_string_carries_the_policy_version(policy) -> None:
-    assert policy.approver_for("dependency-update") == "policy:dependency-update@v1"
+    assert policy.approver_for("dependency-update") == "policy:dependency-update@v2"
 
 
 # --- what the grant refuses -------------------------------------------------------
 
 
 def test_another_repository_is_refused(policy) -> None:
-    """Kills: dropping `_target_refusal`. The grant is one repository by decision."""
+    """Kills: dropping `_target_refusal`. The grant is the member record's, not any repository."""
     package = _package(**{"profile_fields.target_repo": "AlobarQuest/orchestrator"})
     assert policy.refusals_for(package) == ("target_repository_not_permitted",)
 
@@ -323,8 +329,8 @@ def test_a_row_for_an_unknown_profile_stops_the_document_loading(tmp_path) -> No
 def test_an_unknown_schema_version_is_refused(tmp_path) -> None:
     """Kills: accepting any version. An older process meeting a newer document would
     silently ignore whatever narrowing that version introduced."""
-    with pytest.raises(ApprovalPolicyError, match="schema version 2"):
-        load_policy(_write(tmp_path, "version = 2\n" + _rows()))
+    with pytest.raises(ApprovalPolicyError, match="schema version 3"):
+        load_policy(_write(tmp_path, "version = 3\n" + _rows()))
 
 
 def test_an_unreadable_document_raises_rather_than_yielding_an_empty_policy(tmp_path) -> None:
@@ -361,9 +367,129 @@ def test_a_grant_missing_a_field_stops_the_document_loading(tmp_path) -> None:
         load_policy(_write(tmp_path, text))
 
 
+_GRANT_V2 = _GRANT.replace(
+    'target_repositories = ["AlobarQuest/infraops-mcp-server"]',
+    'targets_from = "sds-member-record:dependency_updates"',
+)
+
+
+def _document(version: int, grant: str) -> str:
+    return (
+        f"version = {version}\n"
+        + _rows(omit="dependency-update")
+        + '\n[profile.dependency-update]\nrationale = "r"\ndecided = "d"\n'
+        + grant
+    )
+
+
+def test_schema_1_grants_still_load(tmp_path) -> None:
+    """Kills: schema 2 replacing schema 1 outright. A schema-1 document keeps its fixed list
+    and never consults the member record."""
+    loaded = load_policy(_write(tmp_path, _document(1, _GRANT)))
+    grant = loaded.grants["dependency-update"]
+    assert grant is not None
+    assert grant.target_repositories == {"AlobarQuest/infraops-mcp-server"}
+    assert grant.target_service is None
+    assert loaded.approver_for("dependency-update") == "policy:dependency-update@v1"
+
+
+def test_a_schema_1_grant_does_not_consult_the_member_record(tmp_path, member_record) -> None:
+    member_record()  # an empty record: nothing is granted there
+    loaded = load_policy(_write(tmp_path, _document(1, _GRANT)))
+    assert "target_repository_not_permitted" not in loaded.refusals_for(CONFORMANT)
+
+
+def test_a_schema_2_grant_names_its_service(tmp_path) -> None:
+    grant = load_policy(_write(tmp_path, _document(2, _GRANT_V2))).grants["dependency-update"]
+    assert grant is not None
+    assert grant.target_service == "dependency_updates"
+    assert grant.target_repositories == frozenset()
+
+
+@pytest.mark.parametrize(
+    ("version", "grant", "message"),
+    [
+        (2, _GRANT, r"missing \['targets_from'\]"),
+        (1, _GRANT_V2, r"missing \['target_repositories'\]"),
+        (2, _GRANT_V2 + 'target_repositories = ["a/b"]\n', "unknown fields"),
+        (2, _GRANT_V2.replace("sds-member-record:", "elsewhere:"), "targets_from must be"),
+        (
+            2,
+            _GRANT_V2.replace("sds-member-record:dependency_updates", "sds-member-record:"),
+            "targets_from must be",
+        ),
+    ],
+)
+def test_each_schema_has_exactly_one_target_source(tmp_path, version, grant, message) -> None:
+    with pytest.raises(ApprovalPolicyError, match=message):
+        load_policy(_write(tmp_path, _document(version, grant)))
+
+
+def test_the_shipped_grant_takes_its_targets_from_the_member_record(policy) -> None:
+    grant = policy.grants["dependency-update"]
+    assert grant is not None
+    assert (grant.target_service, grant.target_repositories) == ("dependency_updates", frozenset())
+
+
 def test_the_shipped_artifact_is_the_one_the_default_path_names() -> None:
     assert default_policy_path().name == "approval-policy.toml"
     assert default_policy_path().is_file()
+
+
+# --- the member record is the scope -------------------------------------------------
+
+
+def test_a_granted_target_is_approved(policy, member_record) -> None:
+    member_record("AlobarQuest/example-app")
+    package = _package(**{"profile_fields.target_repo": "AlobarQuest/example-app"})
+    assert policy.refusals_for(package) == ()
+
+
+def test_an_ungranted_target_is_refused(policy, member_record) -> None:
+    """Kills: the target check reading a list instead of the record. infraops-mcp-server is
+    named nowhere in the record this test installs."""
+    member_record("AlobarQuest/example-app")
+    assert policy.refusals_for(CONFORMANT) == ("target_repository_not_permitted",)
+
+
+def test_the_target_check_folds_case(policy, member_record) -> None:
+    """Kills: case-sensitive membership. GitHub repository names are case-insensitive."""
+    member_record("alobarquest/INFRAOPS-mcp-server")
+    assert policy.refusals_for(CONFORMANT) == ()
+
+
+def test_an_unreadable_member_record_refuses(policy, monkeypatch) -> None:
+    """Kills: treating an unreadable record as an empty or a permissive one. The cause is
+    named, the revision is not approved."""
+    from intent_packages import approval_policy
+    from intent_packages.members import MembersUnreadable
+
+    def unreadable(service):
+        raise MembersUnreadable("the member record answered HTTP 503")
+
+    monkeypatch.setattr(approval_policy, "granted_targets", unreadable)
+    (refusal,) = policy.refusals_for(CONFORMANT)
+    assert refusal == "member_record_unreadable: the member record answered HTTP 503"
+
+
+def test_a_retired_member_is_refused(policy, member_record) -> None:
+    """A retired member is dropped by the reader (tests/test_members.py), so it is absent from
+    the granted set the policy consults."""
+    member_record()
+    assert policy.refusals_for(CONFORMANT) == ("target_repository_not_permitted",)
+
+
+def test_the_record_is_not_consulted_for_a_package_that_names_no_target(
+    policy, monkeypatch
+) -> None:
+    from intent_packages import approval_policy
+
+    def must_not_be_called(service):
+        raise AssertionError("the member record was read")
+
+    monkeypatch.setattr(approval_policy, "granted_targets", must_not_be_called)
+    package = _package(**{"profile_fields.target_repo": _ABSENT})
+    assert policy.refusals_for(package) == ("target_repository_not_permitted",)
 
 
 # --- the approver shape -----------------------------------------------------------
