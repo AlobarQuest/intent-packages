@@ -1,0 +1,23 @@
+package_id: orchestrator-uv-httpx2
+current_state: approved
+revisions:
+- revision: 1
+  hash: fb75ba36f21649817e6effde2ddb10391295ce1fdecdb55913569ec69655abc5
+  created_at: '2026-10-28T17:59:01Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-28T17:59:01.260311+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-28T17:59:01.260311+00:00'
+  actor: claude-code-interactive
+  event_id: evt-c0ae82ae08574a2e90b824801a2ed02f
+approvals:
+- revision: 1
+  approved_hash: fb75ba36f21649817e6effde2ddb10391295ce1fdecdb55913569ec69655abc5
+  approver: policy:dependency-update@v2
+  approved_at: '2026-10-28T17:59:01.483082+00:00'
+  commit: 8df130a67c3dcdab9bb98d615d80b33eac1ed1ad
+  event_id: evt-ade860354f2e49d89b65569d142ffa79
+grants: []

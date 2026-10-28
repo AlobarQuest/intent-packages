@@ -1,0 +1,154 @@
+schema_version: 1
+package_id: orchestrator-uv-httpx2
+title: Adopt the proposed uv update of httpx2 in orchestrator
+revision: 1
+status: approved
+created_by: create-standing
+owner: devon
+created_at: '2026-10-28T17:59:01Z'
+supersedes: null
+reach:
+- source_repository
+profile: dependency-update
+profile_fields:
+  target_repo: AlobarQuest/orchestrator
+  package: httpx2
+  from_version: 2.13.1
+  to_version: 2.16.0
+  standing: true
+outcome:
+  what: orchestrator's httpx2 dependency moves to the version named in profile_fields.to_version.
+    The manifest declares the new version and the lockfile re-resolves. Nothing else
+    in the repository changes.
+  why: 'Dependabot proposes this update and the auto-merge cascade declines it: ADR-0016
+    assigns the bumps that need work rather than a merge to the factory, and ADR-0028
+    makes that a lane rather than a separately authored package per bump. This package
+    is the standing statement of that lane for one dependency; each revision of it
+    is one proposed bump.'
+  beneficiary: orchestrator, which stays on a supported httpx2 rather than drifting
+    until an upgrade is forced by something urgent.
+  success_signal: A pull request against AlobarQuest/orchestrator in which the manifest
+    declares the version named in profile_fields.to_version, the lockfile resolves
+    it, and the repository's own named check passes on the head.
+scope:
+  included:
+  - Move the declared httpx2 version to profile_fields.to_version and re-resolve the
+    lockfile.
+  - Whatever source change that version requires in order for the repository's own
+    named check to pass on the pull request head.
+  excluded:
+  - Deploying. App Brain records a landing on this repository's default branch as
+    inert, which is what makes source_repository the honest reach here.
+  - Any other outdated dependency, including others this same lane may have open.
+  non_goals:
+  - Adopting new httpx2 features. This is a version move plus whatever it forces,
+    not a migration undertaken for its own sake.
+  assumptions:
+  - The proposed version is reachable from the current one without a change this package's
+    authority cannot make. Verified only to the extent that the repository's own named
+    check runs on the result; nothing here reads a changelog.
+  open_questions: []
+sources:
+- location: The open Dependabot pull request on AlobarQuest/orchestrator that proposes
+    this bump, selected by the producer because the transcribed auto-merge cascade
+    refuses it (ADR-0016, ADR-0028). The pull request is data; the decision that such
+    bumps become factory work is the authority, and it was taken in ADR-0016.
+  authority_level: authoritative
+  required_version: null
+  trust: untrusted_data
+  sensitivity: internal
+constraints:
+  time_budget: null
+  technology: uv is the only tooling. The mutation installs the proposed version and
+    re-resolves the lockfile; the verifier is the repository's own build and lint.
+    The ordered command list is settled at decomposition, against the repository as
+    it actually stands, rather than guessed here.
+  policy_legal: null
+  privacy_security: null
+  compatibility: A major version move may require source changes. That is the whole
+    reason this bump is factory work rather than a merge, so it is in scope rather
+    than a surprise.
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: A pull request against AlobarQuest/orchestrator moves httpx2 to the version
+    named in profile_fields.to_version in the manifest and the lockfile, and the repository's
+    own named check passes on its head.
+  evidence_type: automated_check
+  evidence: 'ci: the target repository''s named check on the pull request head, observed
+    from GitHub by the orchestrator rather than asserted by the caller.'
+  approver: policy
+
+# allowed_commands is an ORDERED list, and also the agent's whole command vocabulary.
+# Without verify_commands the worker re-executes all of it at finalize. With it, the
+# worker runs the mutators in allowed_commands order, then verify_commands in its
+# own order; verify_commands must be a subset of allowed_commands and share no
+# command with mutation_commands, and nothing else is run. Either way, put
+# mutators first and the verifier last, or the recorded evidence attests to a tree
+# that is not the one pushed. `make check` must never appear in this repo's envelope.
+# Use `uv venv --clear`, never bare `uv venv`.
+authority:
+  allowed:
+  - repository_read
+  - repository_write
+  - test_execution
+  - merge_to_main
+  requires_approval: []
+  prohibited:
+  - secret_write
+  budgets:
+    max_attempts: 3
+    max_llm_calls: 360
+deliverables:
+  artifacts:
+  - A pull request against AlobarQuest/orchestrator moving httpx2 and whatever that
+    move requires.
+  destination: AlobarQuest/orchestrator
+  recipient: devon
+  definition_of_done: The pull request exists and the repository's named check is
+    green on its head. The factory merges its own pull request once the repository's
+    named check passes on the head; the human gates that remain sit outside this package.
+  operator_responsibilities:
+  - A merge into a production system must trace to recorded permission - either express
+    permission given at the time of the merge, or a standing pre-authorization - recorded
+    as evidence bound to this work unit. A merge that cannot be traced to one of those
+    is a defect, whoever performed it. Outside production this constraint does not
+    apply.
+dependencies:
+  predecessor_packages: []
+  external_decisions: []
+  required_people_systems: []
+  required_capabilities: []
+  blocking_conditions: []
+risk:
+  failure_modes:
+  - The new httpx2 breaks the repository's own named check and the work cannot make
+    it pass within its budget. The merge waits on a passing check, so the pull request
+    stays open and nothing is affected, because a pull request is inert here.
+  - The resolution pulls a wider set of transitive changes than expected. Visible
+    in the pull request, and the named check must pass before the factory merges.
+  max_impact: low
+  stop_conditions:
+  - The diff touches a file outside the source tree, its manifest and its lockfile.
+  rollback: Close the pull request if it is still open. If it was merged and later
+    regretted, revert the commit; a landing on this repository's default branch is
+    inert, so nothing outside the repository has changed.
+  escalation_target: devon
+verification:
+  independent_review: []
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: null
+  signals: []
+  owner: null
+applicable_standards:
+  project: '1.0'
