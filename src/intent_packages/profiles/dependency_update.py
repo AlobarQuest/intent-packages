@@ -26,6 +26,7 @@ from intent_packages.schema import MapSpec, OptionalKey, _s, _walk
 CAPABILITIES: dict[str, str] = {
     "command.run": "allowed",
     "github.pr.create": "allowed",
+    "github.pr.merge": "allowed",
     "orchestrator.claim": "allowed",
     "orchestrator.evidence.write": "allowed",
     "repo.edit": "allowed",
@@ -408,11 +409,11 @@ TOOLING_PROFILES: dict[str, ToolingProfile] = {
 
 
 # The ONE place a created standing package states what happens to the pull request
-# after it opens. Both the scope exclusion and the definition of done read it, so a
-# change to the merging rule is one edit here and not a hunt through the template.
+# after it opens: the definition of done reads it, so a change to the merging rule is
+# one edit here and not a hunt through the template.
 _MERGE_STATEMENT = (
-    "Merging. The pull request is opened and left for a person; landing it is a "
-    "separate act this package does not cover."
+    "The factory merges its own pull request once the repository's named check passes "
+    "on the head; the human gates that remain sit outside this package."
 )
 
 STANDING_CREATED_BY = "create-standing"
@@ -504,7 +505,6 @@ def render_standing_package(
                 "own named check to pass on the pull request head.",
             ],
             "excluded": [
-                _MERGE_STATEMENT,
                 "Deploying. App Brain records a landing on this repository's default branch "
                 "as inert, which is what makes source_repository the honest reach here.",
                 "Any other outdated dependency, including others this same lane may have open.",
@@ -572,8 +572,8 @@ def render_standing_package(
             }
         ],
         "authority": {
-            "allowed": ["repository_read", "repository_write", "test_execution"],
-            "requires_approval": ["merge_to_main"],
+            "allowed": ["repository_read", "repository_write", "test_execution", "merge_to_main"],
+            "requires_approval": [],
             "prohibited": ["secret_write"],
             "budgets": dict(BUDGETS),
         },
@@ -606,8 +606,9 @@ def render_standing_package(
         "risk": {
             "failure_modes": [
                 f"The new {dependency} breaks the repository's own named check and the work "
-                "cannot make it pass within its budget. The pull request is not merged and "
-                "nothing is affected, because a pull request is inert here.",
+                "cannot make it pass within its budget. The merge waits on a passing check, so "
+                "the pull request stays open and nothing is affected, because a pull "
+                "request is inert here.",
                 "The resolution pulls a wider set of transitive changes than expected. "
                 "Visible in the diff before any merge.",
             ],
@@ -616,8 +617,9 @@ def render_standing_package(
                 "The diff touches a file outside the source tree, its manifest and its lockfile."
             ],
             "rollback": (
-                "Close the pull request without merging. Nothing outside the repository has "
-                "changed, so there is nothing to undo."
+                "Close the pull request if it is still open. If it was merged and later "
+                "regretted, revert the commit; a landing on this repository's default branch "
+                "is inert, so nothing outside the repository has changed."
             ),
             "escalation_target": owner,
         },

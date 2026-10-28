@@ -36,8 +36,8 @@ CONFORMANT = {
     },
     "reach": ["source_repository"],
     "authority": {
-        "allowed": ["repository_read", "repository_write", "test_execution"],
-        "requires_approval": ["merge_to_main"],
+        "allowed": ["repository_read", "repository_write", "test_execution", "merge_to_main"],
+        "requires_approval": [],
         "prohibited": ["secret_write"],
         "budgets": {"max_attempts": 3, "max_llm_calls": 120},
     },
@@ -159,6 +159,41 @@ def test_an_extra_authority_term_is_refused(policy) -> None:
         }
     )
     assert policy.refusals_for(package) == ("authority_terms_not_permitted",)
+
+
+def test_a_revision_that_still_asks_approval_for_the_merge_is_refused(policy) -> None:
+    """Kills: the grant keeping `merge_to_main` in `authority_requires_approval`. The grant
+    puts the merge in `allowed`; a revision that moves it back no longer matches."""
+    package = _package(
+        **{
+            "authority.allowed": ["repository_read", "repository_write", "test_execution"],
+            "authority.requires_approval": ["merge_to_main"],
+        }
+    )
+    assert policy.refusals_for(package) == ("authority_terms_not_permitted",)
+
+
+def test_the_shipped_grant_allows_the_merge_and_asks_for_no_approval(policy) -> None:
+    grant = policy.grants["dependency-update"]
+    assert grant is not None
+    assert "merge_to_main" in grant.authority_allowed
+    assert grant.authority_requires_approval == ()
+
+
+def test_only_requires_approval_may_be_an_empty_grant_list(tmp_path) -> None:
+    """Kills: relaxing `_strings` for every list. An empty allowed list would read as
+    "nothing permitted", so it still stops the document loading."""
+    grant = _GRANT.replace(
+        'authority_allowed = ["repository_read", "merge_to_main"]', "authority_allowed = []"
+    )
+    text = (
+        "version = 1\n"
+        + _rows(omit="dependency-update")
+        + '\n[profile.dependency-update]\nrationale = "r"\ndecided = "d"\n'
+        + grant
+    )
+    with pytest.raises(ApprovalPolicyError, match="authority_allowed must be a non-empty list"):
+        load_policy(_write(tmp_path, text))
 
 
 def test_a_missing_authority_term_is_refused(policy) -> None:
@@ -291,8 +326,8 @@ rationale = "r"
 decided = "2026-08-19"
 target_repositories = ["AlobarQuest/infraops-mcp-server"]
 reach = ["source_repository"]
-authority_allowed = ["repository_read"]
-authority_requires_approval = ["merge_to_main"]
+authority_allowed = ["repository_read", "merge_to_main"]
+authority_requires_approval = []
 authority_prohibited = ["secret_write"]
 max_attempts = 3
 max_llm_calls = 120

@@ -112,6 +112,22 @@ def test_the_created_package_has_no_human_review_criterion(tmp_path) -> None:
     ]
 
 
+def test_the_created_package_puts_merging_in_scope(tmp_path) -> None:
+    """The factory merges its own pull request once the checks pass, so no created text may
+    say a person lands it and the authority no longer asks for the merge."""
+    assert _create(tmp_path) == 0
+
+    package = load_package(tmp_path / "example-app-npm-zod")
+    assert "merge_to_main" in package["authority"]["allowed"]
+    assert package["authority"]["requires_approval"] == []
+    text = repr(package)
+    assert "left for a person" not in text
+    assert "separate human act" not in text
+    assert "The pull request is not merged" not in text
+    assert not any(e.startswith("Merging") for e in package["scope"]["excluded"])
+    assert "merges its own pull request" in package["deliverables"]["definition_of_done"]
+
+
 @pytest.mark.parametrize(
     ("ecosystem", "dependency", "expected"),
     [

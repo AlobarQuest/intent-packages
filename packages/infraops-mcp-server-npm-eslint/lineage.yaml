@@ -1,11 +1,15 @@
 package_id: infraops-mcp-server-npm-eslint
-current_state: approved
+current_state: draft
 revisions:
 - revision: 1
   hash: db169342f2bcb54830bd54bded70bf0473f8041eb87f7aff9261c4a5f8ae5bba
   created_at: '2026-08-19T12:43:28Z'
   author: claude-code-interactive
   snapshotted_at: '2026-08-19T13:16:59.260948+00:00'
+- revision: 2
+  hash: 9263f236f57cdf0350ea481a3aff149d3b97ab39b5a1c0fd5ea82c0e16a5c321
+  created_at: '2026-10-28T14:30:23.259173+00:00'
+  author: claude-code-interactive
 transitions:
 - kind: transition
   from: draft
@@ -13,6 +17,12 @@ transitions:
   at: '2026-08-19T13:16:59.260948+00:00'
   actor: claude-code-interactive
   event_id: evt-68d0bb9e380f4b2e96c765fb571ad4c2
+- kind: revision
+  from: approved
+  to: draft
+  at: '2026-10-28T14:30:23.259173+00:00'
+  actor: claude-code-interactive
+  event_id: null
 approvals:
 - revision: 1
   approved_hash: db169342f2bcb54830bd54bded70bf0473f8041eb87f7aff9261c4a5f8ae5bba

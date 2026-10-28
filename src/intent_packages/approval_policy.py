@@ -264,7 +264,9 @@ def _grant(where: str, table: object, version: int) -> Grant:
         target_service=_target_service(table, where) if version == 2 else None,
         reach=_strings(table, "reach", where),
         authority_allowed=_strings(table, "authority_allowed", where),
-        authority_requires_approval=_strings(table, "authority_requires_approval", where),
+        authority_requires_approval=_strings(
+            table, "authority_requires_approval", where, allow_empty=True
+        ),
         authority_prohibited=_strings(table, "authority_prohibited", where),
         max_attempts=_positive_int(table, "max_attempts", where),
         max_llm_calls=_positive_int(table, "max_llm_calls", where),
@@ -291,9 +293,11 @@ def _text(table: dict, key: str, where: str) -> str:
     return value
 
 
-def _strings(table: dict, key: str, where: str) -> tuple[str, ...]:
+def _strings(table: dict, key: str, where: str, *, allow_empty: bool = False) -> tuple[str, ...]:
+    """A list of non-empty strings. Empty is refused unless the field says "nothing" is a
+    legitimate grant: `authority_requires_approval` is empty once the merge is allowed."""
     value = table.get(key)
-    if not isinstance(value, list) or not value:
+    if not isinstance(value, list) or (not value and not allow_empty):
         raise ApprovalPolicyError(f"{where}: {key} must be a non-empty list")
     if not all(isinstance(item, str) and item for item in value):
         raise ApprovalPolicyError(f"{where}: {key} must hold non-empty strings")

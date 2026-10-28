@@ -154,8 +154,8 @@ reach = ["source_repository"]
 # or moves one between the three lists is not the shape that was pre-decided,
 # and refuses. This is the field that stops a policy approval widening what the
 # work may do.
-authority_allowed = ["repository_read", "repository_write", "test_execution"]
-authority_requires_approval = ["merge_to_main"]
+authority_allowed = ["repository_read", "repository_write", "test_execution", "merge_to_main"]
+authority_requires_approval = []
 authority_prohibited = ["secret_write"]
 
 # CEILINGS, so a revision may spend less but never more.

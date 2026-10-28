@@ -184,6 +184,7 @@ def test_build_envelope_shape_matches_contract(tmp_path):
         "grep -qx 'fastapi==0.139.2' requirements.txt",
     ]
     assert env["capabilities"]["command.run"] == "allowed"
+    assert env["capabilities"]["github.pr.merge"] == "allowed"
 
 
 def test_npm_discovers_dependency(tmp_path):
