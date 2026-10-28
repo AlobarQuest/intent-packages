@@ -1,0 +1,23 @@
+package_id: orchestrator-uv-sqlalchemy
+current_state: approved
+revisions:
+- revision: 1
+  hash: 8cff5af7249a3f741dd0967234983cbe6289f14bb44c80aba5120ebe1d76b987
+  created_at: '2026-10-28T17:59:05Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-28T17:59:05.251634+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-28T17:59:05.251634+00:00'
+  actor: claude-code-interactive
+  event_id: evt-df2870a4010a44b9ba7dcc75e30cfa53
+approvals:
+- revision: 1
+  approved_hash: 8cff5af7249a3f741dd0967234983cbe6289f14bb44c80aba5120ebe1d76b987
+  approver: policy:dependency-update@v2
+  approved_at: '2026-10-28T17:59:05.415447+00:00'
+  commit: 259626c8cd9b3829b98e9e23723452bbdeb6d317
+  event_id: evt-41495763a81349299f2298a737d9adff
+grants: []
