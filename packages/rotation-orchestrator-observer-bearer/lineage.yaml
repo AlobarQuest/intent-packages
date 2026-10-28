@@ -1,5 +1,5 @@
 package_id: rotation-orchestrator-observer-bearer
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: de91342b515a94bfdcff2e9e793007d4450caf6049209ad90695c8e9c5be3669
@@ -37,4 +37,10 @@ approvals:
   approved_at: '2026-10-18T16:05:34.676461+00:00'
   commit: 2c6c5c6ea125c6cced6fa6bf4a8ec36b665e4035
   event_id: evt-fed65c2fff0a4d9d9763b0671e6f0b75
+- revision: 2
+  approved_hash: 0764c48b181ae3f9cf5eec0399f5d96c34bba473cfe611d98cad60b3474c741d
+  approver: devon
+  approved_at: '2026-10-28T13:22:00.046659+00:00'
+  commit: e8064d3b41c8fe9b0b37270ea48a0a4ec497105b
+  event_id: evt-53087ea2883e4e0c96b22f9fb5f2d1b9
 grants: []

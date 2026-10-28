@@ -1,5 +1,5 @@
 package_id: rotation-factory-pr-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 8f7527c69f341d4e59ed4fb2694d532b7eae6c889242f1fea0628977f0e75d11
@@ -37,4 +37,10 @@ approvals:
   approved_at: '2026-10-20T17:24:29.877110+00:00'
   commit: d808484e93f69a3e2e9f8e33a0e9160e077ceac7
   event_id: evt-16bf816dc0394ee3a69cc145ef59cab4
+- revision: 2
+  approved_hash: 5f54aeac20b15e2b1030283a812b509a953190537f62792592784254444bffb8
+  approver: devon
+  approved_at: '2026-10-28T13:22:00.415275+00:00'
+  commit: e8064d3b41c8fe9b0b37270ea48a0a4ec497105b
+  event_id: evt-2076b54b7a9742e4a85c0fc64854a09c
 grants: []
