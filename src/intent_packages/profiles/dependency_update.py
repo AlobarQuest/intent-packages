@@ -26,6 +26,7 @@ from intent_packages.schema import MapSpec, OptionalKey, _s, _walk
 CAPABILITIES: dict[str, str] = {
     "command.run": "allowed",
     "github.pr.create": "allowed",
+    "github.pr.merge": "allowed",
     "orchestrator.claim": "allowed",
     "orchestrator.evidence.write": "allowed",
     "repo.edit": "allowed",
@@ -407,6 +408,222 @@ TOOLING_PROFILES: dict[str, ToolingProfile] = {
 }
 
 
+STANDING_CREATED_BY = "create-standing"
+
+
+def standing_package_id(repository: str, ecosystem: str, dependency: str) -> str:
+    """`<repo name>-<ecosystem>-<dependency slug>` for a standing package.
+
+    The repo name is the part of `owner/name` after the slash. The slug lowercases the
+    dependency and turns every run of characters outside `[a-z0-9]` into one `-`, so a scoped
+    npm name (`@types/node` -> `types-node`), a pip name with dots or underscores
+    (`Flask_Cors` -> `flask-cors`) and a uv name are all safe directory names. Distinct
+    names can collide (`a.b` and `a-b`); the writer refuses an existing directory, so a
+    collision is an error and never an overwrite.
+    """
+    name = repository.rsplit("/", 1)[-1].lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", dependency.lower()).strip("-")
+    if not name or not slug:
+        raise ValueError(f"cannot derive a package id from {repository!r} / {dependency!r}")
+    return f"{name}-{ecosystem}-{slug}"
+
+
+def render_standing_package(
+    repository: str,
+    dependency: str,
+    ecosystem: str,
+    from_version: str,
+    to_version: str,
+    created_at: str,
+    *,
+    owner: str = "devon",
+) -> dict:
+    """The package.yaml document of a standing dependency-update package, ready for approval.
+
+    Modelled on the shipped standing packages (`packages/infraops-mcp-server-npm-*`): the
+    standing facts in `profile_fields`, one `automated_check` criterion approved by
+    policy, no `human_review`, reach `[source_repository]`, and the authority terms and
+    budgets the `dependency-update` grant in approval-policy.toml describes.
+    """
+    package_id = standing_package_id(repository, ecosystem, dependency)
+    name = repository.rsplit("/", 1)[-1]
+    return {
+        "schema_version": 1,
+        "package_id": package_id,
+        "title": f"Adopt the proposed {ecosystem} update of {dependency} in {name}",
+        "revision": 1,
+        "status": "draft",
+        "created_by": STANDING_CREATED_BY,
+        "owner": owner,
+        "created_at": created_at,
+        "supersedes": None,
+        "reach": ["source_repository"],
+        "profile": "dependency-update",
+        "profile_fields": {
+            "target_repo": repository,
+            "package": dependency,
+            "from_version": from_version,
+            "to_version": to_version,
+            "standing": True,
+        },
+        "outcome": {
+            "what": (
+                f"{name}'s {dependency} dependency moves to the version named in "
+                "profile_fields.to_version. The manifest declares the new version and the "
+                "lockfile re-resolves. Nothing else in the repository changes."
+            ),
+            "why": (
+                "Dependabot proposes this update and the auto-merge cascade declines it: "
+                "ADR-0016 assigns the bumps that need work rather than a merge to the "
+                "factory, and ADR-0028 makes that a lane rather than a separately authored "
+                "package per bump. This package is the standing statement of that lane for "
+                "one dependency; each revision of it is one proposed bump."
+            ),
+            "beneficiary": (
+                f"{name}, which stays on a supported {dependency} rather than drifting until "
+                "an upgrade is forced by something urgent."
+            ),
+            "success_signal": (
+                f"A pull request against {repository} in which the manifest declares the "
+                "version named in profile_fields.to_version, the lockfile resolves it, and "
+                "the repository's own named check passes on the head."
+            ),
+        },
+        "scope": {
+            "included": [
+                f"Move the declared {dependency} version to profile_fields.to_version and "
+                "re-resolve the lockfile.",
+                "Whatever source change that version requires in order for the repository's "
+                "own named check to pass on the pull request head.",
+            ],
+            "excluded": [
+                "Deploying. App Brain records a landing on this repository's default branch "
+                "as inert, which is what makes source_repository the honest reach here.",
+                "Any other outdated dependency, including others this same lane may have open.",
+            ],
+            "non_goals": [
+                f"Adopting new {dependency} features. This is a version move plus whatever it "
+                "forces, not a migration undertaken for its own sake."
+            ],
+            "assumptions": [
+                "The proposed version is reachable from the current one without a change this "
+                "package's authority cannot make. Verified only to the extent that the "
+                "repository's own named check runs on the result; nothing here reads a changelog."
+            ],
+            "open_questions": [],
+        },
+        "sources": [
+            {
+                "location": (
+                    f"The open Dependabot pull request on {repository} that proposes this "
+                    "bump, selected by the producer because the transcribed auto-merge "
+                    "cascade refuses it (ADR-0016, ADR-0028). The pull request is data; the "
+                    "decision that such bumps become factory work is the authority, and it "
+                    "was taken in ADR-0016."
+                ),
+                "authority_level": "authoritative",
+                "required_version": None,
+                "trust": "untrusted_data",
+                "sensitivity": "internal",
+            }
+        ],
+        "constraints": {
+            "time_budget": None,
+            "technology": (
+                f"{ecosystem} is the only tooling. The mutation installs the proposed version "
+                "and re-resolves the lockfile; the verifier is the repository's own build and "
+                "lint. The ordered command list is settled at decomposition, against the "
+                "repository as it actually stands, rather than guessed here."
+            ),
+            "policy_legal": None,
+            "privacy_security": None,
+            "compatibility": (
+                "A major version move may require source changes. That is the whole reason "
+                "this bump is factory work rather than a merge, so it is in scope rather than "
+                "a surprise."
+            ),
+            "quality_accessibility": None,
+            "operational": None,
+            "other": [],
+        },
+        "acceptance": [
+            {
+                "id": "AC-001",
+                "condition": (
+                    f"A pull request against {repository} moves {dependency} to the version "
+                    "named in profile_fields.to_version in the manifest and the lockfile, and "
+                    "the repository's own named check passes on its head."
+                ),
+                "evidence_type": "automated_check",
+                "evidence": (
+                    "ci: the target repository's named check on the pull request head, "
+                    "observed from GitHub by the orchestrator rather than asserted by the "
+                    "caller."
+                ),
+                "approver": "policy",
+            }
+        ],
+        "authority": {
+            "allowed": ["repository_read", "repository_write", "test_execution", "merge_to_main"],
+            "requires_approval": [],
+            "prohibited": ["secret_write"],
+            "budgets": dict(BUDGETS),
+        },
+        "deliverables": {
+            "artifacts": [
+                f"A pull request against {repository} moving {dependency} and whatever that "
+                "move requires."
+            ],
+            "destination": repository,
+            "recipient": owner,
+            "definition_of_done": (
+                "The pull request exists and the repository's named check is green on its "
+                "head. The factory merges its own pull request once the repository's named "
+                "check passes on the head; the human gates that remain sit outside this "
+                "package."
+            ),
+            "operator_responsibilities": [
+                "A merge into a production system must trace to recorded permission - either "
+                "express permission given at the time of the merge, or a standing "
+                "pre-authorization - recorded as evidence bound to this work unit. A merge "
+                "that cannot be traced to one of those is a defect, whoever performed it. "
+                "Outside production this constraint does not apply."
+            ],
+        },
+        "dependencies": {
+            "predecessor_packages": [],
+            "external_decisions": [],
+            "required_people_systems": [],
+            "required_capabilities": [],
+            "blocking_conditions": [],
+        },
+        "risk": {
+            "failure_modes": [
+                f"The new {dependency} breaks the repository's own named check and the work "
+                "cannot make it pass within its budget. The merge waits on a passing check, so "
+                "the pull request stays open and nothing is affected, because a pull "
+                "request is inert here.",
+                "The resolution pulls a wider set of transitive changes than expected. "
+                "Visible in the pull request, and the named check must pass before the factory "
+                "merges.",
+            ],
+            "max_impact": "low",
+            "stop_conditions": [
+                "The diff touches a file outside the source tree, its manifest and its lockfile."
+            ],
+            "rollback": (
+                "Close the pull request if it is still open. If it was merged and later "
+                "regretted, revert the commit; a landing on this repository's default branch "
+                "is inert, so nothing outside the repository has changed."
+            ),
+            "escalation_target": owner,
+        },
+        "verification": {"independent_review": [], "non_mechanical": []},
+        "follow_up": {"required": False, "revisit_when": None, "signals": [], "owner": None},
+        "applicable_standards": {"project": "1.0"},
+    }
+
+
 def build_envelope(
     target_repo: str,
     tooling: str,
@@ -420,6 +637,9 @@ def build_envelope(
 ) -> dict:
     if tooling not in TOOLING_PROFILES:
         raise ProfileError(f"unknown tooling: {tooling}")
+    unsafe = _unsafe_field_errors(package, old, new)
+    if unsafe:
+        raise ProfileError("; ".join(unsafe))
     profile = TOOLING_PROFILES[tooling]
     mutations = profile.mutation_commands(repo, package, old, new, sites)
     if not mutations:
@@ -475,6 +695,26 @@ TAG_TO_EVIDENCE_TYPE = {
 
 _NON_EMPTY_STRING_FIELDS = ("target_repo", "package", "from_version", "to_version")
 
+# `package` and the two versions are interpolated into shell command strings (sed, npm install,
+# uv add, grep), so the generator accepts only characters that are inert in a shell and in a sed
+# s/// script. pip/uv names are `[A-Za-z0-9][A-Za-z0-9._-]*`; npm names are an optional
+# `@scope/` plus a name. A `/` therefore appears only in the npm scoped form, at most once.
+_PACKAGE_RE = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._-]*"
+    r"|(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*"
+)
+_VERSION_RE = re.compile(r"[0-9A-Za-z][0-9A-Za-z.+!_-]*")
+
+
+def _unsafe_field_errors(package: str, old: str, new: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(package, str) or ".." in package or not _PACKAGE_RE.fullmatch(package):
+        errors.append(f"profile_fields.package: {package!r} is not a plain package name")
+    for key, value in (("from_version", old), ("to_version", new)):
+        if not isinstance(value, str) or not _VERSION_RE.fullmatch(value):
+            errors.append(f"profile_fields.{key}: {value!r} is not a plain version string")
+    return errors
+
 
 def _check_profile_fields(package: dict) -> list[str]:
     errors: list[str] = []
@@ -491,6 +731,10 @@ def _check_profile_fields(package: dict) -> list[str]:
         value = fields.get(key)
         if isinstance(value, str) and not value.strip():
             errors.append(f"profile_fields.{key}: must be a non-empty string")
+    if not errors:
+        errors.extend(
+            _unsafe_field_errors(fields["package"], fields["from_version"], fields["to_version"])
+        )
     return errors
 
 

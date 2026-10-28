@@ -45,6 +45,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from intent_packages.members import MembersUnreadable, granted_targets
 from intent_packages.profiles import PROFILES
 
 # The shape of an approver that is a policy rather than a person. Anchored, lower-case,
@@ -54,13 +55,19 @@ POLICY_APPROVER_RE: Final = re.compile(r"^policy:([a-z0-9][a-z0-9-]*)@v([1-9][0-
 # The versions this loader understands. An exact set, never a floor: an older process
 # meeting a newer document would silently ignore whatever narrowing the new version
 # introduced, which is the permissive reading of a version skew.
-SUPPORTED_SCHEMA_VERSIONS: Final[frozenset[int]] = frozenset({1})
+SUPPORTED_SCHEMA_VERSIONS: Final[frozenset[int]] = frozenset({1, 2})
+
+# Schema 2 replaces a grant's hand-kept `target_repositories` with `targets_from`, which names a
+# service in the SDS member record. A document at schema 1 must still carry the list, and a
+# document at schema 2 must not: each version has exactly one source for the targets.
+TARGETS_FROM_PREFIX: Final = "sds-member-record:"
 
 # Why policy objects. The whole output vocabulary of this module.
 PROFILE_UNDECLARED: Final = "profile_undeclared"
 PROFILE_UNRECOGNISED: Final = "profile_unrecognised"
 PROFILE_NOT_POLICY_APPROVABLE: Final = "profile_not_policy_approvable"
 TARGET_REPOSITORY_NOT_PERMITTED: Final = "target_repository_not_permitted"
+MEMBER_RECORD_UNREADABLE: Final = "member_record_unreadable"
 REACH_NOT_PERMITTED: Final = "reach_not_permitted"
 AUTHORITY_TERMS_NOT_PERMITTED: Final = "authority_terms_not_permitted"
 BUDGET_ABOVE_CEILING: Final = "budget_above_ceiling"
@@ -71,11 +78,11 @@ NOT_A_STANDING_PACKAGE: Final = "not_a_standing_package"
 
 _ROW_REQUIRED_FIELDS: Final = frozenset({"rationale", "decided"})
 _ROW_OPTIONAL_FIELDS: Final = frozenset({"grant"})
+_TARGET_FIELD_BY_SCHEMA: Final = {1: "target_repositories", 2: "targets_from"}
 _GRANT_FIELDS: Final = frozenset(
     {
         "rationale",
         "decided",
-        "target_repositories",
         "reach",
         "authority_allowed",
         "authority_requires_approval",
@@ -103,6 +110,10 @@ class ApprovalPolicyError(Exception):
 class Grant:
     """The shape a profile's revisions may be approved by conformance to.
 
+    The targets come from one source per schema version: ``target_repositories`` (schema 1,
+    a fixed list; ``target_service`` is None) or ``targets_from`` (schema 2, the member
+    record's grant for ``target_service``; ``target_repositories`` is empty).
+
     Every field is a bound, and every bound narrows: the sets are what a revision may
     declare and the numbers are ceilings. There is no field whose value permits something
     the rest of the approval path would otherwise refuse.
@@ -111,6 +122,7 @@ class Grant:
     rationale: str
     decided: str
     target_repositories: frozenset[str]
+    target_service: str | None
     reach: tuple[str, ...]
     authority_allowed: tuple[str, ...]
     authority_requires_approval: tuple[str, ...]
@@ -210,11 +222,11 @@ def load_policy(path: Path | None = None) -> ApprovalPolicy:
         )
     return ApprovalPolicy(
         version=version,
-        grants={name: _row(name, table) for name, table in rows.items()},
+        grants={name: _row(name, table, version) for name, table in rows.items()},
     )
 
 
-def _row(name: str, table: object) -> Grant | None:
+def _row(name: str, table: object, version: int) -> Grant | None:
     where = f"profile.{name}"
     if not isinstance(table, dict):
         raise ApprovalPolicyError(f"{where}: must be a table")
@@ -228,25 +240,33 @@ def _row(name: str, table: object) -> Grant | None:
     _text(table, "decided", where)
     if "grant" not in table:
         return None
-    return _grant(f"{where}.grant", table["grant"])
+    return _grant(f"{where}.grant", table["grant"], version)
 
 
-def _grant(where: str, table: object) -> Grant:
+def _grant(where: str, table: object, version: int) -> Grant:
     if not isinstance(table, dict):
         raise ApprovalPolicyError(f"{where}: must be a table")
-    missing = _GRANT_FIELDS - set(table)
+    fields = _GRANT_FIELDS | {_TARGET_FIELD_BY_SCHEMA[version]}
+    missing = fields - set(table)
     if missing:
         raise ApprovalPolicyError(f"{where}: missing {sorted(missing)}")
-    unknown = set(table) - _GRANT_FIELDS
+    unknown = set(table) - fields
     if unknown:
         raise ApprovalPolicyError(f"{where}: unknown fields {sorted(unknown)}")
     return Grant(
         rationale=_text(table, "rationale", where),
         decided=_text(table, "decided", where),
-        target_repositories=frozenset(_strings(table, "target_repositories", where)),
+        target_repositories=(
+            frozenset(_strings(table, "target_repositories", where))
+            if version == 1
+            else frozenset()
+        ),
+        target_service=_target_service(table, where) if version == 2 else None,
         reach=_strings(table, "reach", where),
         authority_allowed=_strings(table, "authority_allowed", where),
-        authority_requires_approval=_strings(table, "authority_requires_approval", where),
+        authority_requires_approval=_strings(
+            table, "authority_requires_approval", where, allow_empty=True
+        ),
         authority_prohibited=_strings(table, "authority_prohibited", where),
         max_attempts=_positive_int(table, "max_attempts", where),
         max_llm_calls=_positive_int(table, "max_llm_calls", where),
@@ -256,6 +276,16 @@ def _grant(where: str, table: object) -> Grant:
     )
 
 
+def _target_service(table: dict, where: str) -> str:
+    source = _text(table, "targets_from", where)
+    service = source.removeprefix(TARGETS_FROM_PREFIX)
+    if service == source or not re.fullmatch(r"[a-z][a-z_]*", service):
+        raise ApprovalPolicyError(
+            f"{where}: targets_from must be '{TARGETS_FROM_PREFIX}<service>', got {source!r}"
+        )
+    return service
+
+
 def _text(table: dict, key: str, where: str) -> str:
     value = table.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -263,9 +293,11 @@ def _text(table: dict, key: str, where: str) -> str:
     return value
 
 
-def _strings(table: dict, key: str, where: str) -> tuple[str, ...]:
+def _strings(table: dict, key: str, where: str, *, allow_empty: bool = False) -> tuple[str, ...]:
+    """A list of non-empty strings. Empty is refused unless the field says "nothing" is a
+    legitimate grant: `authority_requires_approval` is empty once the merge is allowed."""
     value = table.get(key)
-    if not isinstance(value, list) or not value:
+    if not isinstance(value, list) or (not value and not allow_empty):
         raise ApprovalPolicyError(f"{where}: {key} must be a non-empty list")
     if not all(isinstance(item, str) and item for item in value):
         raise ApprovalPolicyError(f"{where}: {key} must hold non-empty strings")
@@ -282,9 +314,16 @@ def _positive_int(table: dict, key: str, where: str) -> int:
 def _target_refusal(package: dict[str, Any], grant: Grant) -> str | None:
     fields = package.get("profile_fields")
     target = fields.get("target_repo") if isinstance(fields, dict) else None
-    if not isinstance(target, str) or target not in grant.target_repositories:
+    if not isinstance(target, str):
         return TARGET_REPOSITORY_NOT_PERMITTED
-    return None
+    if grant.target_service is None:
+        return None if target in grant.target_repositories else TARGET_REPOSITORY_NOT_PERMITTED
+    try:
+        granted = granted_targets(grant.target_service)
+    except MembersUnreadable as error:
+        # Fail closed: an unreadable record is a refusal naming the cause, never an approval.
+        return f"{MEMBER_RECORD_UNREADABLE}: {error}"
+    return None if target.casefold() in granted else TARGET_REPOSITORY_NOT_PERMITTED
 
 
 def _standing_refusal(package: dict[str, Any]) -> str | None:

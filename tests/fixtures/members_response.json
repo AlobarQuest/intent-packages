@@ -1,0 +1,187 @@
+{
+  "members": [
+    {
+      "repository": "AlobarQuest/infraops-mcp-server",
+      "owner": "AlobarQuest",
+      "state": "member",
+      "working_copy": "/Users/devon/Projects/infraops-mcp-server",
+      "machine_local": false,
+      "apps": [
+        {
+          "name": "infraops",
+          "health_url": "https://infraops.example.test/health",
+          "branch": "main"
+        }
+      ],
+      "grants": {
+        "dependency_updates": {
+          "state": "granted",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "confirmed on /review"
+        },
+        "security_patches": {
+          "state": "not_assessed",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "confirmed on /review"
+        },
+        "app_changes": {
+          "state": "not_assessed",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "confirmed on /review"
+        },
+        "backups": {
+          "state": "not_assessed",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "confirmed on /review"
+        },
+        "monitoring": {
+          "state": "not_assessed",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "confirmed on /review"
+        },
+        "rollouts": {
+          "state": "not_assessed",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "confirmed on /review"
+        },
+        "credential_rotation": {
+          "state": "not_assessed",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "confirmed on /review"
+        }
+      }
+    },
+    {
+      "repository": "AlobarQuest/old-app",
+      "owner": "AlobarQuest",
+      "state": "retired",
+      "working_copy": null,
+      "machine_local": true,
+      "apps": [],
+      "grants": {
+        "dependency_updates": {
+          "state": "granted",
+          "seeded": true,
+          "set_by": "system",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "seeded"
+        },
+        "security_patches": {
+          "state": "withdrawn",
+          "seeded": true,
+          "set_by": "system",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "seeded"
+        },
+        "app_changes": {
+          "state": "withdrawn",
+          "seeded": true,
+          "set_by": "system",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "seeded"
+        },
+        "backups": {
+          "state": "withdrawn",
+          "seeded": true,
+          "set_by": "system",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "seeded"
+        },
+        "monitoring": {
+          "state": "withdrawn",
+          "seeded": true,
+          "set_by": "system",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "seeded"
+        },
+        "rollouts": {
+          "state": "withdrawn",
+          "seeded": true,
+          "set_by": "system",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "seeded"
+        },
+        "credential_rotation": {
+          "state": "withdrawn",
+          "seeded": true,
+          "set_by": "system",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "seeded"
+        }
+      }
+    },
+    {
+      "repository": "AlobarQuest/brain",
+      "owner": "AlobarQuest",
+      "state": "onboarding",
+      "working_copy": null,
+      "machine_local": false,
+      "apps": [],
+      "grants": {
+        "dependency_updates": {
+          "state": "remediating",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "wait"
+        },
+        "security_patches": {
+          "state": "not_applicable",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "wait"
+        },
+        "app_changes": {
+          "state": "not_applicable",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "wait"
+        },
+        "backups": {
+          "state": "not_applicable",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "wait"
+        },
+        "monitoring": {
+          "state": "not_applicable",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "wait"
+        },
+        "rollouts": {
+          "state": "not_applicable",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "wait"
+        },
+        "credential_rotation": {
+          "state": "not_applicable",
+          "seeded": false,
+          "set_by": "devon",
+          "set_at": "2026-10-27T12:00:00Z",
+          "reason": "wait"
+        }
+      }
+    }
+  ]
+}

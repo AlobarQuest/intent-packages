@@ -33,6 +33,12 @@ import yaml
 from intent_packages import canonical
 from intent_packages.lineage import write as write_lineage
 from intent_packages.profiles import PROFILES, DeliveryProfile
+from intent_packages.profiles.dependency_update import (
+    STANDING_CREATED_BY,
+    TOOLING_PROFILES,
+    render_standing_package,
+    standing_package_id,
+)
 from intent_packages.schema import ListSpec, MapSpec, OpenMapSpec, OptionalKey, ScalarSpec
 from intent_packages.validate import validate_package
 
@@ -43,6 +49,11 @@ _PROSE_PLACEHOLDER = "<edit: describe this field>"
 # `rotation-worker compare-destinations` prints.
 _FIELD_STUBS: dict[str, object] = {
     "destinations": ['provider name="<edit: the credential\'s provider>"'],
+    # dependency-update restricts these to shell-inert characters, so the stub is a valid
+    # name and version that is plainly a placeholder.
+    "package": "edit-package-name",
+    "from_version": "0.0.0",
+    "to_version": "0.0.1",
 }
 
 _AC_ID_COMMENT = (
@@ -321,7 +332,7 @@ def render_package(
     }
 
 
-def render_lineage(package_id: str, created_at: str) -> dict:
+def render_lineage(package_id: str, created_at: str, author: str = "factory-create") -> dict:
     """Build the lineage.yaml document a fresh scaffold starts with: draft
     status, one unapproved revision, no transitions/approvals/grants."""
     return {
@@ -332,7 +343,7 @@ def render_lineage(package_id: str, created_at: str) -> dict:
                 "revision": 1,
                 "hash": "",
                 "created_at": created_at,
-                "author": "factory-create",
+                "author": author,
             }
         ],
         "transitions": [],
@@ -426,10 +437,17 @@ def create(
 READINESS_SCHEMA = "portfolio-readiness/v1"
 
 
-def _materialize(profile: DeliveryProfile, package: dict, pkg_dir: Path) -> int:
+def _materialize(
+    profile: DeliveryProfile,
+    package: dict,
+    pkg_dir: Path,
+    *,
+    author: str = "factory-create",
+    announce: str = "created ",
+) -> int:
     """Stage, validate, and move a rendered package — the same
     validate-before-commit discipline `create` uses."""
-    lineage_doc = render_lineage(package["package_id"], package["created_at"])
+    lineage_doc = render_lineage(package["package_id"], package["created_at"], author)
     lineage_doc["revisions"][0]["hash"] = canonical.package_hash(package)
     with tempfile.TemporaryDirectory(prefix="factory-create-") as staging:
         staged = Path(staging) / package["package_id"]
@@ -447,8 +465,48 @@ def _materialize(profile: DeliveryProfile, package: dict, pkg_dir: Path) -> int:
             return 1
         pkg_dir.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(staged), str(pkg_dir))
-    print(f"created {pkg_dir}")
+    print(f"{announce}{pkg_dir}")
     return 0
+
+
+def create_standing(
+    repository: str,
+    dependency: str,
+    ecosystem: str,
+    from_version: str,
+    to_version: str,
+    out_dir: str,
+) -> int:
+    """Write a draft standing dependency-update package for one dependency of one repository.
+
+    Returns 0 and prints the created directory on stdout (one line, for the caller to read);
+    1 with the reason on stderr for an ecosystem with no tooling profile, an existing
+    directory, or a package that fails its own validation. The caller then runs the existing
+    lifecycle: `transition --to ready_for_review`, then `approve --by-policy`.
+    """
+    if ecosystem not in TOOLING_PROFILES:
+        print(
+            f"create-standing: no tooling for ecosystem {ecosystem!r}; "
+            f"valid: {sorted(TOOLING_PROFILES)}",
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        package_id = standing_package_id(repository, ecosystem, dependency)
+    except ValueError as error:
+        print(f"create-standing: {error}", file=sys.stderr)
+        return 1
+    pkg_dir = Path(out_dir) / package_id
+    if pkg_dir.exists():
+        print(f"create-standing: {pkg_dir} already exists; refusing to overwrite", file=sys.stderr)
+        return 1
+    created_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    package = render_standing_package(
+        repository, dependency, ecosystem, from_version, to_version, created_at
+    )
+    return _materialize(
+        PROFILES["dependency-update"], package, pkg_dir, author=STANDING_CREATED_BY, announce=""
+    )
 
 
 def create_from_readiness(

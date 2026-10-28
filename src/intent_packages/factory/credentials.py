@@ -32,9 +32,12 @@ class CredentialError(Exception):
 class Role(enum.StrEnum):
     SYSTEM = "orchestrator-system"
     VERIFIER = "orchestrator-verifier"
+    OBSERVER = "orchestrator-observer"
 
     @property
     def env_var(self) -> str:
+        if self is Role.OBSERVER:
+            return "SDS_MEMBERS_OBSERVER_TOKEN"
         return f"ORCHESTRATOR_{self.name}_TOKEN"
 
 
@@ -69,6 +72,11 @@ def resolve_token(role: Role, *, runner: Runner | None = None) -> str:
     return fetch_bws_secret(
         secret_uuid(role), subject=role.value, env_var=role.env_var, runner=runner
     )
+
+
+def resolve_observer_token(*, runner: Runner | None = None) -> str:
+    """The observer bearer that reads the SDS member record (env first, then BWS)."""
+    return resolve_token(Role.OBSERVER, runner=runner)
 
 
 def bws_get_argv(uuid: str) -> list[str]:

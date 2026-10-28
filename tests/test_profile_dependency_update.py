@@ -105,3 +105,58 @@ def test_envelope_key_set_is_the_pinned_contract(tmp_path):
 def test_old_registry_name_is_gone():
     with pytest.raises(AttributeError):
         getattr(dependency_update, "PROFILES")
+
+
+INJECTIONS = [
+    ("package", "zod; touch pwned"),
+    ("package", "a/b"),
+    ("package", "@a/b/c"),
+    ("package", "pkg..x"),
+    ("package", "pkg$(id)"),
+    ("package", "pkg`id`"),
+    ("package", "pkg|x"),
+    ("package", "pkg&x"),
+    ("package", "pkg'x"),
+    ("package", "pkg\nx"),
+    ("to_version", "1/;1e touch pwned;#"),
+    ("to_version", "3.24.0 evil-pkg"),
+    ("from_version", "1.0;rm"),
+    ("from_version", "1.0|x"),
+    ("to_version", "1.0&x"),
+    ("to_version", "$(id)"),
+    ("to_version", "1.0`id`"),
+    ("to_version", '1.0"x'),
+    ("to_version", "1.0\nx"),
+]
+
+
+@pytest.mark.parametrize(("key", "value"), INJECTIONS)
+def test_injection_refused_at_validation(key, value):
+    errs = profiles.validate_profile(_pkg(dict(VALID_FIELDS, **{key: value}), VALID_AC))
+    assert any(e.startswith(f"profile_fields.{key}:") for e in errs)
+
+
+@pytest.mark.parametrize(("key", "value"), INJECTIONS)
+@pytest.mark.parametrize("tooling", ["npm", "pip", "uv"])
+def test_injection_refused_at_build_envelope(tmp_path, tooling, key, value):
+    args = {"package": "httpx2", "from_version": "2.8.0", "to_version": "2.9.1", key: value}
+    with pytest.raises(dependency_update.ProfileError, match=key):
+        build_envelope(
+            "AlobarQuest/x",
+            tooling,
+            args["package"],
+            args["from_version"],
+            args["to_version"],
+            {"scanner": "real"},
+            [PinSite("pyproject.toml", "dependency-groups.dev", "2.8.0")],
+            repo=tmp_path,
+        )
+
+
+@pytest.mark.parametrize(
+    "name", ["zod", "@types/node", "Flask_Cors", "ruff", "typescript", "httpx2"]
+)
+@pytest.mark.parametrize("version", ["4.4.3", "1.10", "2.0.0rc1", "1!2.0", "7.0.2"])
+def test_legitimate_names_and_versions_accepted(name, version):
+    fields = dict(VALID_FIELDS, package=name, from_version="0.1", to_version=version)
+    assert profiles.validate_profile(_pkg(fields, VALID_AC)) == []

@@ -884,3 +884,33 @@ def fake_registry(tmp_path):
         encoding="utf-8",
     )
     return root
+
+
+@pytest.fixture(autouse=True)
+def _member_record_is_unreadable_by_default(monkeypatch):
+    """No test reads the real SDS member record or a real credential.
+
+    A schema-2 grant consults the member record; unless a test installs a double with
+    `member_record`, the record is unreadable, which is the fail-closed answer.
+    """
+    from intent_packages import approval_policy
+    from intent_packages.members import MembersUnreadable
+
+    def unreadable(service):
+        raise MembersUnreadable("no member record in tests")
+
+    monkeypatch.setattr(approval_policy, "granted_targets", unreadable)
+
+
+@pytest.fixture
+def member_record(monkeypatch):
+    """Install a member double: `member_record("AlobarQuest/x", ...)` grants those targets."""
+    from intent_packages import approval_policy
+
+    def install(*repositories: str, service: str = "dependency_updates") -> None:
+        granted = frozenset(r.casefold() for r in repositories)
+        monkeypatch.setattr(
+            approval_policy, "granted_targets", lambda s: granted if s == service else frozenset()
+        )
+
+    return install

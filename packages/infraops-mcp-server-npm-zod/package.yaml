@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: infraops-mcp-server-npm-zod
 title: Adopt the proposed npm update of zod in infraops-mcp-server
-revision: 5
-status: approved
+revision: 6
+status: draft
 created_by: factory-create
 owner: devon
 created_at: '2026-08-19T12:43:28Z'
@@ -54,9 +54,6 @@ scope:
     Whatever source change that version requires in order for the repository's
     own named check to pass on the pull request head.
   excluded:
-  - >-
-    Merging. The pull request is opened and left for a person; landing it is a
-    separate act this package does not cover.
   - >-
     Deploying. App Brain records a landing on this repository's default branch as
     inert, which is what makes source_repository the honest reach here rather than
@@ -134,8 +131,8 @@ authority:
   - repository_read
   - repository_write
   - test_execution
-  requires_approval:
   - merge_to_main
+  requires_approval: []
   prohibited:
   - secret_write
 
@@ -160,7 +157,8 @@ deliverables:
   recipient: devon
   definition_of_done: >-
     The pull request exists and the repository's named check is green on its
-    head. Merging is a separate human act and is not part of this package.
+    head. The factory merges its own pull request once the repository's named check
+    passes on the head; the human gates that remain sit outside this package.
   operator_responsibilities:
   - >-
     A merge into a production system must trace to recorded permission - either express
@@ -178,17 +176,17 @@ risk:
   failure_modes:
   - >-
     The new zod breaks the repository's own named check and the work cannot
-    make it pass within its budget. The pull request is not merged and nothing is
-    affected, because a pull request is inert here.
+    make it pass within its budget. The merge waits on a passing check, so the
+    pull request stays open and nothing is affected, because a pull request is
+    inert here.
   - >-
     The resolution pulls a wider set of transitive changes than expected. Visible
-    in the diff before any merge.
+    in the pull request, and the named check must pass before the factory merges.
   max_impact: low
   stop_conditions:
   - The diff touches a file outside the source tree, its manifest and its lockfile.
   rollback: >-
-    Close the pull request without merging. Nothing outside the repository has
-    changed, so there is nothing to undo. If it were merged and later regretted,
+    Close the pull request if it is still open. If it was merged and later regretted,
     revert the commit -- which still deploys nothing, because a landing on this
     repository's default branch is inert.
   escalation_target: devon
