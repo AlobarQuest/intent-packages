@@ -85,6 +85,26 @@ def test_create_standing_live_estate_writes_that_reach(tmp_path, member_record) 
     assert approval_policy.load_policy().refusals_for(package) == ()
 
 
+def test_scope_excluded_text_follows_the_reach(tmp_path) -> None:
+    assert _create(tmp_path / "a") == 0
+    assert _create(tmp_path / "b", reach="live_estate") == 0
+    inert = load_package(tmp_path / "a" / "example-app-npm-zod")["scope"]["excluded"][0]
+    live = load_package(tmp_path / "b" / "example-app-npm-zod")["scope"]["excluded"][0]
+    assert inert.startswith("Deploying. App Brain records a landing") and "inert" in inert
+    assert live.startswith("Deploying by hand.") and "live_estate" in live
+    assert "inert" not in live
+
+
+def test_a_live_estate_package_records_the_runtime_failure_mode(tmp_path) -> None:
+    assert _create(tmp_path / "a") == 0
+    assert _create(tmp_path / "b", reach="live_estate") == 0
+    inert = load_package(tmp_path / "a" / "example-app-npm-zod")["risk"]
+    live = load_package(tmp_path / "b" / "example-app-npm-zod")["risk"]
+    assert len(live["failure_modes"]) == len(inert["failure_modes"]) + 1
+    assert "breaks at runtime" in live["failure_modes"][-1]
+    assert live["max_impact"] == inert["max_impact"] == "low"
+
+
 def test_the_created_package_is_approvable_by_policy(
     tmp_path, monkeypatch, fake_registry, member_record
 ) -> None:

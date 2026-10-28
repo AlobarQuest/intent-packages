@@ -618,6 +618,16 @@ def render_standing_package(
                 "The resolution pulls a wider set of transitive changes than expected. "
                 "Visible in the pull request, and the named check must pass before the factory "
                 "merges.",
+                *(
+                    [
+                        f"The redeploy passes CI but the new {dependency} breaks at runtime. "
+                        "Reverting the merge redeploys the previous version. Impact stays low "
+                        "because the bump passed the repository's own build and tests, a person "
+                        "approves the merge, and a revert restores service."
+                    ]
+                    if deploys
+                    else []
+                ),
             ],
             "max_impact": "low",
             "stop_conditions": [

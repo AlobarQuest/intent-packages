@@ -288,7 +288,21 @@ def _reach_options(table: dict, version: int, where: str) -> tuple[tuple[str, ..
     options = table.get("reach_options")
     if not isinstance(options, list) or not options:
         raise ApprovalPolicyError(f"{where}: reach_options must be a non-empty list")
-    return tuple(_strings({"reach_options": option}, "reach_options", where) for option in options)
+    parsed = []
+    for option in options:
+        valid = (
+            isinstance(option, list)
+            and option
+            and all(isinstance(item, str) and item for item in option)
+        )
+        if not valid:
+            raise ApprovalPolicyError(
+                f"{where}: reach_options option {option!r} must be a non-empty list of strings"
+            )
+        if len(set(option)) != len(option):
+            raise ApprovalPolicyError(f"{where}: reach_options option {option!r} repeats a member")
+        parsed.append(tuple(option))
+    return tuple(parsed)
 
 
 def _target_service(table: dict, where: str) -> str:

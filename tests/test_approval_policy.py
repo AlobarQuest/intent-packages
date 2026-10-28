@@ -496,6 +496,24 @@ def test_schema_3_requires_reach_options(tmp_path) -> None:
         load_policy(_write(tmp_path, _document(3, _GRANT_V2)))
 
 
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        ("[]", "must be a non-empty list"),
+        ('["live_estate"]', r"option 'live_estate' must be a non-empty list of strings"),
+        ("[[]]", r"option \[\] must be a non-empty list of strings"),
+        ('[["live_estate", "live_estate"]]', r"option \['live_estate', 'live_estate'\] repeats"),
+    ],
+)
+def test_schema_3_refuses_malformed_reach_options(tmp_path, options, message) -> None:
+    """Kills: dropping the per-option shape or duplicate check; the error names the option."""
+    grant = _GRANT_V3.replace(
+        'reach_options = [["source_repository"], ["live_estate"]]', f"reach_options = {options}"
+    )
+    with pytest.raises(ApprovalPolicyError, match=message):
+        load_policy(_write(tmp_path, _document(3, grant)))
+
+
 def test_schema_3_accepts_each_option(policy) -> None:
     """Kills: `_reach_refusal` comparing only against the first option."""
     for option in (["source_repository"], ["live_estate"]):
