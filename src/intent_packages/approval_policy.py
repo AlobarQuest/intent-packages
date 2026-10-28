@@ -55,11 +55,12 @@ POLICY_APPROVER_RE: Final = re.compile(r"^policy:([a-z0-9][a-z0-9-]*)@v([1-9][0-
 # The versions this loader understands. An exact set, never a floor: an older process
 # meeting a newer document would silently ignore whatever narrowing the new version
 # introduced, which is the permissive reading of a version skew.
-SUPPORTED_SCHEMA_VERSIONS: Final[frozenset[int]] = frozenset({1, 2})
+SUPPORTED_SCHEMA_VERSIONS: Final[frozenset[int]] = frozenset({1, 2, 3})
 
 # Schema 2 replaces a grant's hand-kept `target_repositories` with `targets_from`, which names a
 # service in the SDS member record. A document at schema 1 must still carry the list, and a
-# document at schema 2 must not: each version has exactly one source for the targets.
+# document at schema 2 must not: each version has exactly one source for the targets. Schema 3
+# keeps `targets_from` and changes the reach: `reach_options` (a list of sets) replaces `reach`.
 TARGETS_FROM_PREFIX: Final = "sds-member-record:"
 
 # Why policy objects. The whole output vocabulary of this module.
@@ -78,12 +79,14 @@ NOT_A_STANDING_PACKAGE: Final = "not_a_standing_package"
 
 _ROW_REQUIRED_FIELDS: Final = frozenset({"rationale", "decided"})
 _ROW_OPTIONAL_FIELDS: Final = frozenset({"grant"})
-_TARGET_FIELD_BY_SCHEMA: Final = {1: "target_repositories", 2: "targets_from"}
+_TARGET_FIELD_BY_SCHEMA: Final = {1: "target_repositories", 2: "targets_from", 3: "targets_from"}
+# Each schema has exactly one reach field: `reach` (one set) before schema 3, `reach_options`
+# (any one of several sets) from it.
+_REACH_FIELD_BY_SCHEMA: Final = {1: "reach", 2: "reach", 3: "reach_options"}
 _GRANT_FIELDS: Final = frozenset(
     {
         "rationale",
         "decided",
-        "reach",
         "authority_allowed",
         "authority_requires_approval",
         "authority_prohibited",
@@ -111,8 +114,11 @@ class Grant:
     """The shape a profile's revisions may be approved by conformance to.
 
     The targets come from one source per schema version: ``target_repositories`` (schema 1,
-    a fixed list; ``target_service`` is None) or ``targets_from`` (schema 2, the member
+    a fixed list; ``target_service`` is None) or ``targets_from`` (schemas 2 and 3, the member
     record's grant for ``target_service``; ``target_repositories`` is empty).
+
+    ``reach_options`` holds the reach sets a revision may declare, any ONE of them exactly.
+    Schemas 1 and 2 carry a single ``reach`` and load it as a one-option tuple.
 
     Every field is a bound, and every bound narrows: the sets are what a revision may
     declare and the numbers are ceilings. There is no field whose value permits something
@@ -123,7 +129,7 @@ class Grant:
     decided: str
     target_repositories: frozenset[str]
     target_service: str | None
-    reach: tuple[str, ...]
+    reach_options: tuple[tuple[str, ...], ...]
     authority_allowed: tuple[str, ...]
     authority_requires_approval: tuple[str, ...]
     authority_prohibited: tuple[str, ...]
@@ -246,7 +252,7 @@ def _row(name: str, table: object, version: int) -> Grant | None:
 def _grant(where: str, table: object, version: int) -> Grant:
     if not isinstance(table, dict):
         raise ApprovalPolicyError(f"{where}: must be a table")
-    fields = _GRANT_FIELDS | {_TARGET_FIELD_BY_SCHEMA[version]}
+    fields = _GRANT_FIELDS | {_TARGET_FIELD_BY_SCHEMA[version], _REACH_FIELD_BY_SCHEMA[version]}
     missing = fields - set(table)
     if missing:
         raise ApprovalPolicyError(f"{where}: missing {sorted(missing)}")
@@ -261,8 +267,8 @@ def _grant(where: str, table: object, version: int) -> Grant:
             if version == 1
             else frozenset()
         ),
-        target_service=_target_service(table, where) if version == 2 else None,
-        reach=_strings(table, "reach", where),
+        target_service=_target_service(table, where) if version >= 2 else None,
+        reach_options=_reach_options(table, version, where),
         authority_allowed=_strings(table, "authority_allowed", where),
         authority_requires_approval=_strings(
             table, "authority_requires_approval", where, allow_empty=True
@@ -274,6 +280,15 @@ def _grant(where: str, table: object, version: int) -> Grant:
         acceptance_approvers=frozenset(_strings(table, "acceptance_approvers", where)),
         max_impact=frozenset(_strings(table, "max_impact", where)),
     )
+
+
+def _reach_options(table: dict, version: int, where: str) -> tuple[tuple[str, ...], ...]:
+    if version < 3:
+        return (_strings(table, "reach", where),)
+    options = table.get("reach_options")
+    if not isinstance(options, list) or not options:
+        raise ApprovalPolicyError(f"{where}: reach_options must be a non-empty list")
+    return tuple(_strings({"reach_options": option}, "reach_options", where) for option in options)
 
 
 def _target_service(table: dict, where: str) -> str:
@@ -368,7 +383,7 @@ def _bump_refusal(package: dict[str, Any]) -> str | None:
 
 
 def _reach_refusal(package: dict[str, Any], grant: Grant) -> str | None:
-    """EXACTLY the declared reach, never a subset.
+    """EXACTLY one of the granted reach sets, never a subset.
 
     A subset test would withhold the objection from a package declaring nothing, which is
     the reading `reach: []` should never get; and adding a member to a reach set can only
@@ -376,7 +391,7 @@ def _reach_refusal(package: dict[str, Any], grant: Grant) -> str | None:
     equality is the cheapest way to say it.
     """
     reach = package.get("reach")
-    if not isinstance(reach, list) or list(reach) != list(grant.reach):
+    if not isinstance(reach, list) or not any(list(reach) == list(o) for o in grant.reach_options):
         return REACH_NOT_PERMITTED
     return None
 

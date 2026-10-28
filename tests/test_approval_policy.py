@@ -79,7 +79,7 @@ def _infraops_is_granted(member_record):
 
 def test_the_shipped_artifact_loads_and_covers_every_registered_profile(policy) -> None:
     assert set(policy.grants) == set(PROFILES)
-    assert policy.version == 2
+    assert policy.version == 3
 
 
 def test_a_conformant_revision_draws_no_objection(policy) -> None:
@@ -88,8 +88,11 @@ def test_a_conformant_revision_draws_no_objection(policy) -> None:
     assert policy.refusals_for(CONFORMANT) == ()
 
 
-def test_the_approver_string_carries_the_policy_version(policy) -> None:
-    assert policy.approver_for("dependency-update") == "policy:dependency-update@v2"
+def test_approver_is_v3(policy) -> None:
+    """Kills: the approver string reading a stale version. Approvals already recorded at @v2
+    stay recognised, because `is_policy_approver` matches any version."""
+    assert policy.approver_for("dependency-update") == "policy:dependency-update@v3"
+    assert is_policy_approver("policy:dependency-update@v2")
 
 
 # --- what the grant refuses -------------------------------------------------------
@@ -364,8 +367,8 @@ def test_a_row_for_an_unknown_profile_stops_the_document_loading(tmp_path) -> No
 def test_an_unknown_schema_version_is_refused(tmp_path) -> None:
     """Kills: accepting any version. An older process meeting a newer document would
     silently ignore whatever narrowing that version introduced."""
-    with pytest.raises(ApprovalPolicyError, match="schema version 3"):
-        load_policy(_write(tmp_path, "version = 3\n" + _rows()))
+    with pytest.raises(ApprovalPolicyError, match="schema version 4"):
+        load_policy(_write(tmp_path, "version = 4\n" + _rows()))
 
 
 def test_an_unreadable_document_raises_rather_than_yielding_an_empty_policy(tmp_path) -> None:
@@ -458,6 +461,55 @@ def test_a_schema_2_grant_names_its_service(tmp_path) -> None:
 def test_each_schema_has_exactly_one_target_source(tmp_path, version, grant, message) -> None:
     with pytest.raises(ApprovalPolicyError, match=message):
         load_policy(_write(tmp_path, _document(version, grant)))
+
+
+_GRANT_V3 = _GRANT_V2.replace(
+    'reach = ["source_repository"]',
+    'reach_options = [["source_repository"], ["live_estate"]]',
+)
+
+
+def test_schema_2_document_still_loads(tmp_path) -> None:
+    """Kills: schema 3 replacing schema 2 outright. Its single `reach` loads as one option."""
+    loaded = load_policy(_write(tmp_path, _document(2, _GRANT_V2)))
+    grant = loaded.grants["dependency-update"]
+    assert grant is not None
+    assert grant.reach_options == (("source_repository",),)
+    assert loaded.approver_for("dependency-update") == "policy:dependency-update@v2"
+
+
+def test_schema_3_rejects_reach_field(tmp_path) -> None:
+    """Kills: schema 3 accepting both reach fields, which would leave two sources of truth."""
+    with pytest.raises(ApprovalPolicyError, match="unknown fields"):
+        load_policy(_write(tmp_path, _document(3, _GRANT_V3 + 'reach = ["source_repository"]\n')))
+
+
+def test_schema_2_rejects_reach_options(tmp_path) -> None:
+    with pytest.raises(ApprovalPolicyError, match="unknown fields"):
+        load_policy(
+            _write(tmp_path, _document(2, _GRANT_V2 + 'reach_options = [["live_estate"]]\n'))
+        )
+
+
+def test_schema_3_requires_reach_options(tmp_path) -> None:
+    with pytest.raises(ApprovalPolicyError, match=r"missing \['reach_options'\]"):
+        load_policy(_write(tmp_path, _document(3, _GRANT_V2)))
+
+
+def test_schema_3_accepts_each_option(policy) -> None:
+    """Kills: `_reach_refusal` comparing only against the first option."""
+    for option in (["source_repository"], ["live_estate"]):
+        assert policy.refusals_for(_package(reach=option)) == ()
+
+
+@pytest.mark.parametrize(
+    "reach",
+    [[], ["source_repository", "live_estate"], ["live_estate", "source_repository"],
+     ["external_system"], _ABSENT],
+)  # fmt: skip
+def test_schema_3_refuses_other_reaches(policy, reach) -> None:
+    """Kills: equality weakened to a subset or union test over the options."""
+    assert policy.refusals_for(_package(reach=reach)) == ("reach_not_permitted",)
 
 
 def test_the_shipped_grant_takes_its_targets_from_the_member_record(policy) -> None:

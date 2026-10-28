@@ -55,6 +55,11 @@
 # the record's shape -- policy objects with `member_record_unreadable: <cause>` and the
 # revision waits for a person. Unreadable is never an approval.
 #
+# SCHEMA 3 (2026-10-28) widens the reach a grant covers. Schemas 1 and 2 carry `reach`, one
+# set the revision must equal; schema 3 carries `reach_options`, a list of sets, and a
+# revision must equal exactly ONE of them (ordered, never a subset or a union). A schema-3
+# grant must not carry `reach`, and schemas 1 and 2 must not carry `reach_options`.
+#
 # WHAT THIS DOCUMENT CANNOT CHECK, stated so that it is a known residual rather
 # than a discovery. ADR-0028 describes the pre-decision as "this repository,
 # this ecosystem, these update types". Only the first is checkable here: a
@@ -73,7 +78,7 @@
 # part of a standing grant that must not move: where the work lands, what it may
 # touch, what it may spend, and who adjudicates it.
 
-version = 2
+version = 3
 
 # ---------------------------------------------------------------------------
 # The four profiles with no policy grant. Each declares WHY, because a row that
@@ -152,11 +157,13 @@ and merge admission's authority approval bound to the exact envelope.
 decided = "2026-10-28"
 targets_from = "sds-member-record:dependency_updates"
 
-# EXACTLY, not a subset. A revision that reaches anywhere else is a different
-# kind of work wearing this profile's name, and `source_repository` is the reach
-# whose work is inert on arrival -- the only one where suppressing a human gate
-# costs nothing that has to be undone.
-reach = ["source_repository"]
+# EXACTLY one of these, never a subset or a union. A revision that reaches anywhere
+# else is a different kind of work wearing this profile's name. `source_repository`
+# is inert on arrival. `live_estate` is NOT: landing redeploys the repository, so a
+# revert redeploys too. That is acceptable here only because the live_estate change
+# window is enforced at dispatch (Ruling 2), outside this document, and because the
+# member record's `dependency_updates` grant still decides which repositories qualify.
+reach_options = [["source_repository"], ["live_estate"]]
 
 # The authority envelope terms, EXACTLY. A revision that adds a term, drops one,
 # or moves one between the three lists is not the shape that was pre-decided,
