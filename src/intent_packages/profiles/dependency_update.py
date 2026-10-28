@@ -637,6 +637,9 @@ def build_envelope(
 ) -> dict:
     if tooling not in TOOLING_PROFILES:
         raise ProfileError(f"unknown tooling: {tooling}")
+    unsafe = _unsafe_field_errors(package, old, new)
+    if unsafe:
+        raise ProfileError("; ".join(unsafe))
     profile = TOOLING_PROFILES[tooling]
     mutations = profile.mutation_commands(repo, package, old, new, sites)
     if not mutations:
@@ -692,6 +695,26 @@ TAG_TO_EVIDENCE_TYPE = {
 
 _NON_EMPTY_STRING_FIELDS = ("target_repo", "package", "from_version", "to_version")
 
+# `package` and the two versions are interpolated into shell command strings (sed, npm install,
+# uv add, grep), so the generator accepts only characters that are inert in a shell and in a sed
+# s/// script. pip/uv names are `[A-Za-z0-9][A-Za-z0-9._-]*`; npm names are an optional
+# `@scope/` plus a name. A `/` therefore appears only in the npm scoped form, at most once.
+_PACKAGE_RE = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._-]*"
+    r"|(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*"
+)
+_VERSION_RE = re.compile(r"[0-9A-Za-z][0-9A-Za-z.+!_-]*")
+
+
+def _unsafe_field_errors(package: str, old: str, new: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(package, str) or ".." in package or not _PACKAGE_RE.fullmatch(package):
+        errors.append(f"profile_fields.package: {package!r} is not a plain package name")
+    for key, value in (("from_version", old), ("to_version", new)):
+        if not isinstance(value, str) or not _VERSION_RE.fullmatch(value):
+            errors.append(f"profile_fields.{key}: {value!r} is not a plain version string")
+    return errors
+
 
 def _check_profile_fields(package: dict) -> list[str]:
     errors: list[str] = []
@@ -708,6 +731,10 @@ def _check_profile_fields(package: dict) -> list[str]:
         value = fields.get(key)
         if isinstance(value, str) and not value.strip():
             errors.append(f"profile_fields.{key}: must be a non-empty string")
+    if not errors:
+        errors.extend(
+            _unsafe_field_errors(fields["package"], fields["from_version"], fields["to_version"])
+        )
     return errors
 
 

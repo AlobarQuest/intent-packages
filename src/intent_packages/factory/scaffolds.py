@@ -49,6 +49,11 @@ _PROSE_PLACEHOLDER = "<edit: describe this field>"
 # `rotation-worker compare-destinations` prints.
 _FIELD_STUBS: dict[str, object] = {
     "destinations": ['provider name="<edit: the credential\'s provider>"'],
+    # dependency-update restricts these to shell-inert characters, so the stub is a valid
+    # name and version that is plainly a placeholder.
+    "package": "edit-package-name",
+    "from_version": "0.0.0",
+    "to_version": "0.0.1",
 }
 
 _AC_ID_COMMENT = (
