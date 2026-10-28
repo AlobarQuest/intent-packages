@@ -1,5 +1,5 @@
 """CLI: validate / hash / transition / approve / revise / supersede / verify-approval /
-create-standing."""
+create-standing / create-rotation."""
 
 import argparse
 import subprocess
@@ -62,6 +62,12 @@ def main(argv: list[str] | None = None) -> int:
     p_standing.add_argument("--from", required=True, dest="from_version")
     p_standing.add_argument("--to", required=True, dest="to_version")
     p_standing.add_argument("--out", default="packages", help="parent directory")
+    p_rotation = sub.add_parser(
+        "create-rotation",
+        help="write revision 1 of a standing rotation package from its rendered JSON",
+    )
+    p_rotation.add_argument("source", help="the rendered package, as JSON")
+    p_rotation.add_argument("--out", default="packages", help="parent directory")
     args = parser.parse_args(argv)
     if args.cmd == "hash":
         from intent_packages.canonical import package_hash
@@ -92,6 +98,10 @@ def main(argv: list[str] | None = None) -> int:
             args.to_version,
             args.out,
         )
+    if args.cmd == "create-rotation":
+        from intent_packages.factory.scaffolds import create_rotation
+
+        return create_rotation(args.source, args.out)
     return 0
 
 
