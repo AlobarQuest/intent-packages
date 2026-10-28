@@ -509,6 +509,52 @@ def create_standing(
     )
 
 
+ROTATION_CREATED_BY = "rotation-proposer"
+
+
+def create_rotation(source: str, out_dir: str) -> int:
+    """Write revision 1 of a standing rotation package the rotation proposer rendered.
+
+    The orchestrator renders it, from the credential's registry row and its type's derived plan
+    (ADR-0055 amendment 15, increment 4), because that is where plans are derived; this writes
+    it, because this is where packages are validated and their lineage begins. Only a draft
+    revision 1 of a standing `non-software-operational` package named for its credential is
+    accepted. Returns 0 and prints the created directory, or 1 with the reason on stderr; the
+    caller then runs `transition --to ready_for_review`, and a named human approves it.
+    """
+    try:
+        package = json.loads(Path(source).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        print(f"create-rotation: cannot read {source}: {error}", file=sys.stderr)
+        return 1
+    fields = package.get("profile_fields") if isinstance(package, dict) else None
+    if (
+        not isinstance(fields, dict)
+        or package.get("profile") != "non-software-operational"
+        or fields.get("standing") is not True
+        or package.get("package_id") != f"rotation-{fields.get('credential_id')}"
+        or package.get("status") != "draft"
+        or package.get("revision") != 1
+    ):
+        print(
+            "create-rotation: not a draft revision 1 of a standing rotation package named "
+            "rotation-<credential_id>",
+            file=sys.stderr,
+        )
+        return 1
+    pkg_dir = Path(out_dir) / package["package_id"]
+    if pkg_dir.exists():
+        print(f"create-rotation: {pkg_dir} already exists; refusing to overwrite", file=sys.stderr)
+        return 1
+    return _materialize(
+        PROFILES["non-software-operational"],
+        package,
+        pkg_dir,
+        author=ROTATION_CREATED_BY,
+        announce="",
+    )
+
+
 def create_from_readiness(
     readiness_path: str,
     package_id: str,
