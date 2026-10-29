@@ -29,7 +29,7 @@ from intent_packages.operations import (
 NOW = "2026-08-19T12:00:00Z"
 COMMIT = "abc1234"
 STANDING = Path("packages/infraops-mcp-server-npm-zod")
-POLICY_APPROVER = "policy:dependency-update@v2"
+POLICY_APPROVER = "policy:dependency-update@v3"
 
 
 class StubEmitter:

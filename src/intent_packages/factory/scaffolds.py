@@ -476,6 +476,8 @@ def create_standing(
     from_version: str,
     to_version: str,
     out_dir: str,
+    *,
+    reach: str,
 ) -> int:
     """Write a draft standing dependency-update package for one dependency of one repository.
 
@@ -502,7 +504,7 @@ def create_standing(
         return 1
     created_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     package = render_standing_package(
-        repository, dependency, ecosystem, from_version, to_version, created_at
+        repository, dependency, ecosystem, from_version, to_version, created_at, reach=reach
     )
     return _materialize(
         PROFILES["dependency-update"], package, pkg_dir, author=STANDING_CREATED_BY, announce=""

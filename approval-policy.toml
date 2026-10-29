@@ -55,6 +55,11 @@
 # the record's shape -- policy objects with `member_record_unreadable: <cause>` and the
 # revision waits for a person. Unreadable is never an approval.
 #
+# SCHEMA 3 (2026-10-28) widens the reach a grant covers. Schemas 1 and 2 carry `reach`, one
+# set the revision must equal; schema 3 carries `reach_options`, a list of sets, and a
+# revision must equal exactly ONE of them (ordered, never a subset or a union). A schema-3
+# grant must not carry `reach`, and schemas 1 and 2 must not carry `reach_options`.
+#
 # WHAT THIS DOCUMENT CANNOT CHECK, stated so that it is a known residual rather
 # than a discovery. ADR-0028 describes the pre-decision as "this repository,
 # this ecosystem, these update types". Only the first is checkable here: a
@@ -73,7 +78,7 @@
 # part of a standing grant that must not move: where the work lands, what it may
 # touch, what it may spend, and who adjudicates it.
 
-version = 2
+version = 3
 
 # ---------------------------------------------------------------------------
 # The four profiles with no policy grant. Each declares WHY, because a row that
@@ -136,27 +141,32 @@ that edit is now the grant on the member: withdrawing it takes the repository ou
 of policy approval at the next consultation, and granting it brings one in. The
 grant began as one repository, infraops-mcp-server (2026-08-19): where the
 cascade-refused remainder actually was -- its three open npm majors were the
-entire classifiable Tier C population across all six cascade repositories -- and a
-landing there is inert, so nothing that is running changes when one of these pull
-requests lands. Whether a granted repository is inert is not decided here: the bump
-proposer only creates packages for inert ones, and admission re-checks the grant.
+entire classifiable Tier C population across all six cascade repositories. A granted
+target either lands inertly (`source_repository`) or redeploys on landing
+(`live_estate`); the package declares which. Orchestrator dispatch refuses a package that
+omits `live_estate` for a repository App Brain records as redeploying; a `live_estate`
+declaration for an inert repository is only more restrained (it gets the change window and a
+longer lease), so it passes. Nothing is checked here. A pull request to
+a redeploying target also needs a person's merge approval, an approved change record and
+the change window (orchestrator ADR-0025 amendment 2). `max_impact` stays `low` for both reaches: the bump passes
+the repository's own build and tests, a person approves a redeploying merge, and a revert
+restores service.
 
 merge_to_main moves from `authority_requires_approval` to `authority_allowed`
 (2026-10-28; orchestrator docs/superpowers/specs/2026-10-27-bridge-layer-design.md,
 Part 3, Devon's decision 3). WHY it needs no per-unit approval: the factory merges its
-own pull request once the repository's named check passes on the head, and the target
-repositories are inert, so a landing deploys nothing and a regretted merge is a revert.
-The human gates that remain sit outside the package: the approval of the decomposition,
-and merge admission's authority approval bound to the exact envelope.
+own pull request once the repository's named check passes on the head. For an inert
+target a landing deploys nothing and a regretted merge is a revert; for a redeploying one
+the merge approval, change record and change window above stand in. The human gates that
+remain sit outside the package: the approval of the decomposition, and merge admission's
+authority approval bound to the exact envelope.
 """
 decided = "2026-10-28"
 targets_from = "sds-member-record:dependency_updates"
 
-# EXACTLY, not a subset. A revision that reaches anywhere else is a different
-# kind of work wearing this profile's name, and `source_repository` is the reach
-# whose work is inert on arrival -- the only one where suppressing a human gate
-# costs nothing that has to be undone.
-reach = ["source_repository"]
+# EXACTLY one of these, never a subset or a union; anything else is different work
+# wearing this profile's name. `live_estate` redeploys on landing; see the rationale.
+reach_options = [["source_repository"], ["live_estate"]]
 
 # The authority envelope terms, EXACTLY. A revision that adds a term, drops one,
 # or moves one between the three lists is not the shape that was pre-decided,

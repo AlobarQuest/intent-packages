@@ -62,6 +62,13 @@ def main(argv: list[str] | None = None) -> int:
     p_standing.add_argument("--from", required=True, dest="from_version")
     p_standing.add_argument("--to", required=True, dest="to_version")
     p_standing.add_argument("--out", default="packages", help="parent directory")
+    p_standing.add_argument(
+        "--reach",
+        choices=("source_repository", "live_estate"),
+        default="source_repository",
+        help="source_repository for a repository that is inert on landing; "
+        "live_estate for one that redeploys on landing",
+    )
     p_rotation = sub.add_parser(
         "create-rotation",
         help="write revision 1 of a standing rotation package from its rendered JSON",
@@ -97,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             args.from_version,
             args.to_version,
             args.out,
+            reach=args.reach,
         )
     if args.cmd == "create-rotation":
         from intent_packages.factory.scaffolds import create_rotation

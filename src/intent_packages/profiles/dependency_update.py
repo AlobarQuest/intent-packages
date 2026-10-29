@@ -409,6 +409,7 @@ TOOLING_PROFILES: dict[str, ToolingProfile] = {
 
 
 STANDING_CREATED_BY = "create-standing"
+STANDING_REACHES = ("source_repository", "live_estate")
 
 
 def standing_package_id(repository: str, ecosystem: str, dependency: str) -> str:
@@ -436,15 +437,20 @@ def render_standing_package(
     to_version: str,
     created_at: str,
     *,
+    reach: str,
     owner: str = "devon",
 ) -> dict:
     """The package.yaml document of a standing dependency-update package, ready for approval.
 
     Modelled on the shipped standing packages (`packages/infraops-mcp-server-npm-*`): the
     standing facts in `profile_fields`, one `automated_check` criterion approved by
-    policy, no `human_review`, reach `[source_repository]`, and the authority terms and
-    budgets the `dependency-update` grant in approval-policy.toml describes.
+    policy, no `human_review`, the declared reach (`source_repository` where landing is
+    inert, `live_estate` where it redeploys), and the authority terms and budgets the
+    `dependency-update` grant in approval-policy.toml describes.
     """
+    if reach not in STANDING_REACHES:
+        raise ValueError(f"reach must be one of {list(STANDING_REACHES)}, got {reach!r}")
+    deploys = reach == "live_estate"
     package_id = standing_package_id(repository, ecosystem, dependency)
     name = repository.rsplit("/", 1)[-1]
     return {
@@ -457,7 +463,7 @@ def render_standing_package(
         "owner": owner,
         "created_at": created_at,
         "supersedes": None,
-        "reach": ["source_repository"],
+        "reach": [reach],
         "profile": "dependency-update",
         "profile_fields": {
             "target_repo": repository,
@@ -497,8 +503,14 @@ def render_standing_package(
                 "own named check to pass on the pull request head.",
             ],
             "excluded": [
-                "Deploying. App Brain records a landing on this repository's default branch "
-                "as inert, which is what makes source_repository the honest reach here.",
+                (
+                    "Deploying by hand. Landing on this repository's default branch redeploys "
+                    "it, which is why the reach is live_estate and the change window applies."
+                    if deploys
+                    else "Deploying. App Brain records a landing on this repository's default "
+                    "branch as inert, which is what makes source_repository the honest reach "
+                    "here."
+                ),
                 "Any other outdated dependency, including others this same lane may have open.",
             ],
             "non_goals": [
@@ -601,11 +613,21 @@ def render_standing_package(
             "failure_modes": [
                 f"The new {dependency} breaks the repository's own named check and the work "
                 "cannot make it pass within its budget. The merge waits on a passing check, so "
-                "the pull request stays open and nothing is affected, because a pull "
-                "request is inert here.",
+                "the pull request stays open and nothing is affected, because an unmerged "
+                "pull request deploys nothing.",
                 "The resolution pulls a wider set of transitive changes than expected. "
                 "Visible in the pull request, and the named check must pass before the factory "
                 "merges.",
+                *(
+                    [
+                        f"The redeploy passes CI but the new {dependency} breaks at runtime. "
+                        "Reverting the merge redeploys the previous version. Impact stays low "
+                        "because the bump passed the repository's own build and tests, a person "
+                        "approves the merge, and a revert restores service."
+                    ]
+                    if deploys
+                    else []
+                ),
             ],
             "max_impact": "low",
             "stop_conditions": [
@@ -613,6 +635,9 @@ def render_standing_package(
             ],
             "rollback": (
                 "Close the pull request if it is still open. If it was merged and later "
+                "regretted, revert the merge; the revert redeploys the repository."
+                if deploys
+                else "Close the pull request if it is still open. If it was merged and later "
                 "regretted, revert the commit; a landing on this repository's default branch "
                 "is inert, so nothing outside the repository has changed."
             ),
