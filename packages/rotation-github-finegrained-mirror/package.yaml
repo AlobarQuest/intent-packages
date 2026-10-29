@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-github-finegrained-mirror
 title: Standing rotation of the mirror's GitHub PAT (github-finegrained-mirror)
-revision: 1
-status: approved
+revision: 2
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-20T14:58:27Z'
@@ -13,20 +13,10 @@ profile: non-software-operational
 profile_fields:
   owner: devon
   operating_procedure: >-
-    The rotation executor (orchestrator src/rotation_worker/) works this rotation with its github-
-    pat adapter, from the rotation-executor VM. The decomposition is the adapter's fixed plan: a
-    human act in which Devon creates a new fine-grained PAT in GitHub's console with the registry
-    entry's replacement_scope (Contents read and Metadata on owned repositories) and pastes it into
-    the staging secret rotation/github-finegrained-mirror/<occurrence>/staging in Rotation / Work;
-    unit store (verify_new, store, distribute, verify_consumers); then unit retire
-    (verify_consumers, retire_old, confirm_dead), with Devon's completion of the store unit between
-    them. Distribute writes nothing here: the PAT has no copy beyond the keeper. Neither unit writes
-    a hosted service, so both set touches_no_hosted_service. The mirror's Coolify application
-    fetches the keeper from BWS with its own machine account at the start of each hourly cycle and
-    is verified by its Healthchecks check github-to-bitbucket-mirror; the retire unit waits
-    unclaimed until it has run since the keeper's revision. Retire revokes the old PAT by value at
-    POST /credentials/revoke with no credential, then confirm_dead rechecks GET /user until it
-    answers 401. Evidence carries fingerprints, probe status codes and notes only.
+    The rotation executor (orchestrator src/rotation_worker/) works this rotation with its
+    github-pat adapter and the plan derived from the type's capabilities and this credential's
+    registry row: units store, retire. A person's acts, each announced by an alert and observed
+    by the executor: mint. Evidence carries fingerprints, probe status codes and notes only.
   external_systems:
   - >-
     GitHub — GET /user as the probe (200 for a live PAT, 401 for a malformed one) and POST
@@ -132,58 +122,40 @@ constraints:
 # Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
 acceptance:
 - id: AC-001
-  condition: >-
-    The staged PAT answers 200 at GET /user, beside a malformed github_pat_ value refused 401 by the
-    same probe.
+  condition: The new value answers live at the provider's probe, beside a known-bad value the same
+    probe refuses.
   evidence_type: external_attestation
-  evidence: >-
-    external: the store unit's verify_new step's rotation-step/1 evidence, filed by the rotation
-    executor.
+  evidence: 'external: the verify_new step''s rotation-step/1 evidence, filed by the rotation executor.'
   approver: devon
 - id: AC-002
-  condition: >-
-    The old PAT is quarantined in Rotation / Work and the keeper reads back the new one.
+  condition: The old value is quarantined and the keeper reads back the new one.
   evidence_type: external_attestation
-  evidence: >-
-    external: the store step's rotation-step/1 evidence, filed by the rotation executor.
+  evidence: 'external: the store step''s rotation-step/1 evidence, filed by the rotation executor.'
   approver: devon
 - id: AC-003
-  condition: >-
-    Distribute writes nothing: the PAT has no copy beyond the keeper.
+  condition: Every consumer the registry names holds the new value, or has run on it since it was
+    stored.
   evidence_type: external_attestation
-  evidence: >-
-    external: the distribute step's rotation-step/1 evidence, filed by the rotation executor.
+  evidence: 'external: the store unit''s verify_consumers step''s rotation-step/1 evidence, filed
+    by the rotation executor.'
   approver: devon
 - id: AC-004
-  condition: >-
-    The keeper reads back the new PAT; the mirror is counted, and switches on its next cycle.
+  condition: Every consumer the registry names holds the new value, or has run on it since it was
+    stored.
   evidence_type: external_attestation
-  evidence: >-
-    external: the store unit's verify_consumers step's rotation-step/1 evidence, filed by the
-    rotation executor.
+  evidence: 'external: the retire unit''s verify_consumers step''s rotation-step/1 evidence, filed
+    by the rotation executor.'
   approver: devon
 - id: AC-005
-  condition: >-
-    The keeper still holds the new PAT, and the mirror has run since the keeper's revision.
+  condition: The old value is revoked at the provider, proved live just before.
   evidence_type: external_attestation
-  evidence: >-
-    external: the retire unit's verify_consumers step's rotation-step/1 evidence, filed by the
-    rotation executor.
+  evidence: 'external: the retire_old step''s rotation-step/1 evidence, filed by the rotation executor.'
   approver: devon
 - id: AC-006
-  condition: >-
-    The old PAT was revoked by value at POST /credentials/revoke (202).
+  condition: The old value is refused and the new one answers live, each beside a refused known-bad
+    value, and the staging and quarantine secrets are deleted.
   evidence_type: external_attestation
-  evidence: >-
-    external: the retire_old step's rotation-step/1 evidence, filed by the rotation executor.
-  approver: devon
-- id: AC-007
-  condition: >-
-    The old PAT answers 401 at GET /user and the new one 200, each beside a malformed value refused
-    401, and the staging and quarantine secrets are deleted.
-  evidence_type: external_attestation
-  evidence: >-
-    external: the confirm_dead step's rotation-step/1 evidence, filed by the rotation executor.
+  evidence: 'external: the confirm_dead step''s rotation-step/1 evidence, filed by the rotation executor.'
   approver: devon
 authority:
   allowed:
