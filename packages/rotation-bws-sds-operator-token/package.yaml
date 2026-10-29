@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-bws-sds-operator-token
 title: Standing rotation of the sds-operator BWS machine token (bws-sds-operator-token)
-revision: 1
-status: approved
+revision: 2
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-23T16:30:00Z'
@@ -15,25 +15,10 @@ profile_fields:
   owner: devon
   operating_procedure: >-
     The rotation executor (orchestrator src/rotation_worker/) works this rotation with its
-    bws-machine-token adapter, from its Keychain instance on the Mac, which holds the token
-    (ADR-0055 amendment 12). The decomposition is the adapter's fixed plan: a human act in which
-    Devon creates a new access token for the same machine account in the Bitwarden web app and runs
-    rotation-worker stage, which takes it at a hidden prompt into the staging Keychain item
-    rotation/bws-sds-operator-token/<occurrence>/staging and prints its fingerprint; unit store
-    (verify_new, store, distribute); unit verify (verify_consumers), which reads the Keychain item
-    back, waits unclaimed until each of the twelve registered readers has run since the switch, and
-    proves the old token still logs in; a human act in which Devon revokes the old
-    token in the web app, only after the verify unit completes; and unit confirm (confirm_dead),
-    which the executor claims no earlier than 75 minutes after the revoke is recorded. No unit
-    writes a hosted service, so each sets touches_no_hosted_service. The probe is a fresh login: a
-    new Bitwarden SDK client in a child process with an empty HOME and the token on stdin, which
-    logs in for a live token and answers invalid_client for a revoked or random one. The token is
-    the read-only sds-operator identity, which reads only the SDS Operator project. Eleven
-    orchestrator lanes and the portfolio scan read it each run and are verified by their
-    Healthchecks checks, which needs the Keychain instance's read-only Healthchecks key.
-    drift-audit.sh's mint-follow-ups step and the on-demand readers read the Keychain item fresh and
-    are verified by its read-back alone (Devon, 2026-10-23). No reader holds it across runs.
-    Evidence carries fingerprints, probe status codes and notes only.
+    bws-machine-token adapter and the plan derived from the type's capabilities and this
+    credential's registry row: units store, verify, confirm. A person's acts, each announced by
+    an alert and observed by the executor: mint, revoke. Evidence carries fingerprints, probe
+    status codes and notes only.
   external_systems:
   - >-
     Bitwarden Secrets Manager — a fresh login with the token as the probe, and the web app
@@ -147,46 +132,28 @@ constraints:
 # Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
 acceptance:
 - id: AC-001
-  condition: >-
-    The staged token logs in at a fresh login, beside a random token refused by the same probe.
+  condition: The new value answers live at the provider's probe, beside a known-bad value the same
+    probe refuses.
   evidence_type: external_attestation
-  evidence: >-
-    external: the store unit's verify_new step's rotation-step/1 evidence, filed by the rotation
-    executor.
+  evidence: 'external: the verify_new step''s rotation-step/1 evidence, filed by the rotation executor.'
   approver: devon
 - id: AC-002
-  condition: >-
-    The old token is quarantined in the executor's Keychain service and the keeper reads back the
-    new one.
+  condition: The old value is quarantined and the keeper reads back the new one.
   evidence_type: external_attestation
-  evidence: >-
-    external: the store step's rotation-step/1 evidence, filed by the rotation executor.
+  evidence: 'external: the store step''s rotation-step/1 evidence, filed by the rotation executor.'
   approver: devon
 - id: AC-003
-  condition: >-
-    Every other Keychain item that held the old token holds the new one; this token has none.
+  condition: Every consumer the registry names holds the new value, or has run on it since it was
+    stored.
   evidence_type: external_attestation
-  evidence: >-
-    external: the distribute step's rotation-step/1 evidence, filed by the rotation executor.
+  evidence: 'external: the verify_consumers step''s rotation-step/1 evidence, filed by the rotation
+    executor.'
   approver: devon
 - id: AC-004
-  condition: >-
-    The Keychain item reads back the new token, each of the twelve registered readers has run since
-    the switch, and the old token still logs in, beside a random token refused, before Devon revokes
-    it.
+  condition: The old value is refused and the new one answers live, each beside a refused known-bad
+    value, and the staging and quarantine secrets are deleted.
   evidence_type: external_attestation
-  evidence: >-
-    external: the verify unit's verify_consumers step's rotation-step/1 evidence, filed by the
-    rotation executor.
-  approver: devon
-- id: AC-005
-  condition: >-
-    At least 75 minutes after Devon's revoke, the old token is refused and the new one logs in at a
-    fresh login, each beside a random token refused, and the staging and quarantine items are
-    deleted.
-  evidence_type: external_attestation
-  evidence: >-
-    external: the confirm_dead step's rotation-step/1 evidence, filed by the rotation executor.
+  evidence: 'external: the confirm_dead step''s rotation-step/1 evidence, filed by the rotation executor.'
   approver: devon
 authority:
   allowed:

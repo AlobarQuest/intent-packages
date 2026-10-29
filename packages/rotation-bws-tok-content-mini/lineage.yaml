@@ -1,5 +1,5 @@
 package_id: rotation-bws-tok-content-mini
-current_state: approved
+current_state: ready_for_review
 revisions:
 - revision: 1
   hash: eee38705ecff847edc1f5e872a3bc1c9c4f6add3862bf75c443f2d3893f9dc96
@@ -11,6 +11,11 @@ revisions:
   created_at: '2026-10-26T12:43:33.259542+00:00'
   author: claude-code-interactive
   snapshotted_at: '2026-10-26T12:43:33.428733+00:00'
+- revision: 3
+  hash: 31e8ca54c2ac2edbcb7238180d416eaef4798db9175e4d64c502f46f57b82b39
+  created_at: '2026-10-29T15:07:54.460393+00:00'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-29T15:07:54.685519+00:00'
 transitions:
 - kind: transition
   from: draft
@@ -30,6 +35,18 @@ transitions:
   at: '2026-10-26T12:43:33.428733+00:00'
   actor: claude-code-interactive
   event_id: evt-c37756a7f54241d38d5b74585936de47
+- kind: revision
+  from: approved
+  to: draft
+  at: '2026-10-29T15:07:54.460393+00:00'
+  actor: claude-code-interactive
+  event_id: evt-247d0d2e4f8e46f58516ab81584852c9
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-29T15:07:54.685519+00:00'
+  actor: claude-code-interactive
+  event_id: evt-f30f5bf423904c2fb7cd1bd098a1264e
 approvals:
 - revision: 1
   approved_hash: eee38705ecff847edc1f5e872a3bc1c9c4f6add3862bf75c443f2d3893f9dc96
