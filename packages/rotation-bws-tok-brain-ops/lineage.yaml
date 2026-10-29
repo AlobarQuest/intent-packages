@@ -1,5 +1,5 @@
 package_id: rotation-bws-tok-brain-ops
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: f267bee094334f6c61e2970426951973e637e751525e1dd883d8395ebcfe0c94
@@ -37,4 +37,10 @@ approvals:
   approved_at: '2026-10-22T14:50:50.246102+00:00'
   commit: 6083bb9ff73f49e4e5fa2336c8110c0c86b06a70
   event_id: evt-129b4dba458b4d4d934e8a1702a1d4a1
+- revision: 2
+  approved_hash: da6520276adaae6a56391cfaeb03a4211e04941f5731db9d08b29bdeb797f12e
+  approver: devon
+  approved_at: '2026-10-29T15:28:34.731961+00:00'
+  commit: f56e9fcfd9604ecf1dd2c59549a3080804c79024
+  event_id: evt-b91777154e874952a7364353a2c8d9d9
 grants: []
