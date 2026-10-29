@@ -1,5 +1,5 @@
 package_id: rotation-bws-tok-content-mini
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: eee38705ecff847edc1f5e872a3bc1c9c4f6add3862bf75c443f2d3893f9dc96
@@ -60,4 +60,10 @@ approvals:
   approved_at: '2026-10-26T13:23:40.475517+00:00'
   commit: 85b857b8a9355827bed89da4ff8b68f01421fce7
   event_id: evt-b040e377443d47649a8945dfe26e2edf
+- revision: 3
+  approved_hash: 31e8ca54c2ac2edbcb7238180d416eaef4798db9175e4d64c502f46f57b82b39
+  approver: devon
+  approved_at: '2026-10-29T15:28:34.950637+00:00'
+  commit: f56e9fcfd9604ecf1dd2c59549a3080804c79024
+  event_id: evt-d1c83bbf7577453e8822602c6d082eb2
 grants: []

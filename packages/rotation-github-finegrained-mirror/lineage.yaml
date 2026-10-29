@@ -1,5 +1,5 @@
 package_id: rotation-github-finegrained-mirror
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: c13857657ecaa25e5f964bcf918da644b690bf95cda6ea6fa1944bab545d94d9
@@ -37,4 +37,10 @@ approvals:
   approved_at: '2026-10-20T17:24:30.017247+00:00'
   commit: d808484e93f69a3e2e9f8e33a0e9160e077ceac7
   event_id: evt-ea62c02c94414df0a2391c4aa02c4235
+- revision: 2
+  approved_hash: a08b24ff12596d8e77da0cc0ae11f3476bc17bfeff6c0d0d4edc1380a3fe16d4
+  approver: devon
+  approved_at: '2026-10-29T15:28:35.276854+00:00'
+  commit: f56e9fcfd9604ecf1dd2c59549a3080804c79024
+  event_id: evt-5007eef64f944f1cac0e6ac999a24c84
 grants: []
