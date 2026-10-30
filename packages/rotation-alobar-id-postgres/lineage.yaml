@@ -1,5 +1,5 @@
 package_id: rotation-alobar-id-postgres
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 99db40ae190af899cde0f5a2534bf15fcb1913e094990ca5ffec72a465dfe391
@@ -13,5 +13,11 @@ transitions:
   at: '2026-10-30T18:03:27.101896+00:00'
   actor: claude-code-interactive
   event_id: evt-1f0e1655cd2c4cc6bb5bdf215e37c254
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 99db40ae190af899cde0f5a2534bf15fcb1913e094990ca5ffec72a465dfe391
+  approver: devon
+  approved_at: '2026-10-30T18:23:35.997812+00:00'
+  commit: fec174978951255ceb9a9497f83094ba5e9dddb3
+  event_id: evt-aa9437ceb61846059320cfe3dc1972a6
 grants: []
