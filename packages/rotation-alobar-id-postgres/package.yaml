@@ -1,0 +1,207 @@
+schema_version: 1
+package_id: rotation-alobar-id-postgres
+title: Standing rotation of alobar-id-postgres
+revision: 1
+status: ready_for_review
+created_by: rotation-proposer
+owner: devon
+created_at: '2026-10-30T18:03:26Z'
+supersedes: null
+reach:
+- external_system
+- live_estate
+profile: non-software-operational
+profile_fields:
+  owner: devon
+  operating_procedure: 'The rotation executor (orchestrator src/rotation_worker/)
+    works this rotation with its postgres-role adapter and the plan derived from the
+    type''s capabilities and this credential''s registry row: units mint, retire.
+    No act is a person''s. Evidence carries fingerprints, probe status codes and notes
+    only.'
+  external_systems:
+  - the authentik role in the Alobar ID Postgres container, the credential's provider
+  standing: true
+  credential_id: alobar-id-postgres
+  occurrence: 2026-10-30-requested
+  destinations:
+  - bws-secret uuid="f8d149d7-623f-407e-affa-b4f3012158f6"
+  - coolify-env instance="prod" resource_type="service" uuid="alcvxqq7yiidffen7jpn5zj6"
+    key="PG_PASS" redeploy=true
+  - provider name="postgres-role"
+outcome:
+  what: alobar-id-postgres (the authentik role in the Alobar ID Postgres container)
+    is replaced by a new value, every destination the registry names holds it, and
+    the old value is proved dead.
+  why: The credential is due for rotation (2026-10-30-requested), and the registry
+    hands its rotation to the SDS.
+  beneficiary: Devon, whose credentials the SDS rotates.
+  success_signal: Every unit completes, the keeper holds a value different from the
+    one it started with, the old value is refused, and infraops reports no rotation
+    finding for alobar-id-postgres.
+scope:
+  included:
+  - The postgres-role plan's units, worked by the rotation executor.
+  excluded:
+  - Every other credential, each rotated by its own package.
+  non_goals:
+  - Changing what the credential can reach.
+  assumptions:
+  - The executor instance that keeps this credential runs the postgres-role adapter
+    at a revision with derived plans (ADR-0055 amendment 15).
+  open_questions: []
+sources:
+- location: orchestrator docs/decisions/0055-credential-rotation-runs-in-a-pull-based-executor.md,
+    amendment 15 (one mechanism, a declaration per type).
+  authority_level: authoritative
+  required_version: '2026-10-28'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: 'AlobarQuest/infraops-mcp-server .cred-consumers.toml, credential alobar-id-postgres:
+    its keeper and every destination.'
+  authority_level: authoritative
+  required_version: '2026-10-30'
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: Each unit at the executor's next pass once its waits clear.
+  technology: The rotation executor at the orchestrator revision installed.
+  policy_legal: null
+  privacy_security: No value appears in a transcript, a tool argument, a process argument,
+    a log or evidence. Values are identified by sha256 prefix and length only.
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: The executor mints a new value with the provider's admin credential.
+  evidence_type: external_attestation
+  evidence: 'external: the mint step''s rotation-step/1 evidence, filed by the rotation
+    executor.'
+  approver: devon
+- id: AC-002
+  condition: The new value is staged in the executor's work store, with a fingerprint
+    different from the old value's.
+  evidence_type: external_attestation
+  evidence: 'external: the stage step''s rotation-step/1 evidence, filed by the rotation
+    executor.'
+  approver: devon
+- id: AC-003
+  condition: The hosted service replaces the old value with the new one, and its dependents
+    restart; they're unavailable until the restart finishes.
+  evidence_type: external_attestation
+  evidence: 'external: the host step''s rotation-step/1 evidence, filed by the rotation
+    executor.'
+  approver: devon
+- id: AC-004
+  condition: The new value answers live at the provider's probe, beside a known-bad
+    value the same probe refuses.
+  evidence_type: external_attestation
+  evidence: 'external: the verify_new step''s rotation-step/1 evidence, filed by the
+    rotation executor.'
+  approver: devon
+- id: AC-005
+  condition: The old value is quarantined and the keeper reads back the new one.
+  evidence_type: external_attestation
+  evidence: 'external: the store step''s rotation-step/1 evidence, filed by the rotation
+    executor.'
+  approver: devon
+- id: AC-006
+  condition: Every consumer the registry names holds the new value, or has run on
+    it since it was stored.
+  evidence_type: external_attestation
+  evidence: 'external: the mint unit''s verify_consumers step''s rotation-step/1 evidence,
+    filed by the rotation executor.'
+  approver: devon
+- id: AC-007
+  condition: Every consumer the registry names holds the new value, or has run on
+    it since it was stored.
+  evidence_type: external_attestation
+  evidence: 'external: the retire unit''s verify_consumers step''s rotation-step/1
+    evidence, filed by the rotation executor.'
+  approver: devon
+- id: AC-008
+  condition: The old value is revoked at the provider, proved live just before.
+  evidence_type: external_attestation
+  evidence: 'external: the retire_old step''s rotation-step/1 evidence, filed by the
+    rotation executor.'
+  approver: devon
+- id: AC-009
+  condition: The old value is refused and the new one answers live, each beside a
+    refused known-bad value, and the staging and quarantine secrets are deleted.
+  evidence_type: external_attestation
+  evidence: 'external: the confirm_dead step''s rotation-step/1 evidence, filed by
+    the rotation executor.'
+  approver: devon
+authority:
+  allowed:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  - secret_write
+  - infra_mutation
+  requires_approval: []
+  prohibited:
+  - repository_write
+  - outward_publish
+  - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - A rotated credential in its keeper, and terminal work units carrying each step's
+    evidence.
+  destination: the production ledger
+  recipient: devon
+  definition_of_done: Every unit is completed and every acceptance criterion carries
+    evidence and an adjudication, and infraops reports no rotation finding for alobar-id-postgres.
+  operator_responsibilities:
+  - Devon approves this revision and the change record, and performs each act the
+    executor announces.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - 'ADR-0055 amendment 15: plans derived from a type''s capabilities (2026-10-27).'
+  required_people_systems:
+  - The rotation executor
+  - Devon
+  required_capabilities:
+  - credential_create
+  - credential_revoke
+  - secret_read
+  - secret_write
+  - infra_mutation
+  blocking_conditions:
+  - The executor refuses a unit at its checks; the refusal names the reason.
+risk:
+  failure_modes:
+  - A contract refusal fails a unit partway; the executor resumes from its store on
+    a retry after a requeue.
+  max_impact: The hosted service's dependents are unavailable while the service restarts
+    on the new value, and the old value stops working at that step. The restart can
+    happen at any hour of the change window.
+  stop_conditions:
+  - A value appears anywhere it should not.
+  rollback: 'If the host step itself fails, the executor writes the old value back
+    and restarts, leaving the keeper unchanged. Once host finishes, recovery is forward:
+    a new value and the rotation run again.'
+  escalation_target: devon
+verification:
+  independent_review:
+  - The rotation verifier decides each criterion from the executor's step evidence.
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: The next rotation of alobar-id-postgres, which arrives as a new revision.
+  signals: []
+  owner: devon
+applicable_standards:
+  project: '1.0'
+  security: '1.0'

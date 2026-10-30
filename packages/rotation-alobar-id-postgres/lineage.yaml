@@ -1,0 +1,17 @@
+package_id: rotation-alobar-id-postgres
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 99db40ae190af899cde0f5a2534bf15fcb1913e094990ca5ffec72a465dfe391
+  created_at: '2026-10-30T18:03:26Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-30T18:03:27.101896+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-30T18:03:27.101896+00:00'
+  actor: claude-code-interactive
+  event_id: evt-1f0e1655cd2c4cc6bb5bdf215e37c254
+approvals: []
+grants: []
