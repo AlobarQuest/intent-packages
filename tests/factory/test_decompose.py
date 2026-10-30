@@ -513,3 +513,78 @@ def test_a_deferred_command_outside_the_envelope_is_refused(tmp_path, monkeypatc
     monkeypatch.setattr(decompose, "commands_deferred_to_coding", lambda repo, tooling: ("nope",))
     rc, _seen, _body = _run_npm_decompose(tmp_path, repo, monkeypatch)
     assert rc == 1
+
+
+def _decompose_pip(tmp_path, repo, out_name, **overrides):
+    kwargs = {
+        "brain_client": _FakeBrain(),
+        "revision": "rev-1",
+        "ac": "AC-002",
+        "target_repo": "AlobarQuest/brain",
+        "repo_path": str(repo),
+        "tooling": "pip",
+        "package": "fastapi",
+        "from_version": "0.139.0",
+        "to_version": "0.139.2",
+        "unit_key": "",
+        "rationale": "",
+        "out": str(tmp_path / out_name),
+        "submit": False,
+        "client": _conformance_client(),
+        "api": _api_returning_intake(),
+    }
+    kwargs.update(overrides)
+    return decompose.run(**kwargs)
+
+
+def _fail_if_called(name):
+    def boom(*_args, **_kwargs):
+        raise AssertionError(f"--no-execute must not call {name}")
+
+    return boom
+
+
+def test_no_execute_writes_the_proposal_without_running_any_command(
+    tmp_path, monkeypatch, portable_pip
+):
+    repo = _git_repo(tmp_path)
+    assert _decompose_pip(tmp_path, repo, "executed.json") == 0
+    executed = json.loads((tmp_path / "executed.json").read_text())
+
+    for name in ("dry_run_mutation", "assert_pin_sites_moved", "commands_deferred_to_coding"):
+        monkeypatch.setattr(decompose, name, _fail_if_called(name))
+    assert _decompose_pip(tmp_path, repo, "skipped.json", no_execute=True) == 0
+    skipped = json.loads((tmp_path / "skipped.json").read_text())
+
+    # context_enrichment carries a resolved_at timestamp, so compare the envelope itself.
+    assert skipped["proposed_units"][0]["authority"] == executed["proposed_units"][0]["authority"]
+    assert (
+        skipped["rationale"] == executed["rationale"] + " built without a local run (no-execute)."
+    )
+
+
+def test_no_execute_refuses_submit(tmp_path, capsys):
+    def no_reads(*_args, **_kwargs):
+        raise AssertionError("the refusal must come before anything is read")
+
+    rc = decompose.run(
+        revision="rev-1",
+        ac="AC-002",
+        target_repo="AlobarQuest/brain",
+        repo_path=str(tmp_path / "missing"),
+        tooling="pip",
+        package="fastapi",
+        from_version="0.139.0",
+        to_version="0.139.2",
+        unit_key="",
+        rationale="",
+        out="",
+        submit=True,
+        no_execute=True,
+        client=OrchestratorClient(runner=no_reads),
+        api=_api_returning_intake(),
+    )
+    assert rc == 1
+    assert "--no-execute writes a proposal for its caller to post; it never submits" in (
+        capsys.readouterr().err
+    )

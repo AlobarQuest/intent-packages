@@ -38,6 +38,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--submit", action="store_true", help="submit via orchestrator (default: dry only)"
     )
+    p.add_argument(
+        "--no-execute",
+        action="store_true",
+        help="write the proposal without running any repository command (never with --submit)",
+    )
     r = sub.add_parser(
         "route", help="resolve a model from routing-policy.toml (the sole source of selection)"
     )
@@ -181,6 +186,7 @@ def _run_decompose(args: argparse.Namespace) -> int:
         rationale=args.rationale,
         out=args.out,
         submit=args.submit,
+        no_execute=args.no_execute,
         verbose=args.verbose,
     )
 
