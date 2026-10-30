@@ -66,6 +66,50 @@ def test_decompose_delegates_to_run(monkeypatch):
     assert seen["submit"] is True
 
 
+_DECOMPOSE_ARGV = [
+    "decompose",
+    "--revision",
+    "rev-1",
+    "--ac",
+    "AC-002",
+    "--target-repo",
+    "AlobarQuest/brain",
+    "--tooling",
+    "pip",
+    "--package",
+    "fastapi",
+    "--from",
+    "0.139.0",
+    "--to",
+    "0.139.2",
+]
+
+
+def _decompose_kwargs(monkeypatch, extra):
+    seen = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        return 0
+
+    monkeypatch.setattr("intent_packages.factory.decompose.run", fake_run)
+    assert main(_DECOMPOSE_ARGV + extra) == 0
+    return seen
+
+
+def test_decompose_passes_no_execute_to_run(monkeypatch):
+    assert _decompose_kwargs(monkeypatch, ["--no-execute"])["no_execute"] is True
+
+
+def test_decompose_defaults_to_executing(monkeypatch):
+    assert _decompose_kwargs(monkeypatch, [])["no_execute"] is False
+
+
+def test_decompose_no_execute_with_submit_exits_1_through_the_entrypoint(capsys):
+    assert main(_DECOMPOSE_ARGV + ["--no-execute", "--submit"]) == 1
+    assert "it never submits" in capsys.readouterr().err
+
+
 def test_create_through_the_entrypoint(tmp_path):
     from intent_packages.factory_cli import main
 
