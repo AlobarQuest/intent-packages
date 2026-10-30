@@ -150,6 +150,29 @@ def _resolve_repo_path(target_repo: str, repo_path: str) -> Path:
 _NO_EXECUTE_SUBMIT_REFUSAL = (
     "--no-execute writes a proposal for its caller to post; it never submits"
 )
+_ASSUME_CURRENT_REFUSAL = (
+    "--assume-checkout-current needs --no-execute: only a run that executes nothing may trust "
+    "its caller's proof of the checkout"
+)
+
+
+def _flag_refusal(no_execute: bool, submit: bool, assume_checkout_current: bool) -> str | None:
+    if no_execute and submit:
+        return _NO_EXECUTE_SUBMIT_REFUSAL
+    if assume_checkout_current and not no_execute:
+        return _ASSUME_CURRENT_REFUSAL
+    return None
+
+
+def _intake_from_file(path: str, revision: str) -> dict:
+    """The intake a caller already read, refused unless it is the revision this run names."""
+    try:
+        intake = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise DecomposeError(f"intake file {path} is unreadable: {type(error).__name__}") from None
+    if not isinstance(intake, dict) or intake.get("id") != revision:
+        raise DecomposeError(f"intake file {path} is not revision {revision}")
+    return intake
 
 
 def _prove_the_bump_is_possible(
@@ -189,14 +212,17 @@ def run(
     out: str,
     submit: bool,
     no_execute: bool = False,
+    intake_file: str = "",
+    assume_checkout_current: bool = False,
     client: OrchestratorClient | None = None,
     api: OrchestratorApi | None = None,
     brain_client: SupportsBrainReads | None = None,
     policy_path: Path | None = None,
     verbose: bool = False,
 ) -> int:
-    if no_execute and submit:
-        print(f"decompose failed: {_NO_EXECUTE_SUBMIT_REFUSAL}", file=sys.stderr)
+    refusal = _flag_refusal(no_execute, submit, assume_checkout_current)
+    if refusal is not None:
+        print(f"decompose failed: {refusal}", file=sys.stderr)
         return 1
     client = client or OrchestratorClient()
     api = api or OrchestratorApi(verbose=verbose)
@@ -205,7 +231,8 @@ def run(
     try:
         if not local_repo.is_dir():
             raise DecomposeError(f"target checkout not found: {local_repo}")
-        assert_checkout_current(local_repo)
+        if not assume_checkout_current:
+            assert_checkout_current(local_repo)
         from intent_packages import profiles
 
         tooling_profiles = profiles.PROFILES["dependency-update"].tooling
@@ -216,7 +243,9 @@ def run(
         if not sites:
             raise DecomposeError(f"no pin site for {package} in {local_repo} ({tooling})")
 
-        intake = api.get_intake(revision)
+        intake = (
+            _intake_from_file(intake_file, revision) if intake_file else api.get_intake(revision)
+        )
         conformance = client.conformance_claim(str(local_repo))
 
         proposal = build_proposal(

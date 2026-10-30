@@ -101,6 +101,25 @@ def test_decompose_passes_no_execute_to_run(monkeypatch):
     assert _decompose_kwargs(monkeypatch, ["--no-execute"])["no_execute"] is True
 
 
+def test_decompose_passes_the_intake_file_and_the_assumption_to_run(monkeypatch):
+    seen = _decompose_kwargs(
+        monkeypatch, ["--no-execute", "--assume-checkout-current", "--intake-file", "i.json"]
+    )
+    assert seen["intake_file"] == "i.json"
+    assert seen["assume_checkout_current"] is True
+
+
+def test_decompose_defaults_to_the_orchestrators_intake_and_the_currency_check(monkeypatch):
+    seen = _decompose_kwargs(monkeypatch, [])
+    assert seen["intake_file"] == ""
+    assert seen["assume_checkout_current"] is False
+
+
+def test_assume_checkout_current_without_no_execute_exits_1_through_the_entrypoint(capsys):
+    assert main(_DECOMPOSE_ARGV + ["--assume-checkout-current"]) == 1
+    assert "--assume-checkout-current needs --no-execute" in capsys.readouterr().err
+
+
 def test_decompose_defaults_to_executing(monkeypatch):
     assert _decompose_kwargs(monkeypatch, [])["no_execute"] is False
 

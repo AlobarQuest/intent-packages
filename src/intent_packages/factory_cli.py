@@ -43,6 +43,16 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="write the proposal without running any repository command (never with --submit)",
     )
+    p.add_argument(
+        "--intake-file",
+        default="",
+        help="read the intake from this JSON file instead of the orchestrator; needs no bearer",
+    )
+    p.add_argument(
+        "--assume-checkout-current",
+        action="store_true",
+        help="skip the checkout currency check, for a caller that proved it (needs --no-execute)",
+    )
     r = sub.add_parser(
         "route", help="resolve a model from routing-policy.toml (the sole source of selection)"
     )
@@ -187,6 +197,8 @@ def _run_decompose(args: argparse.Namespace) -> int:
         out=args.out,
         submit=args.submit,
         no_execute=args.no_execute,
+        intake_file=args.intake_file,
+        assume_checkout_current=args.assume_checkout_current,
         verbose=args.verbose,
     )
 
