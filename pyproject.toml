@@ -8,7 +8,7 @@ dependencies = ["httpx>=0.28.1", "pyyaml>=6.0.3"]
 dev = [
     "pytest>=9.2.0",
     "pyyaml>=6.0.3",
-    "ruff>=0.17.1",
+    "ruff>=0.17.3",
 ]
 
 [project.scripts]
@@ -18,7 +18,7 @@ factory = "intent_packages.factory_cli:main"
 dev = [
   "pytest>=9.2.0",
   "pyyaml>=6.0.3",
-  "ruff>=0.17.1",
+  "ruff>=0.17.3",
   "pyright==1.1.414",
 ]
 
