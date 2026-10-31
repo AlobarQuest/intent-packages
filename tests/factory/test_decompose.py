@@ -8,6 +8,7 @@ import pytest
 from intent_packages.factory import decompose
 from intent_packages.factory.api import OrchestratorApi
 from intent_packages.factory.orchestrator_cli import OrchestratorClient
+from intent_packages.factory_cli import main
 from intent_packages.profiles import dependency_update as dep_update
 from intent_packages.profiles.dependency_update import PinSite
 
@@ -513,3 +514,209 @@ def test_a_deferred_command_outside_the_envelope_is_refused(tmp_path, monkeypatc
     monkeypatch.setattr(decompose, "commands_deferred_to_coding", lambda repo, tooling: ("nope",))
     rc, _seen, _body = _run_npm_decompose(tmp_path, repo, monkeypatch)
     assert rc == 1
+
+
+def _decompose_pip(tmp_path, repo, out_name, **overrides):
+    kwargs = {
+        "brain_client": _FakeBrain(),
+        "revision": "rev-1",
+        "ac": "AC-002",
+        "target_repo": "AlobarQuest/brain",
+        "repo_path": str(repo),
+        "tooling": "pip",
+        "package": "fastapi",
+        "from_version": "0.139.0",
+        "to_version": "0.139.2",
+        "unit_key": "",
+        "rationale": "",
+        "out": str(tmp_path / out_name),
+        "submit": False,
+        "client": _conformance_client(),
+        "api": _api_returning_intake(),
+    }
+    kwargs.update(overrides)
+    return decompose.run(**kwargs)
+
+
+def _fail_if_called(name):
+    def boom(*_args, **_kwargs):
+        raise AssertionError(f"--no-execute must not call {name}")
+
+    return boom
+
+
+def test_no_execute_writes_the_proposal_without_running_any_command(
+    tmp_path, monkeypatch, portable_pip
+):
+    repo = _git_repo(tmp_path)
+    assert _decompose_pip(tmp_path, repo, "executed.json") == 0
+    executed = json.loads((tmp_path / "executed.json").read_text())
+
+    for name in ("dry_run_mutation", "assert_pin_sites_moved", "commands_deferred_to_coding"):
+        monkeypatch.setattr(decompose, name, _fail_if_called(name))
+    assert _decompose_pip(tmp_path, repo, "skipped.json", no_execute=True) == 0
+    skipped = json.loads((tmp_path / "skipped.json").read_text())
+
+    # context_enrichment carries a resolved_at timestamp, so compare the envelope itself.
+    assert skipped["proposed_units"][0]["authority"] == executed["proposed_units"][0]["authority"]
+    assert (
+        skipped["rationale"] == executed["rationale"] + " built without a local run (no-execute)."
+    )
+
+
+def test_no_execute_refuses_submit(tmp_path, capsys):
+    def no_reads(*_args, **_kwargs):
+        raise AssertionError("the refusal must come before anything is read")
+
+    rc = decompose.run(
+        revision="rev-1",
+        ac="AC-002",
+        target_repo="AlobarQuest/brain",
+        repo_path=str(tmp_path / "missing"),
+        tooling="pip",
+        package="fastapi",
+        from_version="0.139.0",
+        to_version="0.139.2",
+        unit_key="",
+        rationale="",
+        out="",
+        submit=True,
+        no_execute=True,
+        client=OrchestratorClient(runner=no_reads),
+        api=_api_returning_intake(),
+    )
+    assert rc == 1
+    assert "--no-execute writes a proposal for its caller to post; it never submits" in (
+        capsys.readouterr().err
+    )
+
+
+REVISION = _INTAKE["id"]
+
+
+def _main_argv(repo, out, *extra):
+    return [
+        "decompose",
+        "--revision",
+        REVISION,
+        "--ac",
+        "AC-002",
+        "--target-repo",
+        "AlobarQuest/brain",
+        "--repo-path",
+        str(repo),
+        "--tooling",
+        "pip",
+        "--package",
+        "fastapi",
+        "--from",
+        "0.139.0",
+        "--to",
+        "0.139.2",
+        "--out",
+        str(out),
+        *extra,
+    ]
+
+
+@pytest.fixture
+def no_credential(monkeypatch):
+    """`main`'s real path, with no bearer anywhere and every network reach a failure."""
+    for name in ("ORCHESTRATOR_SYSTEM_TOKEN", "BWS_ACCESS_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(
+        OrchestratorClient, "conformance_claim", lambda self, repo_path: _CONFORMANCE
+    )
+    monkeypatch.setattr(decompose, "enrichment_for_profile", lambda *_, **__: None)
+    monkeypatch.setattr(OrchestratorApi, "get_intake", _fail_if_called("get_intake"))
+    monkeypatch.setattr(
+        "intent_packages.factory.api.resolve_token", _fail_if_called("resolve_token")
+    )
+    monkeypatch.setattr(
+        decompose, "assert_checkout_current", _fail_if_called("assert_checkout_current")
+    )
+
+
+def _intake_file(tmp_path, intake=None):
+    path = tmp_path / "intake.json"
+    path.write_text(json.dumps(_INTAKE if intake is None else intake))
+    return path
+
+
+def test_the_two_flags_write_a_proposal_with_no_bearer_and_no_fetch(
+    tmp_path, no_credential, portable_pip
+):
+    repo = _git_repo(tmp_path)
+    out = tmp_path / "out.json"
+    argv = _main_argv(
+        repo,
+        out,
+        "--no-execute",
+        "--assume-checkout-current",
+        "--intake-file",
+        str(_intake_file(tmp_path)),
+    )
+    assert main(argv) == 0
+    body = json.loads(out.read_text())
+    assert body["ac_mappings"] == [
+        {"ac_id": "uuid-2", "unit_key": "brain-ac-002"},
+    ]
+
+
+def test_without_the_intake_file_the_orchestrator_is_asked(tmp_path, no_credential, portable_pip):
+    repo = _git_repo(tmp_path)
+    with pytest.raises(AssertionError, match="get_intake"):
+        main(_main_argv(repo, tmp_path / "o.json", "--no-execute", "--assume-checkout-current"))
+
+
+def test_without_the_assumption_the_checkout_is_checked(tmp_path, no_credential, portable_pip):
+    repo = _git_repo(tmp_path)
+    argv = _main_argv(
+        repo, tmp_path / "o.json", "--no-execute", "--intake-file", str(_intake_file(tmp_path))
+    )
+    with pytest.raises(AssertionError, match="assert_checkout_current"):
+        main(argv)
+
+
+@pytest.mark.parametrize(
+    "intake", [{**_INTAKE, "id": "another-revision"}, {"acceptance_criteria": []}, ["not", "one"]]
+)
+def test_an_intake_file_of_another_revision_is_refused(
+    tmp_path, no_credential, portable_pip, capsys, intake
+):
+    repo = _git_repo(tmp_path)
+    out = tmp_path / "o.json"
+    argv = _main_argv(
+        repo,
+        out,
+        "--no-execute",
+        "--assume-checkout-current",
+        "--intake-file",
+        str(_intake_file(tmp_path, intake)),
+    )
+    assert main(argv) == 1
+    assert f"is not revision {REVISION}" in capsys.readouterr().err
+    assert not out.exists()
+
+
+@pytest.mark.parametrize("text", [None, "not json"])
+def test_an_unreadable_intake_file_is_refused(tmp_path, no_credential, portable_pip, capsys, text):
+    repo = _git_repo(tmp_path)
+    path = tmp_path / "intake.json"
+    if text is not None:
+        path.write_text(text)
+    argv = _main_argv(
+        repo,
+        tmp_path / "o.json",
+        "--no-execute",
+        "--assume-checkout-current",
+        "--intake-file",
+        str(path),
+    )
+    assert main(argv) == 1
+    assert "is unreadable" in capsys.readouterr().err
+
+
+def test_the_assumption_refuses_before_anything_is_read(tmp_path, no_credential, capsys):
+    assert main(_main_argv(tmp_path / "missing", tmp_path / "o", "--assume-checkout-current")) == 1
+    assert "--assume-checkout-current needs --no-execute" in capsys.readouterr().err

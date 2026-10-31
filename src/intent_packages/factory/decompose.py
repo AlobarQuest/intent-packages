@@ -147,6 +147,56 @@ def _resolve_repo_path(target_repo: str, repo_path: str) -> Path:
     return Path.home() / "Projects" / _repo_name(target_repo)
 
 
+_NO_EXECUTE_SUBMIT_REFUSAL = (
+    "--no-execute writes a proposal for its caller to post; it never submits"
+)
+_ASSUME_CURRENT_REFUSAL = (
+    "--assume-checkout-current needs --no-execute: only a run that executes nothing may trust "
+    "its caller's proof of the checkout"
+)
+
+
+def _flag_refusal(no_execute: bool, submit: bool, assume_checkout_current: bool) -> str | None:
+    if no_execute and submit:
+        return _NO_EXECUTE_SUBMIT_REFUSAL
+    if assume_checkout_current and not no_execute:
+        return _ASSUME_CURRENT_REFUSAL
+    return None
+
+
+def _intake_from_file(path: str, revision: str) -> dict:
+    """The intake a caller already read, refused unless it is the revision this run names."""
+    try:
+        intake = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise DecomposeError(f"intake file {path} is unreadable: {type(error).__name__}") from None
+    if not isinstance(intake, dict) or intake.get("id") != revision:
+        raise DecomposeError(f"intake file {path} is not revision {revision}")
+    return intake
+
+
+def _prove_the_bump_is_possible(
+    local_repo: Path, tooling: str, allowed: list[str], sites: list[PinSite]
+) -> None:
+    # Authoring proves the bump is POSSIBLE, against a tree no agent has touched.
+    # It therefore executes every envelope command except those whose failure is
+    # the assignment rather than a refusal -- see `commands_deferred_to_coding`.
+    # The envelope itself is unnarrowed: the agent may run all of it, and
+    # `finalize-run` re-executes every mutator and then `verify_commands` after the work.
+    deferred = commands_deferred_to_coding(local_repo, tooling)
+    unknown = [command for command in deferred if command not in allowed]
+    if unknown:
+        raise DecomposeError(
+            f"deferred commands are not in the envelope: {unknown}; the two lists "
+            f"are built from the same profile and have drifted"
+        )
+    admission = [command for command in allowed if command not in deferred]
+    if not admission:
+        raise DecomposeError("every envelope command is deferred; nothing would be proven")
+    changed = dry_run_mutation(local_repo, admission)
+    assert_pin_sites_moved(changed, sites)
+
+
 def run(
     *,
     revision: str,
@@ -161,12 +211,19 @@ def run(
     rationale: str,
     out: str,
     submit: bool,
+    no_execute: bool = False,
+    intake_file: str = "",
+    assume_checkout_current: bool = False,
     client: OrchestratorClient | None = None,
     api: OrchestratorApi | None = None,
     brain_client: SupportsBrainReads | None = None,
     policy_path: Path | None = None,
     verbose: bool = False,
 ) -> int:
+    refusal = _flag_refusal(no_execute, submit, assume_checkout_current)
+    if refusal is not None:
+        print(f"decompose failed: {refusal}", file=sys.stderr)
+        return 1
     client = client or OrchestratorClient()
     api = api or OrchestratorApi(verbose=verbose)
     resolved_key = unit_key or f"{_repo_name(target_repo)}-{ac.lower()}"
@@ -174,7 +231,8 @@ def run(
     try:
         if not local_repo.is_dir():
             raise DecomposeError(f"target checkout not found: {local_repo}")
-        assert_checkout_current(local_repo)
+        if not assume_checkout_current:
+            assert_checkout_current(local_repo)
         from intent_packages import profiles
 
         tooling_profiles = profiles.PROFILES["dependency-update"].tooling
@@ -185,7 +243,9 @@ def run(
         if not sites:
             raise DecomposeError(f"no pin site for {package} in {local_repo} ({tooling})")
 
-        intake = api.get_intake(revision)
+        intake = (
+            _intake_from_file(intake_file, revision) if intake_file else api.get_intake(revision)
+        )
         conformance = client.conformance_claim(str(local_repo))
 
         proposal = build_proposal(
@@ -212,23 +272,10 @@ def run(
         allowed = proposal["proposed_units"][0]["authority"]["constraints"]["allowed_commands"]
 
         assert_runner_honest(allowed)
-        # Authoring proves the bump is POSSIBLE, against a tree no agent has touched.
-        # It therefore executes every envelope command except those whose failure is
-        # the assignment rather than a refusal -- see `commands_deferred_to_coding`.
-        # The envelope itself is unnarrowed: the agent may run all of it, and
-        # `finalize-run` re-executes every mutator and then `verify_commands` after the work.
-        deferred = commands_deferred_to_coding(local_repo, tooling)
-        unknown = [command for command in deferred if command not in allowed]
-        if unknown:
-            raise DecomposeError(
-                f"deferred commands are not in the envelope: {unknown}; the two lists "
-                f"are built from the same profile and have drifted"
-            )
-        admission = [command for command in allowed if command not in deferred]
-        if not admission:
-            raise DecomposeError("every envelope command is deferred; nothing would be proven")
-        changed = dry_run_mutation(local_repo, admission)
-        assert_pin_sites_moved(changed, sites)
+        if no_execute:
+            proposal["rationale"] += " built without a local run (no-execute)."
+        else:
+            _prove_the_bump_is_possible(local_repo, tooling, allowed, sites)
 
         body = json.dumps(proposal, indent=2, sort_keys=True)
         if out:
