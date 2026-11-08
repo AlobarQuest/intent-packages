@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: orchestrator-uv-sqlalchemy
 title: Adopt the proposed uv update of sqlalchemy in orchestrator
-revision: 1
+revision: 2
 status: approved
 created_by: create-standing
 owner: devon
@@ -13,8 +13,8 @@ profile: dependency-update
 profile_fields:
   target_repo: AlobarQuest/orchestrator
   package: sqlalchemy
-  from_version: 2.0.54
-  to_version: 2.1.6
+  from_version: '2.0.54'
+  to_version: '2.1.8'
   standing: true
 outcome:
   what: orchestrator's sqlalchemy dependency moves to the version named in profile_fields.to_version.
