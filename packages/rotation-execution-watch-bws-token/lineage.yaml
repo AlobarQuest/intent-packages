@@ -1,5 +1,5 @@
 package_id: rotation-execution-watch-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: fa44a944079ce07ffdd4ac49348df054835cb97642b0ee12dd27808b906f92d1
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-09T12:25:55.875897+00:00'
   actor: claude-code-interactive
   event_id: evt-d8ba8072d48f4864aebefaea77593318
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: fa44a944079ce07ffdd4ac49348df054835cb97642b0ee12dd27808b906f92d1
+  approver: devon
+  approved_at: '2026-11-09T12:30:01.728096+00:00'
+  commit: f2b519301dd83000dda16a8c1d42344a2a20cfcd
+  event_id: evt-0c95dc6f3773429a99b85770f7250206
 grants: []
