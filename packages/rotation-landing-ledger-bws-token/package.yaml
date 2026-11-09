@@ -1,0 +1,169 @@
+schema_version: 1
+package_id: rotation-landing-ledger-bws-token
+title: Standing rotation of landing-ledger-bws-token
+revision: 1
+status: ready_for_review
+created_by: rotation-proposer
+owner: devon
+created_at: '2026-11-09T23:46:20Z'
+supersedes: null
+reach:
+- external_system
+- live_estate
+profile: non-software-operational
+profile_fields:
+  owner: devon
+  operating_procedure: 'The rotation executor (orchestrator src/rotation_worker/)
+    works this rotation with its bws-lane-token adapter and the plan derived from
+    the type''s capabilities and this credential''s registry row: units store. A person''s
+    acts, each announced by an alert and observed by the executor: mint. Evidence
+    carries fingerprints, probe status codes and notes only.'
+  external_systems:
+  - landing-ledger-bws-token, the credential's provider
+  standing: true
+  credential_id: landing-ledger-bws-token
+  occurrence: 2026-11-09-requested
+  destinations:
+  - bws-secret uuid="d7813bd9-0d9d-4781-ae86-b4fd017539ff"
+  - coolify-env instance="prod" resource_type="service" uuid="gs1z8orebdnq9ug574sia6fs"
+    key="LANDING_LEDGER_BWS_ACCESS_TOKEN" redeploy=false
+  - provider name="bws-lane-token"
+outcome:
+  what: 'landing-ledger-bws-token (landing-ledger-bws-token) is issued: its keeper
+    and every destination the registry names hold the new value.'
+  why: The credential is due for rotation (2026-11-09-requested), and the registry
+    hands its rotation to the SDS.
+  beneficiary: Devon, whose credentials the SDS rotates.
+  success_signal: Every unit completes, the keeper holds a value different from the
+    one it started with and infraops reports no rotation finding for landing-ledger-bws-token.
+scope:
+  included:
+  - The bws-lane-token plan's units, worked by the rotation executor.
+  excluded:
+  - Every other credential, each rotated by its own package.
+  non_goals:
+  - Changing what the credential can reach.
+  assumptions:
+  - The executor instance that keeps this credential runs the bws-lane-token adapter
+    at a revision with derived plans (ADR-0055 amendment 15).
+  open_questions: []
+sources:
+- location: orchestrator docs/decisions/0055-credential-rotation-runs-in-a-pull-based-executor.md,
+    amendment 15 (one mechanism, a declaration per type).
+  authority_level: authoritative
+  required_version: '2026-10-28'
+  trust: trusted_instruction
+  sensitivity: internal
+- location: 'AlobarQuest/orchestrator .cred-consumers.toml, credential landing-ledger-bws-token:
+    its keeper and every destination.'
+  authority_level: authoritative
+  required_version: '2026-11-09'
+  trust: trusted_instruction
+  sensitivity: internal
+constraints:
+  time_budget: Each unit at the executor's next pass once its waits clear.
+  technology: The rotation executor at the orchestrator revision installed.
+  policy_legal: null
+  privacy_security: No value appears in a transcript, a tool argument, a process argument,
+    a log or evidence. Values are identified by sha256 prefix and length only.
+  compatibility: null
+  quality_accessibility: null
+  operational: null
+  other: []
+
+# ac_id means two different things and nothing checks the difference:
+#   - a decomposition proposal's ac_mappings[].ac_id / retained_acs[].ac_id want
+#     the criterion's database UUID
+#   - evidence and adjudication want the human string below, e.g. AC-001
+# Getting it wrong is a bare package_acceptance_criterion_not_found with no hint.
+acceptance:
+- id: AC-001
+  condition: The new value answers live at the provider's probe, beside a known-bad
+    value the same probe refuses.
+  evidence_type: external_attestation
+  evidence: 'external: the verify_new step''s rotation-step/1 evidence, filed by the
+    rotation executor.'
+  approver: devon
+- id: AC-002
+  condition: The executor read the empty marker in the keeper before writing it, and
+    the keeper reads back the new value; nothing is quarantined.
+  evidence_type: external_attestation
+  evidence: 'external: the store step''s rotation-step/1 evidence, filed by the rotation
+    executor.'
+  approver: devon
+- id: AC-003
+  condition: Every other copy the registry names holds the new value.
+  evidence_type: external_attestation
+  evidence: 'external: the distribute step''s rotation-step/1 evidence, filed by the
+    rotation executor.'
+  approver: devon
+- id: AC-004
+  condition: Every consumer the registry names holds the new value, and the staging
+    secret is deleted.
+  evidence_type: external_attestation
+  evidence: 'external: the verify_consumers step''s rotation-step/1 evidence, filed
+    by the rotation executor.'
+  approver: devon
+authority:
+  allowed:
+  - secret_read
+  - secret_write
+  - infra_mutation
+  requires_approval: []
+  prohibited:
+  - credential_create
+  - credential_revoke
+  - repository_write
+  - outward_publish
+  - email_send
+  budgets:
+    max_attempts: 3
+    max_llm_calls: null
+deliverables:
+  artifacts:
+  - An issued credential in its keeper, and terminal work units carrying each step's
+    evidence.
+  destination: the production ledger
+  recipient: devon
+  definition_of_done: Every unit is completed and every acceptance criterion carries
+    evidence and an adjudication, and infraops reports no rotation finding for landing-ledger-bws-token.
+  operator_responsibilities:
+  - Devon approves this revision and the change record, and performs each act the
+    executor announces.
+dependencies:
+  predecessor_packages: []
+  external_decisions:
+  - 'ADR-0055 amendment 15: plans derived from a type''s capabilities (2026-10-27).'
+  required_people_systems:
+  - The rotation executor
+  - Devon
+  required_capabilities:
+  - secret_read
+  - secret_write
+  - infra_mutation
+  blocking_conditions:
+  - The executor refuses a unit at its checks; the refusal names the reason.
+risk:
+  failure_modes:
+  - A contract refusal fails a unit partway; the executor resumes from its store on
+    a retry after a requeue.
+  max_impact: A destination holds no value it can use until the issue completes; nothing
+    is revoked, because no value was there before.
+  stop_conditions:
+  - A value appears anywhere it should not.
+  rollback: 'Nothing is revoked, so nothing needs restoring: until store the keeper
+    holds the empty marker, and after it recovery is forward, with a new value.'
+  escalation_target: devon
+verification:
+  independent_review:
+  - The rotation verifier decides each criterion from the executor's step evidence.
+  non_mechanical: []
+follow_up:
+  required: false
+  revisit_when: The next rotation of landing-ledger-bws-token, which arrives as a
+    new revision.
+  signals: []
+  owner: devon
+applicable_standards:
+  project: '1.0'
+  security: '1.0'
