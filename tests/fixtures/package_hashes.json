@@ -29,6 +29,7 @@
   "rotation-change-manager-observe-bearer": "50b8b0f7629b801587d6f6807f000107245a1ef35d70c446b15a8b98152c2201",
   "rotation-change-manager-propose-bearer": "2d8eaec39c62919ebfd47e2e8d9b2b35701951d6e9ce612377de581479146cbf",
   "rotation-change-manager-read-bearer": "1b3b77a26379d41b89b1fe574730c470f53de0179cfba87a5a89fffcabf24281",
+  "rotation-execution-watch-bws-token": "fa44a944079ce07ffdd4ac49348df054835cb97642b0ee12dd27808b906f92d1",
   "rotation-factory-pr-token": "5f54aeac20b15e2b1030283a812b509a953190537f62792592784254444bffb8",
   "rotation-github-finegrained-mirror": "a08b24ff12596d8e77da0cc0ae11f3476bc17bfeff6c0d0d4edc1380a3fe16d4",
   "rotation-openrouter-generic": "e85b188de498db3805edc20bd87ab74da92ec46f1787e260510d9a08f106f2ec",
