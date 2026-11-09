@@ -1,5 +1,5 @@
 package_id: rotation-execution-watch-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 49537f2950fc83789e4bf06c4c6121b4d73207a12b8bcec0fb8293a80b0ce8c5
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-09T15:35:55.818457+00:00'
   actor: claude-code-interactive
   event_id: evt-10735caecad44fdd957f63bd651e3d76
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 49537f2950fc83789e4bf06c4c6121b4d73207a12b8bcec0fb8293a80b0ce8c5
+  approver: devon
+  approved_at: '2026-11-09T15:50:05.511934+00:00'
+  commit: c6ae56d023f085b7705b4ccacbdcf66714bc3135
+  event_id: evt-647f63de36bc47c9a70c4265f6137caa
 grants: []
