@@ -1,5 +1,5 @@
 package_id: rotation-landing-ledger-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 058d1c7ab45d49d4b35e4977a35c1ece823d5ffb4c1de1298b448cb526a4898c
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-09T23:46:21.334339+00:00'
   actor: claude-code-interactive
   event_id: evt-b8b221d2a4084cd6adc63e51d6e5ca83
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 058d1c7ab45d49d4b35e4977a35c1ece823d5ffb4c1de1298b448cb526a4898c
+  approver: devon
+  approved_at: '2026-11-10T11:25:55.337866+00:00'
+  commit: d6440e5c28a33f83e8142b3bc0e20c5a0dc731fd
+  event_id: evt-3c8ddf6459d942049c1e767974fceb66
 grants: []
