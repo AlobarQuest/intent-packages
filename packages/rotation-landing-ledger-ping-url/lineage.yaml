@@ -1,5 +1,5 @@
 package_id: rotation-landing-ledger-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 1fe3c7522f95646ffb2ce0ae3cce08a1c5fcc2c15e4d466180eb3ac7918bcbb7
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-10T12:24:59.779132+00:00'
   actor: claude-code-interactive
   event_id: evt-38004e635f9a4ff1a261c90f8d319ccb
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 1fe3c7522f95646ffb2ce0ae3cce08a1c5fcc2c15e4d466180eb3ac7918bcbb7
+  approver: devon
+  approved_at: '2026-11-10T12:32:52.622837+00:00'
+  commit: 0d0920163f39a8fd0fc4ee5f28d8786b18131671
+  event_id: evt-2b6dffd4dd654a1996ae0ca7c9ea14b9
 grants: []
