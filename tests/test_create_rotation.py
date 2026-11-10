@@ -24,13 +24,14 @@ from intent_packages.validate import validate_package
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "rotation_package_generated.json"
-# The orchestrator's issue fixtures at 74e6f19 (#631), pinned so a one-sided edit fails here.
+# The orchestrator's issue fixtures, pinned so a one-sided edit fails here: the lane-token
+# fixture is at orchestrator 74e6f19 (#631), the ping-URL fixture at 2a7fb611 (#651).
 ISSUE_FIXTURE_SHA256 = {
     "rotation_package_issue_bws-lane-token.json": (
         "1aaae6bd72a58095b5d7dca0aa8a6c2a35aa80f42ffb2e77202c9b1bcd9a2b65"
     ),
     "rotation_package_issue_healthchecks-ping-url.json": (
-        "f2f086388eb8881b999af7e54c4a6b5272db0bca1e23e77d626286c0e4b697d6"
+        "6c8ef3275069cc6fb78636805ef3bed7ca748659f23f1fcb2bf531b477e290c3"
     ),
 }
 RENDERED = [FIXTURE, *(FIXTURES / name for name in ISSUE_FIXTURE_SHA256)]
