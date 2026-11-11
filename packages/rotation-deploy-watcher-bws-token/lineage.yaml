@@ -1,5 +1,5 @@
 package_id: rotation-deploy-watcher-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 726350a7b589c141590a14c8077ba2abbc084824a0b987c7b4859ba26610558e
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-11T02:14:04.630188+00:00'
   actor: claude-code-interactive
   event_id: evt-cb40628e0b194333b87a34f703072e4e
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 726350a7b589c141590a14c8077ba2abbc084824a0b987c7b4859ba26610558e
+  approver: devon
+  approved_at: '2026-11-11T12:58:27.583098+00:00'
+  commit: a3055979a2138a598a655325810b0a9668054c3e
+  event_id: evt-6c530eae663b400881deb8e37446e034
 grants: []
