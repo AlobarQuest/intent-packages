@@ -30,6 +30,15 @@ is re-derivable in a way a person's name is not. It is spelled
 ``policy:<profile>@v<version>``, a shape no registry agent id can take, so a policy
 approval and a human approval can never be mistaken for one another.
 
+**Schema 4 adds a second grant shape, the rotation grant** (orchestrator ADR-0055 amendment 22).
+It gives ``non-software-operational`` a grant that withholds its objections only from a lane
+credential's proposer-generated revision 1: a standing package at revision 1 whose lineage holds
+no approval, ``created_by`` the proposer, one ``provider name=`` destination naming a granted
+type, destinations of that type's kinds, an authority equal to one of the type's listed sets, and
+no ``human_review`` criterion. It needs the lineage, so :meth:`ApprovalPolicy.refusals_for` takes
+it, and a missing or unreadable lineage is a refusal. The orchestrator re-renders the package from
+the registry; this module can't read the registry, so it checks only the shape it can see.
+
 **THE SAME LITERAL IS SPELLED IN THE ORCHESTRATOR**
 (``orchestrator.package_sources``), which re-verifies the approval before an intake and
 which imports nothing from this repository. Both sides carry a test naming the shape, so
@@ -43,8 +52,14 @@ import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, TypeGuard
 
+from intent_packages.destination_format import (
+    BOOLEAN_FIELDS,
+    IDENTITY_FIELDS,
+    DestinationFormatError,
+    parse,
+)
 from intent_packages.members import MembersUnreadable, granted_targets
 from intent_packages.profiles import PROFILES
 
@@ -55,12 +70,13 @@ POLICY_APPROVER_RE: Final = re.compile(r"^policy:([a-z0-9][a-z0-9-]*)@v([1-9][0-
 # The versions this loader understands. An exact set, never a floor: an older process
 # meeting a newer document would silently ignore whatever narrowing the new version
 # introduced, which is the permissive reading of a version skew.
-SUPPORTED_SCHEMA_VERSIONS: Final[frozenset[int]] = frozenset({1, 2, 3})
+SUPPORTED_SCHEMA_VERSIONS: Final[frozenset[int]] = frozenset({1, 2, 3, 4})
 
 # Schema 2 replaces a grant's hand-kept `target_repositories` with `targets_from`, which names a
 # service in the SDS member record. A document at schema 1 must still carry the list, and a
 # document at schema 2 must not: each version has exactly one source for the targets. Schema 3
 # keeps `targets_from` and changes the reach: `reach_options` (a list of sets) replaces `reach`.
+# Schema 4 keeps schema 3's grant shape and adds the rotation grant (`RotationGrant`).
 TARGETS_FROM_PREFIX: Final = "sds-member-record:"
 
 # Why policy objects. The whole output vocabulary of this module.
@@ -76,13 +92,26 @@ ACCEPTANCE_NOT_PERMITTED: Final = "acceptance_not_permitted"
 MAX_IMPACT_NOT_PERMITTED: Final = "max_impact_not_permitted"
 BUMP_VERSIONS_NOT_DISTINCT: Final = "bump_versions_not_distinct"
 NOT_A_STANDING_PACKAGE: Final = "not_a_standing_package"
+# The rotation grant's own refusals (schema 4). It also uses NOT_A_STANDING_PACKAGE,
+# AUTHORITY_TERMS_NOT_PERMITTED and ACCEPTANCE_NOT_PERMITTED, in the sense each already has.
+NOT_REVISION_ONE: Final = "not_revision_one"
+LINEAGE_UNREADABLE: Final = "lineage_unreadable"
+LINEAGE_HAS_APPROVAL: Final = "lineage_has_approval"
+NOT_PROPOSER_GENERATED: Final = "not_proposer_generated"
+ROTATION_TYPE_NOT_PERMITTED: Final = "rotation_type_not_permitted"
+DESTINATIONS_NOT_PERMITTED: Final = "destinations_not_permitted"
 
 _ROW_REQUIRED_FIELDS: Final = frozenset({"rationale", "decided"})
 _ROW_OPTIONAL_FIELDS: Final = frozenset({"grant"})
-_TARGET_FIELD_BY_SCHEMA: Final = {1: "target_repositories", 2: "targets_from", 3: "targets_from"}
+_TARGET_FIELD_BY_SCHEMA: Final = {
+    1: "target_repositories",
+    2: "targets_from",
+    3: "targets_from",
+    4: "targets_from",
+}
 # Each schema has exactly one reach field: `reach` (one set) before schema 3, `reach_options`
 # (any one of several sets) from it.
-_REACH_FIELD_BY_SCHEMA: Final = {1: "reach", 2: "reach", 3: "reach_options"}
+_REACH_FIELD_BY_SCHEMA: Final = {1: "reach", 2: "reach", 3: "reach_options", 4: "reach_options"}
 _GRANT_FIELDS: Final = frozenset(
     {
         "rationale",
@@ -98,6 +127,17 @@ _GRANT_FIELDS: Final = frozenset(
     }
 )
 _TOP_LEVEL_FIELDS: Final = frozenset({"version", "profile"})
+
+# The rotation grant (schema 4). Only this profile may carry one, and a grant is this shape
+# exactly when it carries `types`; at schemas 1 to 3 `types` is an unknown grant field.
+ROTATION_GRANT_PROFILE: Final = "non-software-operational"
+ROTATION_GRANT_MIN_SCHEMA: Final = 4
+_ROTATION_GRANT_FIELDS: Final = frozenset({"rationale", "decided", "created_by", "types"})
+_ROTATION_TYPE_FIELDS: Final = frozenset({"destinations", "authority_options"})
+_AUTHORITY_SET_FIELDS: Final = frozenset(
+    {"allowed", "requires_approval", "prohibited", "max_attempts"}
+)
+_PROVIDER_KIND: Final = "provider"
 
 
 class ApprovalPolicyError(Exception):
@@ -141,21 +181,68 @@ class Grant:
 
 
 @dataclass(frozen=True)
+class DestinationPattern:
+    """One destination a rotation type has: its kind, and any identity fields it must hold.
+
+    The provider pattern holds no fields; its `name` is the type's own name.
+    """
+
+    kind: str
+    fields: tuple[tuple[str, object], ...]
+
+
+@dataclass(frozen=True)
+class AuthoritySet:
+    """One authority a rotation type's package may declare, compared whole.
+
+    ``max_llm_calls`` has no field: a rotation package declares it null, because the rotation
+    executor makes no LLM call, and TOML can't write null. Any other value refuses.
+    """
+
+    allowed: tuple[str, ...]
+    requires_approval: tuple[str, ...]
+    prohibited: tuple[str, ...]
+    max_attempts: int
+
+
+@dataclass(frozen=True)
+class RotationType:
+    destinations: tuple[DestinationPattern, ...]
+    authority_options: tuple[AuthoritySet, ...]
+
+
+@dataclass(frozen=True)
+class RotationGrant:
+    """The shape a lane credential's proposer-generated revision 1 may be approved by (schema 4).
+
+    ``types`` is keyed by the name the package's ``provider name=`` destination carries.
+    """
+
+    rationale: str
+    decided: str
+    created_by: str
+    types: dict[str, RotationType]
+
+
+@dataclass(frozen=True)
 class ApprovalPolicy:
     version: int
-    grants: dict[str, Grant | None]
+    grants: dict[str, Grant | RotationGrant | None]
 
     def approver_for(self, profile: str) -> str:
         """The approver string a conformant revision of this profile is approved under."""
         return f"policy:{profile}@v{self.version}"
 
-    def refusals_for(self, package: dict[str, Any]) -> tuple[str, ...]:
+    def refusals_for(
+        self, package: dict[str, Any], lineage: dict[str, Any] | None = None
+    ) -> tuple[str, ...]:
         """Why this policy objects to approving this package. Empty means no objection.
 
         Fail-closed in every direction a package can be surprising: an absent profile, a
         profile outside the registry, a profile with no grant, and a field whose value is
         not the shape a grant describes all produce an objection rather than the absence
-        of one.
+        of one. ``lineage`` is the package's ``lineage.yaml``; the rotation grant reads it,
+        and refuses ``lineage_unreadable`` when it is None or not a lineage's shape.
         """
         profile = package.get("profile")
         if not isinstance(profile, str) or not profile:
@@ -165,6 +252,8 @@ class ApprovalPolicy:
         grant = self.grants[profile]
         if grant is None:
             return (PROFILE_NOT_POLICY_APPROVABLE,)
+        if isinstance(grant, RotationGrant):
+            return _rotation_refusals(package, lineage, grant)
         return tuple(
             refusal
             for refusal in (
@@ -232,7 +321,7 @@ def load_policy(path: Path | None = None) -> ApprovalPolicy:
     )
 
 
-def _row(name: str, table: object, version: int) -> Grant | None:
+def _row(name: str, table: object, version: int) -> Grant | RotationGrant | None:
     where = f"profile.{name}"
     if not isinstance(table, dict):
         raise ApprovalPolicyError(f"{where}: must be a table")
@@ -246,7 +335,100 @@ def _row(name: str, table: object, version: int) -> Grant | None:
     _text(table, "decided", where)
     if "grant" not in table:
         return None
-    return _grant(f"{where}.grant", table["grant"], version)
+    grant = table["grant"]
+    if version >= ROTATION_GRANT_MIN_SCHEMA and isinstance(grant, dict) and "types" in grant:
+        if name != ROTATION_GRANT_PROFILE:
+            raise ApprovalPolicyError(
+                f"{where}.grant: only {ROTATION_GRANT_PROFILE} may carry a rotation grant"
+            )
+        return _rotation_grant(f"{where}.grant", grant)
+    return _grant(f"{where}.grant", grant, version)
+
+
+def _rotation_grant(where: str, table: dict) -> RotationGrant:
+    _exact_fields(table, _ROTATION_GRANT_FIELDS, where)
+    types = table["types"]
+    if not isinstance(types, dict) or not types:
+        raise ApprovalPolicyError(f"{where}: types must be a non-empty table")
+    return RotationGrant(
+        rationale=_text(table, "rationale", where),
+        decided=_text(table, "decided", where),
+        created_by=_text(table, "created_by", where),
+        types={
+            name: _rotation_type(f"{where}.types.{name}", entry) for name, entry in types.items()
+        },
+    )
+
+
+def _rotation_type(where: str, table: object) -> RotationType:
+    if not isinstance(table, dict):
+        raise ApprovalPolicyError(f"{where}: must be a table")
+    _exact_fields(table, _ROTATION_TYPE_FIELDS, where)
+    patterns = _tables(table, "destinations", where)
+    destinations = tuple(_destination_pattern(f"{where}.destinations", p) for p in patterns)
+    kinds = [pattern.kind for pattern in destinations]
+    if len(set(kinds)) != len(kinds):
+        raise ApprovalPolicyError(f"{where}: destinations repeat a kind")
+    if _PROVIDER_KIND not in kinds:
+        raise ApprovalPolicyError(f"{where}: destinations must include the provider")
+    options = _tables(table, "authority_options", where)
+    return RotationType(
+        destinations=destinations,
+        authority_options=tuple(
+            _authority_set(f"{where}.authority_options", option) for option in options
+        ),
+    )
+
+
+def _destination_pattern(where: str, table: dict) -> DestinationPattern:
+    kind = table.get("kind")
+    if not isinstance(kind, str) or kind not in IDENTITY_FIELDS:
+        raise ApprovalPolicyError(f"{where}: kind {kind!r} is no destination kind")
+    fields = {key: value for key, value in table.items() if key != "kind"}
+    unknown = set(fields) - set(IDENTITY_FIELDS[kind])
+    if kind == _PROVIDER_KIND:
+        unknown = set(fields)  # The provider's name is the type's own.
+    if unknown:
+        raise ApprovalPolicyError(f"{where}: {kind} may not pin {sorted(unknown)}")
+    for key, value in fields.items():
+        typed = (
+            isinstance(value, bool)
+            if key in BOOLEAN_FIELDS
+            else isinstance(value, str) and bool(value.strip())
+        )
+        if not typed:
+            raise ApprovalPolicyError(f"{where}: {kind} pins {key} to {value!r}, the wrong type")
+    return DestinationPattern(kind=kind, fields=tuple(sorted(fields.items())))
+
+
+def _authority_set(where: str, table: dict) -> AuthoritySet:
+    _exact_fields(table, _AUTHORITY_SET_FIELDS, where)
+    authority = AuthoritySet(
+        allowed=_strings(table, "allowed", where),
+        requires_approval=_strings(table, "requires_approval", where, allow_empty=True),
+        prohibited=_strings(table, "prohibited", where),
+        max_attempts=_positive_int(table, "max_attempts", where),
+    )
+    terms = [*authority.allowed, *authority.requires_approval, *authority.prohibited]
+    if len(set(terms)) != len(terms):
+        raise ApprovalPolicyError(f"{where}: a term appears twice across the three lists")
+    return authority
+
+
+def _exact_fields(table: dict, fields: frozenset[str], where: str) -> None:
+    missing = fields - set(table)
+    if missing:
+        raise ApprovalPolicyError(f"{where}: missing {sorted(missing)}")
+    unknown = set(table) - fields
+    if unknown:
+        raise ApprovalPolicyError(f"{where}: unknown fields {sorted(unknown)}")
+
+
+def _tables(table: dict, key: str, where: str) -> list[dict]:
+    value = table.get(key)
+    if not isinstance(value, list) or not value or not all(isinstance(v, dict) for v in value):
+        raise ApprovalPolicyError(f"{where}: {key} must be a non-empty list of tables")
+    return value
 
 
 def _grant(where: str, table: object, version: int) -> Grant:
@@ -469,4 +651,166 @@ def _impact_refusal(package: dict[str, Any], grant: Grant) -> str | None:
     impact = risk.get("max_impact") if isinstance(risk, dict) else None
     if impact not in grant.max_impact:
         return MAX_IMPACT_NOT_PERMITTED
+    return None
+
+
+# --- the rotation grant (schema 4) ---------------------------------------------------
+
+
+def _rotation_refusals(
+    package: dict[str, Any], lineage: dict[str, Any] | None, grant: RotationGrant
+) -> tuple[str, ...]:
+    """Every condition of ADR-0055 amendment 22's grant, each refused on its own.
+
+    The destinations and authority checks need the type, so they are skipped when the type
+    refusal already stands: one wrong provider then reads as one refusal, not three.
+    """
+    rotation_type = _granted_type(package, grant)
+    return tuple(
+        refusal
+        for refusal in (
+            _standing_refusal(package),
+            _first_revision_refusal(package, lineage),
+            _lineage_approval_refusal(lineage),
+            _proposer_refusal(package, grant),
+            None if rotation_type is not None else ROTATION_TYPE_NOT_PERMITTED,
+            None if rotation_type is None else _destinations_refusal(package, rotation_type),
+            None if rotation_type is None else _rotation_authority_refusal(package, rotation_type),
+            _human_review_refusal(package),
+        )
+        if refusal is not None
+    )
+
+
+def _readable_lineage(lineage: object) -> TypeGuard[dict[str, Any]]:
+    """A lineage's shape: a missing key or a wrong type is unreadable, never empty."""
+    return (
+        isinstance(lineage, dict)
+        and isinstance(lineage.get("revisions"), list)
+        and isinstance(lineage.get("approvals"), list)
+    )
+
+
+def _first_revision_refusal(package: dict[str, Any], lineage: dict[str, Any] | None) -> str | None:
+    """Revision 1, and a lineage that lists revision 1 alone.
+
+    `True == 1` in Python, so a boolean revision is refused by type. An unreadable lineage is
+    `_lineage_approval_refusal`'s to report, so this checks only the package then.
+    """
+    revision = package.get("revision")
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision != 1:
+        return NOT_REVISION_ONE
+    if not _readable_lineage(lineage):
+        return None
+    revisions = lineage["revisions"]
+    if len(revisions) != 1 or not isinstance(revisions[0], dict):
+        return NOT_REVISION_ONE
+    listed = revisions[0].get("revision")
+    if not isinstance(listed, int) or isinstance(listed, bool) or listed != 1:
+        return NOT_REVISION_ONE
+    return None
+
+
+def _lineage_approval_refusal(lineage: dict[str, Any] | None) -> str | None:
+    """No approval at all. Any entry refuses, a matching one included, so a replay of a
+    policy approval that crashed after writing its lineage refuses too and waits for a person."""
+    if not _readable_lineage(lineage):
+        return LINEAGE_UNREADABLE
+    return LINEAGE_HAS_APPROVAL if lineage["approvals"] else None
+
+
+def _proposer_refusal(package: dict[str, Any], grant: RotationGrant) -> str | None:
+    """The author's word only: the orchestrator's re-render is what proves it."""
+    return None if package.get("created_by") == grant.created_by else NOT_PROPOSER_GENERATED
+
+
+def _parsed_destinations(package: dict[str, Any]) -> list[dict[str, object]] | None:
+    """Every destination parsed, or None when any isn't a canonical destination string."""
+    fields = package.get("profile_fields")
+    destinations = fields.get("destinations") if isinstance(fields, dict) else None
+    if not isinstance(destinations, list) or not all(isinstance(d, str) for d in destinations):
+        return None
+    try:
+        return [parse(destination) for destination in destinations]
+    except DestinationFormatError:
+        return None
+
+
+def _granted_type(package: dict[str, Any], grant: RotationGrant) -> RotationType | None:
+    """The granted type the package's one `provider name=` destination names, or None.
+
+    Reads only the provider strings, so a malformed keeper or copy is the destinations
+    refusal's to report, not this one's.
+    """
+    fields = package.get("profile_fields")
+    destinations = fields.get("destinations") if isinstance(fields, dict) else None
+    if not isinstance(destinations, list):
+        return None
+    providers = [
+        d for d in destinations if isinstance(d, str) and d.startswith(f"{_PROVIDER_KIND} ")
+    ]
+    if len(providers) != 1:
+        return None
+    try:
+        name = parse(providers[0])["name"]
+    except DestinationFormatError:
+        return None
+    return grant.types.get(name) if isinstance(name, str) else None
+
+
+def _destinations_refusal(package: dict[str, Any], rotation_type: RotationType) -> str | None:
+    """Exactly the type's kinds, one of each, each holding any field its pattern pins."""
+    parsed = _parsed_destinations(package)
+    if parsed is None:
+        return DESTINATIONS_NOT_PERMITTED
+    patterns = {pattern.kind: pattern for pattern in rotation_type.destinations}
+    if sorted(str(d["kind"]) for d in parsed) != sorted(patterns):
+        return DESTINATIONS_NOT_PERMITTED
+    for destination in parsed:
+        pattern = patterns[str(destination["kind"])]
+        if any(destination.get(key) != value for key, value in pattern.fields):
+            return DESTINATIONS_NOT_PERMITTED
+    return None
+
+
+def _rotation_authority_refusal(package: dict[str, Any], rotation_type: RotationType) -> str | None:
+    """Equal to one of the type's sets, compared whole: the three lists and both budgets."""
+    authority = package.get("authority")
+    if not isinstance(authority, dict):
+        return AUTHORITY_TERMS_NOT_PERMITTED
+    budgets = authority.get("budgets")
+    if not isinstance(budgets, dict) or budgets.get("max_llm_calls", 0) is not None:
+        return AUTHORITY_TERMS_NOT_PERMITTED
+    attempts = budgets.get("max_attempts")
+    if not isinstance(attempts, int) or isinstance(attempts, bool):
+        return AUTHORITY_TERMS_NOT_PERMITTED
+    if any(
+        _authority_equals(authority, attempts, option) for option in rotation_type.authority_options
+    ):
+        return None
+    return AUTHORITY_TERMS_NOT_PERMITTED
+
+
+def _authority_equals(authority: dict, attempts: int, option: AuthoritySet) -> bool:
+    for key, permitted in (
+        ("allowed", option.allowed),
+        ("requires_approval", option.requires_approval),
+        ("prohibited", option.prohibited),
+    ):
+        declared = authority.get(key)
+        if not isinstance(declared, list) or not all(isinstance(d, str) for d in declared):
+            return False
+        if sorted(declared) != sorted(permitted):
+            return False
+    return attempts == option.max_attempts
+
+
+def _human_review_refusal(package: dict[str, Any]) -> str | None:
+    """No `human_review` criterion: a person's judgement is a gate nobody chose by policy."""
+    criteria = package.get("acceptance")
+    if not isinstance(criteria, list) or not criteria:
+        return ACCEPTANCE_NOT_PERMITTED
+    for criterion in criteria:
+        if not isinstance(criterion, dict) or criterion.get("evidence_type") == "human_review":
+            return ACCEPTANCE_NOT_PERMITTED
     return None

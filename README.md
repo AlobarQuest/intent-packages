@@ -24,7 +24,7 @@ PYTHONPATH=src python3 -m intent_packages <command>
 | `validate <path> \| --all` | Schema + semantic checks; actionable errors; non-zero exit on failure. |
 | `hash <path>` | Deterministic `sha256(JCS(intent_core))` of the immutable intent core. |
 | `transition <path> --to <state>` | Perform a legal lifecycle transition. |
-| `approve <path>` | Devon-only: bind approval to the current revision's hash. |
+| `approve <path> [--approver <id> \| --by-policy]` | Bind approval to the current revision's hash. The approver is a human operator, or with `--by-policy` the approval policy, which only the profiles in [Policy approval](#policy-approval) can take. |
 | `revise <path>` | Register a new revision after a material intent edit. |
 | `verify-approval <path> [--revision N]` | Mechanically confirm a revision was approved. |
 | `create-standing --target-repo <owner/name> --package <dep> --ecosystem <npm\|pip\|uv> --from <v> --to <v> [--out packages] [--reach source_repository\|live_estate]` | Write a draft standing dependency-update package `<repo>-<ecosystem>-<dep-slug>` (no `human_review` criterion; reach `source_repository` by default, `live_estate` for a repository that redeploys on landing) and print its directory. Refuses an existing directory or an ecosystem without tooling. Then run `transition --to ready_for_review` and `approve --by-policy`. |
@@ -55,6 +55,22 @@ An approval is proven by the ledger entry in `lineage.yaml` together with the ma
 both. It does not use git history. The approval's recorded `commit` is provenance only, and
 is often not an ancestor of `main` because pull requests here are squash-merged. See
 [ADR-0001](docs/decisions/0001-approval-chain-is-the-audit-trail.md).
+
+## Policy approval
+
+`approval-policy.toml` decides when a revision may be approved by a policy instead of a named
+person (ADR-0028). The policy can only refuse: `approve --by-policy` records the approver
+`policy:<profile>@v<schema version>` only when the policy raises no objection. Two profiles have
+a grant, and every other profile's revisions need a named person:
+
+- `dependency-update`: a standing package's revision for one bump, on a repository the SDS member
+  record grants `dependency_updates`.
+- `non-software-operational`: only a lane credential's revision 1 that the rotation proposer
+  generated (orchestrator ADR-0055 amendment 22). The package is standing, its lineage holds
+  revision 1 and no approval, it names `bws-lane-token` or `healthchecks-ping-url` by its
+  `provider name=` destination, its destinations are that type's kinds, its authority is the
+  type's standard set, and no criterion is `human_review`. Revision 2 and later, and every
+  other rotation, need Devon.
 
 ## Design
 

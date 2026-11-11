@@ -35,25 +35,29 @@ IDENTITY_FIELDS: dict[str, tuple[str, ...]] = {
 BOOLEAN_FIELDS = frozenset({"redeploy"})
 
 
-def destination_error(destination: str) -> str | None:
-    """Why `destination` isn't a canonical destination string, or None when it is."""
+class DestinationFormatError(ValueError):
+    """A destination string that isn't in the canonical format; the message says why."""
+
+
+def parse(destination: str) -> dict[str, object]:
+    """The destination's `kind` and identity fields, or `DestinationFormatError` saying why not."""
     kind, _, rest = destination.partition(" ")
     fields = IDENTITY_FIELDS.get(kind)
     if fields is None:
-        return f"unknown consumer kind {kind!r}"
+        raise DestinationFormatError(f"unknown consumer kind {kind!r}")
     values: list[object] = []
     decoder = json.JSONDecoder()
     position = 0
     for name in fields:
         prefix = f"{name}="
         if not rest.startswith(prefix, position):
-            return f"{kind} needs field {name!r} next"
+            raise DestinationFormatError(f"{kind} needs field {name!r} next")
         try:
             value, position = decoder.raw_decode(rest, position + len(prefix))
-        except json.JSONDecodeError:
-            return f"{kind}: {name} is not a JSON value"
-        if (error := _value_error(name, value)) is not None:
-            return f"{kind}: {name} {error}"
+        except json.JSONDecodeError as error:
+            raise DestinationFormatError(f"{kind}: {name} is not a JSON value") from error
+        if (problem := _value_error(name, value)) is not None:
+            raise DestinationFormatError(f"{kind}: {name} {problem}")
         values.append(value)
         position += rest.startswith(" ", position)
     rendered = " ".join(
@@ -68,7 +72,16 @@ def destination_error(destination: str) -> str | None:
     # Anything the loop let through -- trailing text, a missing or doubled space, an escaped
     # character -- makes the re-rendered string differ, so this one comparison refuses it.
     if rendered != destination:
-        return "not in canonical form"
+        raise DestinationFormatError("not in canonical form")
+    return {"kind": kind, **dict(zip(fields, values, strict=True))}
+
+
+def destination_error(destination: str) -> str | None:
+    """Why `destination` isn't a canonical destination string, or None when it is."""
+    try:
+        parse(destination)
+    except DestinationFormatError as error:
+        return str(error)
     return None
 
 

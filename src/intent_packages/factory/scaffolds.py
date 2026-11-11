@@ -522,7 +522,9 @@ def create_rotation(source: str, out_dir: str) -> int:
     it, because this is where packages are validated and their lineage begins. Only a draft
     revision 1 of a standing `non-software-operational` package named for its credential is
     accepted. Returns 0 and prints the created directory, or 1 with the reason on stderr; the
-    caller then runs `transition --to ready_for_review`, and a named human approves it.
+    caller then runs `transition --to ready_for_review`. A named human approves it, or, for a
+    lane credential's issue that the rotation grant covers, the approval policy
+    (`approval-policy.toml` schema 4, ADR-0055 amendment 22).
     """
     try:
         package = json.loads(Path(source).read_text(encoding="utf-8"))
