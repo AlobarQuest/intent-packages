@@ -18,6 +18,7 @@ import pytest
 
 from intent_packages.approval_policy import (
     ApprovalPolicyError,
+    Grant,
     default_policy_path,
     is_policy_approver,
     load_policy,
@@ -79,7 +80,7 @@ def _infraops_is_granted(member_record):
 
 def test_the_shipped_artifact_loads_and_covers_every_registered_profile(policy) -> None:
     assert set(policy.grants) == set(PROFILES)
-    assert policy.version == 3
+    assert policy.version == 4
 
 
 def test_a_conformant_revision_draws_no_objection(policy) -> None:
@@ -88,11 +89,13 @@ def test_a_conformant_revision_draws_no_objection(policy) -> None:
     assert policy.refusals_for(CONFORMANT) == ()
 
 
-def test_approver_is_v3(policy) -> None:
+def test_approver_is_v4(policy) -> None:
     """Kills: the approver string reading a stale version. Approvals already recorded at @v2
-    stay recognised, because `is_policy_approver` matches any version."""
-    assert policy.approver_for("dependency-update") == "policy:dependency-update@v3"
+    and @v3 stay recognised, because `is_policy_approver` matches any version."""
+    assert policy.approver_for("dependency-update") == "policy:dependency-update@v4"
+    assert policy.approver_for("non-software-operational") == "policy:non-software-operational@v4"
     assert is_policy_approver("policy:dependency-update@v2")
+    assert is_policy_approver("policy:dependency-update@v3")
 
 
 # --- what the grant refuses -------------------------------------------------------
@@ -178,7 +181,7 @@ def test_a_revision_that_still_asks_approval_for_the_merge_is_refused(policy) ->
 
 def test_the_shipped_grant_allows_the_merge_and_asks_for_no_approval(policy) -> None:
     grant = policy.grants["dependency-update"]
-    assert grant is not None
+    assert isinstance(grant, Grant)
     assert "merge_to_main" in grant.authority_allowed
     assert grant.authority_requires_approval == ()
 
@@ -215,7 +218,7 @@ def test_a_budget_above_the_ceiling_is_refused(policy) -> None:
     profile constant the envelope is actually stamped from.
     """
     grant = policy.grants["dependency-update"]
-    assert grant is not None
+    assert isinstance(grant, Grant)
     over = grant.max_llm_calls + 1
     package = _package(**{"authority.budgets": {"max_attempts": 3, "max_llm_calls": over}})
     assert policy.refusals_for(package) == ("budget_above_ceiling",)
@@ -296,12 +299,12 @@ def test_every_refusal_is_reported_not_just_the_first(policy) -> None:
 
 @pytest.mark.parametrize(
     "profile",
-    sorted(set(PROFILES) - {"dependency-update"}),
+    sorted(set(PROFILES) - {"dependency-update", "non-software-operational"}),
 )
 def test_every_other_profile_has_no_policy_grant(policy, profile) -> None:
     """Kills: `refusals_for` returning () for a profile whose row declares no grant.
 
-    Parametrized over the registry rather than listing four names, so a profile added
+    Parametrized over the registry rather than listing three names, so a profile added
     with a grant nobody meant to give reddens here.
     """
     assert policy.refusals_for(_package(profile=profile)) == ("profile_not_policy_approvable",)
@@ -367,8 +370,8 @@ def test_a_row_for_an_unknown_profile_stops_the_document_loading(tmp_path) -> No
 def test_an_unknown_schema_version_is_refused(tmp_path) -> None:
     """Kills: accepting any version. An older process meeting a newer document would
     silently ignore whatever narrowing that version introduced."""
-    with pytest.raises(ApprovalPolicyError, match="schema version 4"):
-        load_policy(_write(tmp_path, "version = 4\n" + _rows()))
+    with pytest.raises(ApprovalPolicyError, match="schema version 5"):
+        load_policy(_write(tmp_path, "version = 5\n" + _rows()))
 
 
 def test_an_unreadable_document_raises_rather_than_yielding_an_empty_policy(tmp_path) -> None:
@@ -425,7 +428,7 @@ def test_schema_1_grants_still_load(tmp_path) -> None:
     and never consults the member record."""
     loaded = load_policy(_write(tmp_path, _document(1, _GRANT)))
     grant = loaded.grants["dependency-update"]
-    assert grant is not None
+    assert isinstance(grant, Grant)
     assert grant.target_repositories == {"AlobarQuest/infraops-mcp-server"}
     assert grant.target_service is None
     assert loaded.approver_for("dependency-update") == "policy:dependency-update@v1"
@@ -439,7 +442,7 @@ def test_a_schema_1_grant_does_not_consult_the_member_record(tmp_path, member_re
 
 def test_a_schema_2_grant_names_its_service(tmp_path) -> None:
     grant = load_policy(_write(tmp_path, _document(2, _GRANT_V2))).grants["dependency-update"]
-    assert grant is not None
+    assert isinstance(grant, Grant)
     assert grant.target_service == "dependency_updates"
     assert grant.target_repositories == frozenset()
 
@@ -473,7 +476,7 @@ def test_schema_2_document_still_loads(tmp_path) -> None:
     """Kills: schema 3 replacing schema 2 outright. Its single `reach` loads as one option."""
     loaded = load_policy(_write(tmp_path, _document(2, _GRANT_V2)))
     grant = loaded.grants["dependency-update"]
-    assert grant is not None
+    assert isinstance(grant, Grant)
     assert grant.reach_options == (("source_repository",),)
     assert loaded.approver_for("dependency-update") == "policy:dependency-update@v2"
 
@@ -532,7 +535,7 @@ def test_schema_3_refuses_other_reaches(policy, reach) -> None:
 
 def test_the_shipped_grant_takes_its_targets_from_the_member_record(policy) -> None:
     grant = policy.grants["dependency-update"]
-    assert grant is not None
+    assert isinstance(grant, Grant)
     assert (grant.target_service, grant.target_repositories) == ("dependency_updates", frozenset())
 
 
@@ -646,7 +649,7 @@ def test_the_envelope_budget_the_profile_stamps_equals_the_policy_ceiling(tmp_pa
     defect it exists to catch.
     """
     grant = load_policy().grants["dependency-update"]
-    assert grant is not None
+    assert isinstance(grant, Grant)
     (tmp_path / "requirements.txt").write_text("fastapi==0.139.0\n", encoding="utf-8")
     envelope = build_envelope(
         "AlobarQuest/infraops-mcp-server",

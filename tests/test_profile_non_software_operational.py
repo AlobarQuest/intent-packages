@@ -11,7 +11,7 @@ import yaml
 
 from intent_packages import lineage as ln
 from intent_packages import profiles
-from intent_packages.approval_policy import PROFILE_NOT_POLICY_APPROVABLE, load_policy
+from intent_packages.approval_policy import load_policy
 from intent_packages.canonical import package_hash
 from intent_packages.loader import load_package
 from intent_packages.operations import do_approve, do_revise, do_transition
@@ -178,14 +178,21 @@ def test_existing_rotation_package_hashes_as_before():
     )
 
 
-def test_a_standing_rotation_package_is_not_policy_approvable():
-    """No grant: Devon approves every rotation revision by name (ADR-0054 increment 2).
+def test_a_hand_authored_standing_rotation_package_is_not_policy_approvable():
+    """The rotation grant (ADR-0055 amendment 22) covers only a proposer-generated revision 1
+    of a lane credential, so a hand-authored standing package still waits for Devon.
 
-    `_standing_refusal` reads `standing` without regard to profile, so it is now satisfied by
-    this package; the absent grant is what still refuses it.
+    `_standing_refusal` reads `standing` without regard to profile, so it is satisfied here;
+    every other condition the grant names refuses.
     """
     package = _pkg(STANDING_FIELDS, VALID_AC)
-    assert load_policy().refusals_for(package) == (PROFILE_NOT_POLICY_APPROVABLE,)
+    assert load_policy().refusals_for(package) == (
+        "not_revision_one",
+        "lineage_unreadable",
+        "not_proposer_generated",
+        "rotation_type_not_permitted",
+        "acceptance_not_permitted",
+    )
 
 
 _STANDING_LINES = (

@@ -171,7 +171,7 @@ def do_transition(
     set_status_in_file(pkg_dir, to_state)
 
 
-def _authorize_approver(package: dict, approver: str) -> None:
+def _authorize_approver(package: dict, approver: str, lineage: dict) -> None:
     """Refuse an approver who is neither a human operator nor the policy for this package.
 
     ADR-0028 relaxes the per-revision human act for one narrow, pre-decided shape of work
@@ -185,6 +185,10 @@ def _authorize_approver(package: dict, approver: str) -> None:
     * an artifact that will not load raises rather than yielding no objections, because a
       caller reading an empty objection list as consent would turn a broken document into
       a standing approval for everything.
+
+    ``lineage`` is the one `do_approve` already read. The rotation grant (schema 4) refuses
+    on it: a lane credential's revision 1 may be policy-approved only while its lineage
+    holds no approval.
     """
     if registry.is_human_operator(approver):
         return
@@ -204,7 +208,7 @@ def _authorize_approver(package: dict, approver: str) -> None:
             f"{approver!r} is not the approver this policy grants for profile "
             f"{profile!r} at version {policy.version}"
         )
-    refusals = policy.refusals_for(package)
+    refusals = policy.refusals_for(package, lineage)
     if refusals:
         raise OperationError("the approval policy refuses this revision: " + ", ".join(refusals))
 
@@ -265,7 +269,7 @@ def do_approve(
     if package["scope"]["open_questions"]:
         raise OperationError("refusing to approve: scope.open_questions is not empty")
 
-    _authorize_approver(package, approver)
+    _authorize_approver(package, approver, lin)
 
     h = canonical.package_hash(package)
 

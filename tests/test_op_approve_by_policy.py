@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from intent_packages import lineage as ln
-from intent_packages.approval_policy import ApprovalPolicyError, load_policy
+from intent_packages.approval_policy import ApprovalPolicyError, Grant, load_policy
 from intent_packages.canonical import package_hash
 from intent_packages.loader import load_package
 from intent_packages.operations import (
@@ -29,7 +29,7 @@ from intent_packages.operations import (
 NOW = "2026-08-19T12:00:00Z"
 COMMIT = "abc1234"
 STANDING = Path("packages/infraops-mcp-server-npm-zod")
-POLICY_APPROVER = "policy:dependency-update@v3"
+POLICY_APPROVER = "policy:dependency-update@v4"
 
 
 class StubEmitter:
@@ -166,7 +166,7 @@ def test_a_non_conformant_revision_cannot_be_approved(standing) -> None:
     path = standing / "package.yaml"
     text = path.read_text()
     grant = load_policy().grants["dependency-update"]
-    assert grant is not None
+    assert isinstance(grant, Grant)
     ceiling = grant.max_llm_calls
     current = re.search(r"max_llm_calls: (\d+)", text)
     assert current is not None, "the scaffold declares no llm-call budget to raise"

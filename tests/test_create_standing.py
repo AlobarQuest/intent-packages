@@ -119,7 +119,7 @@ def test_the_created_package_is_approvable_by_policy(
     do_approve(
         pkg_dir,
         emitter=StubEmitter(),
-        approver="policy:dependency-update@v3",
+        approver="policy:dependency-update@v4",
         commit="abc1234",
         now=NOW,
     )
