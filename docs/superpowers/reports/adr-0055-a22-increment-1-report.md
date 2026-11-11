@@ -42,7 +42,7 @@ requires `max_llm_calls` to be null, and requires `max_attempts` to equal the se
 exactly, not as a ceiling.
 
 Each type's set is `generate.authority` for the issue plan (orchestrator
-`src/rotation_proposer/generate.py`, lines 205-221 at `671acd1d`; `rotation_worker/types.py` for
+`src/rotation_proposer/generate.py`, lines 215-233 at `671acd1d`; `rotation_worker/types.py` for
 the capabilities):
 
 | Type | Allowed | Prohibited | Budgets |
@@ -192,7 +192,7 @@ Moving the document to version 4 changes the approver the `dependency-update` gr
    out, edit, or pull anything, and every read after that used `git show origin/main:<path>`.
    `origin/main` was `671acd1d`, the commit the handoff names.
 3. Line numbers in `generate.py` differ slightly from the handoff's (`authority` is at lines
-   205-221 at `671acd1d`, not 201-219). The function is the same, so this isn't a contradiction.
+   215-233 at `671acd1d`, not 201-219). The function is the same, so this isn't a contradiction.
 
 ## Standards followed
 
