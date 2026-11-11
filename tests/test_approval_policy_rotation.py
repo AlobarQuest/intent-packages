@@ -377,9 +377,30 @@ def test_a_rotation_grant_loads_at_schema_4(tmp_path) -> None:
 
 @pytest.mark.parametrize("version", [1, 2, 3])
 def test_a_rotation_grant_before_schema_4_stops_the_document_loading(tmp_path, version) -> None:
-    """Kills: an older document acquiring the grant. `types` is an unknown field there."""
-    with pytest.raises(ApprovalPolicyError, match="types"):
+    """Kills: an older document acquiring the grant. Before schema 4 every grant is the
+    dependency-update shape, which a rotation grant doesn't have."""
+    with pytest.raises(ApprovalPolicyError, match="grant: missing"):
         _load(tmp_path, _document(version))
+
+
+_SCHEMA_3_GRANT_FIELDS = """targets_from = "sds-member-record:dependency_updates"
+reach_options = [["external_system"]]
+authority_allowed = ["secret_read"]
+authority_requires_approval = []
+authority_prohibited = ["email_send"]
+max_attempts = 3
+max_llm_calls = 10
+acceptance_evidence_types = ["external_attestation"]
+acceptance_approvers = ["devon"]
+max_impact = ["low"]
+"""
+
+
+def test_types_on_a_complete_schema_3_grant_stops_the_document_loading(tmp_path) -> None:
+    """Kills: schema 3 accepting `types` beside a complete grant: it's an unknown field there."""
+    text = _document(3).replace('created_by = "rotation-proposer"\n', _SCHEMA_3_GRANT_FIELDS)
+    with pytest.raises(ApprovalPolicyError, match=r"unknown fields \['types'\]"):
+        _load(tmp_path, text)
 
 
 def test_a_rotation_grant_on_another_profile_stops_the_document_loading(tmp_path) -> None:
@@ -394,11 +415,19 @@ def test_a_rotation_grant_on_another_profile_stops_the_document_loading(tmp_path
         ({"extra_destination": ', { kind = "nonsense" }'}, "no destination kind"),
         ({"extra_destination": ', { kind = "coolify-env", colour = "red" }'}, "may not pin"),
         ({"extra_authority": ", max_llm_calls = 10"}, "unknown fields"),
+        ({"extra_destination": ', { kind = "coolify-env", redeploy = "false" }'}, "wrong type"),
+        ({"extra_destination": ', { kind = "coolify-env", key = 7 }'}, "wrong type"),
     ],
 )
 def test_a_malformed_rotation_grant_stops_the_document_loading(tmp_path, parts, message) -> None:
     with pytest.raises(ApprovalPolicyError, match=message):
         _load(tmp_path, _document(4, **parts))
+
+
+def test_a_term_in_two_authority_lists_stops_the_document_loading(tmp_path) -> None:
+    text = _document(4).replace('prohibited = ["email_send"]', 'prohibited = ["secret_read"]')
+    with pytest.raises(ApprovalPolicyError, match="appears twice"):
+        _load(tmp_path, text)
 
 
 def test_a_provider_pattern_may_not_pin_its_name(tmp_path) -> None:

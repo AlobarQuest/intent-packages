@@ -3,8 +3,9 @@ Outcome: done
 # Build report: ADR-0055 amendment 22, increment 1
 
 Worker W-96, branch `hq/adr-0055-a22-increment-1`, PR
-[#171](https://github.com/AlobarQuest/intent-packages/pull/171) (ready, not merged). The code head
-is `f3c4e2a`; this report is committed in the commit that follows it.
+[#171](https://github.com/AlobarQuest/intent-packages/pull/171) (ready, not merged). The PR's final
+head is the commit that adds this version of the report, after the code-review fixes; HQ can read
+it with `gh pr view 171 --json headRefOid`.
 
 ## What I built
 
@@ -35,8 +36,10 @@ authority_options = [{ ... }]
 ```
 
 A destination pattern names a kind and may pin that kind's identity fields (`redeploy = false`).
-The loader refuses a repeated kind, an unknown kind, a field the kind doesn't have, a provider
-pattern that pins `name` (the type key is the name), and a type with no provider pattern. An
+The loader refuses a repeated kind, an unknown kind, a field the kind doesn't have, a pinned field
+of the wrong type (`redeploy` must be a boolean, other fields non-blank strings), a provider
+pattern that pins `name` (the type key is the name), a type with no provider pattern, and an
+authority set naming one term in two of its lists. An
 authority set has no `max_llm_calls` field, because TOML can't write null. The refusal code
 requires `max_llm_calls` to be null, and requires `max_attempts` to equal the set's value
 exactly, not as a ceiling.
@@ -74,7 +77,10 @@ its own refusal.
 The destinations and authority checks need the type, so they're skipped when
 `rotation_type_not_permitted` already stands. `test_every_refusal_is_reported_not_just_the_first`
 pins that every other refusal is reported together. The loader tests cover a rotation grant
-before schema 4, on another profile, and malformed in five ways.
+before schema 4 (by the missing grant fields, and by `types` beside a complete schema-3 grant as an
+unknown field), on another profile, and malformed in nine ways: a repeated kind, an unknown kind, a
+field the kind doesn't have, two wrong-typed pinned fields, an extra authority field, a term in two
+authority lists, a provider pattern that pins `name`, and a type with no provider pattern.
 
 Through `do_approve`:
 
@@ -100,6 +106,8 @@ Through `do_approve`:
   `non-software-operational` row's rationale and `decided` updated for the grant, and the section
   comments recounted (three profiles without a grant, two with). The dependency-update grant's
   text and every other row are unchanged.
+- `src/intent_packages/factory/scaffolds.py`: the `create_rotation` docstring said a named human
+  approves the written package; it now names the rotation grant as the other approver.
 - `README.md`: a "Policy approval" section listing the two policy-approvable profiles, and the
   `approve` row, which said "Devon-only" although `--by-policy` already existed.
 
@@ -138,8 +146,10 @@ Moving the document to version 4 changes the approver the `dependency-update` gr
 
 ## Tests and checks
 
-- `make check`: ruff lint and format, pyright, and pytest all pass. **1281 tests collected, 1281
-  passed.** The new file adds 70 of them.
+- `make check`: ruff lint and format, pyright, and pytest all pass. **1285 tests collected, 1285
+  passed.** The new file adds 74 of them.
+- PR CI on the first push: "Lint, type-check, and test", "Routing policy compatibility", and
+  "validate" all passed.
 - Mutation checks: dropping the lineage from `refusals_for` in `_authorize_approver` turns 2 tests
   red. Making `_lineage_approval_refusal` return `None` turns 3 tests red. I restored both.
 - The existing dependency-update tests pass at version 4 (`tests/test_approval_policy.py`,
@@ -157,6 +167,7 @@ Moving the document to version 4 changes the approver the `dependency-update` gr
 - `src/intent_packages/approval_policy.py`
 - `src/intent_packages/destination_format.py`
 - `src/intent_packages/operations.py`
+- `src/intent_packages/factory/scaffolds.py` (docstring only)
 - `tests/test_approval_policy_rotation.py` (new)
 - `tests/fixtures/standing_approval/rotation-deploy-watcher-ping-url/package.yaml` (new copy)
 - `tests/fixtures/standing_approval/rotation-revision-watcher-bws-token/package.yaml` (new copy)
@@ -174,7 +185,29 @@ Moving the document to version 4 changes the approver the `dependency-update` gr
   `lineage_unreadable`.
 - No new suppression comments. Types are narrowed with a `TypeGuard`, not `assert` or
   `# type: ignore`.
-- I didn't run `/code-review` as a separate skill. HQ reviews the PR per the handoff.
+- `/code-review` (medium) ran on the branch diff and returned seven findings. I fixed three:
+  pinned destination fields are type-checked at load, an authority set can't name a term in two
+  lists, and the type guard uses `is not None` instead of truthiness. I left four, with reasons:
+  - "`created_by` is self-asserted, and destination values are unchecked": this is the
+    amendment's design. This repository can't read the registry, and the orchestrator's command,
+    carrier, and gate re-check the render (decision item 3).
+  - "A stale lineage hash passes": `do_approve` runs `validate_package` first, which refuses
+    hash drift against the lineage.
+  - "Only `human_review` is refused among evidence types": the specification names exactly that,
+    and validation already restricts evidence types to the vocabulary.
+  - "The `@v4` bump breaks a pinned reader": checked, and no reader pins a version (see Version
+    skew).
+- Readers of the policy document beyond the approver string: `scripts/check_routing_policy_compatibility.py`
+  reads the profile's `BUDGETS` constant, not the TOML. Orchestrator `src/bump_proposer/standing.py`,
+  line 396, approves with `--by-policy`, which computes the approver from the loaded document. No
+  other repository under `~/Projects` reads `approval-policy.toml`.
+- Docs: the handoff's grep for `non-software-operational` and `policy-approvable` matched
+  `README.md` (updated) and three dated design records under `docs/superpowers/`
+  (`plans/2026-07-29-wsp210-profiles-routing-policy.md`,
+  `specs/2026-07-29-wsp210-profiles-routing-policy-design.md`,
+  `specs/2026-07-29-factory-cli-front-door-design.md`). I left those unchanged, because they
+  record decisions as of their dates, and none describes which profiles are policy-approvable
+  today.
 
 ## Concerns
 

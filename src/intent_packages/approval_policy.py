@@ -54,7 +54,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, TypeGuard
 
-from intent_packages.destination_format import IDENTITY_FIELDS, DestinationFormatError, parse
+from intent_packages.destination_format import (
+    BOOLEAN_FIELDS,
+    IDENTITY_FIELDS,
+    DestinationFormatError,
+    parse,
+)
 from intent_packages.members import MembersUnreadable, granted_targets
 from intent_packages.profiles import PROFILES
 
@@ -385,17 +390,29 @@ def _destination_pattern(where: str, table: dict) -> DestinationPattern:
         unknown = set(fields)  # The provider's name is the type's own.
     if unknown:
         raise ApprovalPolicyError(f"{where}: {kind} may not pin {sorted(unknown)}")
+    for key, value in fields.items():
+        typed = (
+            isinstance(value, bool)
+            if key in BOOLEAN_FIELDS
+            else isinstance(value, str) and bool(value.strip())
+        )
+        if not typed:
+            raise ApprovalPolicyError(f"{where}: {kind} pins {key} to {value!r}, the wrong type")
     return DestinationPattern(kind=kind, fields=tuple(sorted(fields.items())))
 
 
 def _authority_set(where: str, table: dict) -> AuthoritySet:
     _exact_fields(table, _AUTHORITY_SET_FIELDS, where)
-    return AuthoritySet(
+    authority = AuthoritySet(
         allowed=_strings(table, "allowed", where),
         requires_approval=_strings(table, "requires_approval", where, allow_empty=True),
         prohibited=_strings(table, "prohibited", where),
         max_attempts=_positive_int(table, "max_attempts", where),
     )
+    terms = [*authority.allowed, *authority.requires_approval, *authority.prohibited]
+    if len(set(terms)) != len(terms):
+        raise ApprovalPolicyError(f"{where}: a term appears twice across the three lists")
+    return authority
 
 
 def _exact_fields(table: dict, fields: frozenset[str], where: str) -> None:
@@ -657,8 +674,8 @@ def _rotation_refusals(
             _lineage_approval_refusal(lineage),
             _proposer_refusal(package, grant),
             None if rotation_type is not None else ROTATION_TYPE_NOT_PERMITTED,
-            _destinations_refusal(package, rotation_type) if rotation_type else None,
-            _rotation_authority_refusal(package, rotation_type) if rotation_type else None,
+            None if rotation_type is None else _destinations_refusal(package, rotation_type),
+            None if rotation_type is None else _rotation_authority_refusal(package, rotation_type),
             _human_review_refusal(package),
         )
         if refusal is not None
