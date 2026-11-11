@@ -30,6 +30,7 @@
   "rotation-change-manager-propose-bearer": "2d8eaec39c62919ebfd47e2e8d9b2b35701951d6e9ce612377de581479146cbf",
   "rotation-change-manager-read-bearer": "1b3b77a26379d41b89b1fe574730c470f53de0179cfba87a5a89fffcabf24281",
   "rotation-deploy-watcher-bws-token": "726350a7b589c141590a14c8077ba2abbc084824a0b987c7b4859ba26610558e",
+  "rotation-deploy-watcher-ping-url": "57c472bd3c370a0a33a2e36cb75652101fd6e5d53d1031bb8eb66733c729dce3",
   "rotation-execution-watch-bws-token": "fa44a944079ce07ffdd4ac49348df054835cb97642b0ee12dd27808b906f92d1",
   "rotation-execution-watch-ping-url": "49537f2950fc83789e4bf06c4c6121b4d73207a12b8bcec0fb8293a80b0ce8c5",
   "rotation-factory-pr-token": "5f54aeac20b15e2b1030283a812b509a953190537f62792592784254444bffb8",

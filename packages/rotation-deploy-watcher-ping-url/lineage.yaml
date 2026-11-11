@@ -1,0 +1,17 @@
+package_id: rotation-deploy-watcher-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 57c472bd3c370a0a33a2e36cb75652101fd6e5d53d1031bb8eb66733c729dce3
+  created_at: '2026-11-11T15:53:47Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-11T15:53:47.445759+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-11T15:53:47.445759+00:00'
+  actor: claude-code-interactive
+  event_id: evt-8b60f1cd6e534b8eb92df94eb1cabfb3
+approvals: []
+grants: []
