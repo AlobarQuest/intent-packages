@@ -1,5 +1,5 @@
 package_id: rotation-pin-watcher-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 86b0375fe5004845ea084aecca7e52e7d88f5189605cfba5e4809b70e5919a16
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-12T23:20:07.784427+00:00'
   actor: claude-code-interactive
   event_id: evt-f644613e6a0a4de28b1fdd3ec2ac8052
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 86b0375fe5004845ea084aecca7e52e7d88f5189605cfba5e4809b70e5919a16
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-12T23:20:35.066460+00:00'
+  commit: e8f0cf63f337470e3ee6428259b10f9290b483d3
+  event_id: evt-546bae974b1d42619fa6fb98f320ad08
 grants: []
