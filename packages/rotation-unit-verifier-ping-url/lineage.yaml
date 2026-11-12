@@ -1,0 +1,17 @@
+package_id: rotation-unit-verifier-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 3ea71a5a86a9a64fe796bc4d9f77008e361e955a9c7ab611481b3d72490bbe0b
+  created_at: '2026-11-12T21:17:30Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-12T21:17:31.102304+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-12T21:17:31.102304+00:00'
+  actor: claude-code-interactive
+  event_id: evt-875278be142d47c18519f463c1c1c8b3
+approvals: []
+grants: []
