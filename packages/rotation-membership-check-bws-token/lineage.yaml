@@ -1,0 +1,17 @@
+package_id: rotation-membership-check-bws-token
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 1f12740fdfab1a2d5abbc515070af9c5123091e827c1e09a74ebfb0c06679fb2
+  created_at: '2026-11-12T19:26:31Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-12T19:26:32.446845+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-12T19:26:32.446845+00:00'
+  actor: claude-code-interactive
+  event_id: evt-ab1e3da519064621bb00831a834dfe32
+approvals: []
+grants: []
