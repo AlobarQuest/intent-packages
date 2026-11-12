@@ -1,0 +1,17 @@
+package_id: rotation-revision-watcher-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 8b30ace908f015018112b9f9c8175bebdaa53802a399c7401d236b03511d74b6
+  created_at: '2026-11-12T21:17:28Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-12T21:17:29.030172+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-12T21:17:29.030172+00:00'
+  actor: claude-code-interactive
+  event_id: evt-5b766e05268544c3a7feb522ebc806ea
+approvals: []
+grants: []
