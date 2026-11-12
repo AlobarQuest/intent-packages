@@ -1,5 +1,5 @@
 package_id: rotation-unit-verifier-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 9450bce32530ec68e66ade61ec666bf9941ba886ecd4f3cd7f34f68f08d9d41c
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-12T02:49:15.839837+00:00'
   actor: claude-code-interactive
   event_id: evt-5a1bf754951143878a255733100cf6ae
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 9450bce32530ec68e66ade61ec666bf9941ba886ecd4f3cd7f34f68f08d9d41c
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-12T02:56:31.117890+00:00'
+  commit: c85ec5f212d44ff037353072607669a0ac658fe8
+  event_id: evt-48f9588f9506463aa47fac1e3d61938e
 grants: []
