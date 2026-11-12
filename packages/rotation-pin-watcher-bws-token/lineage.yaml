@@ -1,5 +1,5 @@
 package_id: rotation-pin-watcher-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 53b95a39d728929d59d0537e6fed9449ad2b3e7827f213f66f4118945499dd5b
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-12T15:21:34.847201+00:00'
   actor: claude-code-interactive
   event_id: evt-f08c7fce21e748539c450d0263a8f0aa
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 53b95a39d728929d59d0537e6fed9449ad2b3e7827f213f66f4118945499dd5b
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-12T15:41:33.834909+00:00'
+  commit: 0fa38d4991141cebd0ff3ba1da0d5d8eaf87e314
+  event_id: evt-703d9958c58e4a189b5890c975abdce5
 grants: []
