@@ -1,5 +1,5 @@
 package_id: rotation-revision-watcher-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 8b30ace908f015018112b9f9c8175bebdaa53802a399c7401d236b03511d74b6
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-12T21:17:29.030172+00:00'
   actor: claude-code-interactive
   event_id: evt-5b766e05268544c3a7feb522ebc806ea
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 8b30ace908f015018112b9f9c8175bebdaa53802a399c7401d236b03511d74b6
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-12T21:19:43.643308+00:00'
+  commit: 48eaa2eb8b8f0ec3f4fac8ee4548140a7cacee88
+  event_id: evt-d93857fba54f4a9e8288cebd293a151f
 grants: []
