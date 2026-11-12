@@ -1,5 +1,5 @@
 package_id: rotation-revision-watcher-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 4120466d719baf8f5be76fae0060c1e1872dcc60e6b09b27adbb20db974388d1
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-11T14:14:39.283722+00:00'
   actor: claude-code-interactive
   event_id: evt-4ce10c83d97b41e98dc94a77f5160976
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 4120466d719baf8f5be76fae0060c1e1872dcc60e6b09b27adbb20db974388d1
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-12T02:42:05.086126+00:00'
+  commit: 175a18a07f5627311d3234e012a90da0d4c4cfc1
+  event_id: evt-1e0f7006ac6c4328bc8398b4fc9b3a98
 grants: []
