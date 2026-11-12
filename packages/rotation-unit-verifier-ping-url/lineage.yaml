@@ -1,5 +1,5 @@
 package_id: rotation-unit-verifier-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 3ea71a5a86a9a64fe796bc4d9f77008e361e955a9c7ab611481b3d72490bbe0b
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-12T21:17:31.102304+00:00'
   actor: claude-code-interactive
   event_id: evt-875278be142d47c18519f463c1c1c8b3
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 3ea71a5a86a9a64fe796bc4d9f77008e361e955a9c7ab611481b3d72490bbe0b
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-12T21:19:59.758151+00:00'
+  commit: 48eaa2eb8b8f0ec3f4fac8ee4548140a7cacee88
+  event_id: evt-659ca317c3194fd0a1af53458e8d348d
 grants: []
