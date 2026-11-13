@@ -1,0 +1,17 @@
+package_id: rotation-rotation-decomposer-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 5436bfb87a122e77fc9af9b49a7848cb3cb9c8e1cfff851feb3077cbf7b88037
+  created_at: '2026-11-13T22:03:21Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-13T22:03:22.518063+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-13T22:03:22.518063+00:00'
+  actor: claude-code-interactive
+  event_id: evt-6a74921a5007479298cdb79d20726ddc
+approvals: []
+grants: []
