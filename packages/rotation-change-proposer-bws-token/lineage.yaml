@@ -1,5 +1,5 @@
 package_id: rotation-change-proposer-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 4cc55a99bd131b4f1afd3f596550de0f6f1dfc0465b1c651b69e484808aebdd3
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-13T13:30:07.919296+00:00'
   actor: claude-code-interactive
   event_id: evt-c32fee245c6e440680bc82973fee7057
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 4cc55a99bd131b4f1afd3f596550de0f6f1dfc0465b1c651b69e484808aebdd3
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-13T13:30:20.641377+00:00'
+  commit: dedb8115e537d90e9574d31cad098d0250321d41
+  event_id: evt-acd030b60ca44691a181eeb1e73edd2f
 grants: []
