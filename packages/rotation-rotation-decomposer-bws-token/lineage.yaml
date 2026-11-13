@@ -1,0 +1,17 @@
+package_id: rotation-rotation-decomposer-bws-token
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 1e330f5aaefa8d120fd401b9af3ce4be2015af84b066f53d0d9b216fa2f8e5f4
+  created_at: '2026-11-13T21:12:22Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-13T21:12:23.297500+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-13T21:12:23.297500+00:00'
+  actor: claude-code-interactive
+  event_id: evt-928730990b5447738a7f1f0eb8fd8fcb
+approvals: []
+grants: []
