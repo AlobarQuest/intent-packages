@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-change-proposer-ping-url
 title: Standing rotation of change-proposer-ping-url
 revision: 1
-status: ready_for_review
+status: approved
 created_by: rotation-proposer
 owner: devon
 created_at: '2026-11-13T18:40:38Z'
