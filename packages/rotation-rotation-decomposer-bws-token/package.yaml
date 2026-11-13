@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-rotation-decomposer-bws-token
 title: Standing rotation of rotation-decomposer-bws-token
 revision: 1
-status: ready_for_review
+status: approved
 created_by: rotation-proposer
 owner: devon
 created_at: '2026-11-13T21:12:22Z'
