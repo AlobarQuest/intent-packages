@@ -13,10 +13,13 @@ orchestrator `4953fe10`: ADR-0059 amendment 7 (FE-2) and ADR-0055 amendment 24 (
 
 `FactoryEventsEmitter.emit` already copied the whole environment into the `factory_events emit`
 subprocess at `97e817d`, so `FACTORY_EVENTS_APPEND_DSN` already reached FE-1's `emit`. No behavior
-changed. The environment construction moved into one helper, `emitter._events_env`, which the
+changed in what reaches the subprocess. The environment construction moved into one helper, `emitter._events_env`, which the
 emitter, the file-chain verify, and the database reader share; its docstring states that copying
 the whole environment is what passes the chain DSNs through. A failed append (non-zero exit) stays
-an `EmitError`, so `do_approve` aborts before the lineage is written. Tests pin the passthrough
+an `EmitError`, so `do_approve` aborts before the lineage is written. The `EmitError` message
+still carries the child's stderr, which FE-1 limits to the error's type. It now also passes
+through `redact_chain_dsns`, which replaces any set chain DSN and its password (URL or key=value
+form) with a marker, so the rule doesn't rest on FE-1's contract alone. Tests pin the passthrough
 (DSN in `env`, never in argv) and the failure, both with a faked subprocess and against a real
 database (the read role's refused `INSERT`).
 
@@ -70,15 +73,16 @@ doesn't depend on it.
 All runs were in this worktree.
 
 - **`make check`:** green. ruff, ruff format, and pyright report 0 errors. pytest reports
-  **1,328 passed, 9 deselected** (the 9 are the integration tests). The 1,328 include 16 new
+  **1,332 passed, 9 deselected** (the 9 are the integration tests). The 1,332 include 20 new
   default-run tests in `tests/test_chain_checker_database_mode.py`.
 - **Database tests:** `SECURITY_STANDARDS_DIR=<FE-1 checkout> scripts/check-integration.sh` reports
-  **9 passed, 1,328 deselected** against a throwaway `postgres:16-alpine` container. The
+  **9 passed, 1,332 deselected** against a throwaway `postgres:16-alpine` container. The
   container listened on a random `127.0.0.1` port with a random password and was removed on exit.
   The local security-standards main checkout is at `1baec77`, before FE-1, so the run used
   `git archive e89f69b` extracted to a scratch directory with `.venv-events` symlinked in.
-- **Mutation check:** I disabled `chain_db`'s `if errors:` branch, and the broken-chain
-  integration test failed. I then restored the file.
+- **Mutation checks:** with `chain_db`'s `if errors:` branch disabled, the broken-chain
+  integration test failed. With `conn.read_only = True` deleted, the default-run transaction test
+  failed. I restored the file after each.
 - **`/code-review` (medium) on the diff:** 9 items, none changed. See the self-review.
 
 The integration tests cover the following cases: match; no match (wrong revision, wrong hash); an
@@ -94,7 +98,9 @@ The default-run tests cover the following cases: the exit-code mapping (0, 10, a
 code, timeout, and `OSError`); the DSN in `env` and never in argv; a read DSN with a matching file
 returning False when the database reader says no match; append-only mode raising with no
 subprocess; neither DSN keeping the file path; and the reader's failure log being JSON, by type,
-and free of the DSN.
+and free of the DSN; the emitter's error with a leaked DSN or password in stderr, in three DSN
+forms, redacted; and, with a fake driver, one connection whose single `SELECT` runs read-only, at
+repeatable read, inside the transaction, with the rows consumed before it closes.
 
 ## Files changed
 
@@ -102,7 +108,8 @@ and free of the DSN.
   codes.
 - `src/intent_packages/operations.py`: `default_chain_checker` modes,
   `_database_chain_has_matching_approval`, and `_evidence_matches` moved to `chain_db`.
-- `src/intent_packages/emitter.py`: the `_events_env` helper, with no behavior change.
+- `src/intent_packages/emitter.py`: the `_events_env` helper, and `redact_chain_dsns` on the
+  `EmitError` text.
 - `tests/test_chain_checker_database_mode.py` (new) and `tests/test_chain_db_integration.py` (new).
 - `tests/conftest.py`: an autouse fixture that removes the chain DSN variables, so no test reaches
   an ambient real DSN (FE-1's fixture).
@@ -145,10 +152,15 @@ The `/code-review` items, and why none changed the code:
    read DSN isn't set, the file path behaves exactly as today. With only the append DSN set,
    however, "today" would run FE-1's `factory_events verify` against the database (FE-1 falls back
    to the append DSN) and then match against the unverified local file. That is a split-brain,
-   fail-open read. The checker raises `ChainUnavailable` there instead. No append holder calls the
-   checker: `verify_approval`'s only caller is the CLI, and `do_approve` doesn't verify. Nothing
-   runs this path before FE-5 sets DSNs. HQ can reverse this choice if it reads the handoff
-   literally.
+   fail-open read. The checker raises `ChainUnavailable` there instead. In this repository,
+   `verify_approval`'s only caller is the `verify-approval` CLI, and `do_approve` doesn't verify.
+   Outside it, the orchestrator's `package_sources.py` (line 168 at `4953fe10`) runs the CLI for
+   the carrier, which holds the read DSN, and sds-hq's gate files (for example
+   `state/gates/landing-ledger-token-issue.md`, step 4) run it by hand. If such a shell holds only
+   the append DSN after FE-5, it now fails closed. Under D-44 B (D-47) only the carrier reads the
+   chain, and once FE-5 seals the file, the old path would fail too (the file is gone), so the
+   result is the same: no verified approval. Nothing runs this path before FE-5 sets DSNs. HQ can
+   reverse this choice if it reads the handoff literally.
 2. **The vendored Makefile has no `check-integration` target.** The Makefile header says "Edit
    upstream and `code-standards sync`", so a target added here would show as drift and be removed
    by the next sync. The runner is `scripts/check-integration.sh`, called directly. A
@@ -178,8 +190,10 @@ The `/code-review` items, and why none changed the code:
   parent; that matches FE-1's `from None`, which keeps a driver's text out of every traceback.
   `EmitError` is unchanged.
 - **Code Brain 5 (security):** the DSNs travel only in the subprocess environment, never in argv,
-  a log, or an exception message. Tests assert the password is absent from errors, stdout, and
-  stderr, and the integration tests wrap DSNs in a redacted-`repr` type.
+  a log, or an exception message. The checker's errors carry only an exit code or an exception
+  type; the emitter's error is passed through `redact_chain_dsns`. Tests assert the password is
+  absent from errors, stdout, and stderr, including a stderr that repeats the DSN, and the
+  integration tests wrap DSNs in a redacted-`repr` type.
 - **Infra Brain Database 6:** no schema or migration at build time. The only DDL is FE-1's
   `db_setup`, run by the integration fixture against a per-test throwaway database.
 - **Infra Brain Security 591, 592, and 593:** no BWS token anywhere. DSNs come from the

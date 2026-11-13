@@ -1,9 +1,11 @@
 """The chain checker and emitter under the database chain's DSNs (ADR-0055 amendment 24), with
 `subprocess.run` faked. The real database paths are in test_chain_db_integration.py."""
 
+import contextlib
 import json
 import os
 import subprocess
+import types
 from pathlib import Path
 
 import pytest
@@ -205,6 +207,101 @@ def test_emitter_failed_append_raises_emit_error(monkeypatch, tmp_path):
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
+    with pytest.raises(EmitError, match="OperationalError"):
+        FactoryEventsEmitter().emit("package.approved", "pkg", {})
+
+
+@pytest.mark.parametrize(
+    ("dsn", "password"),
+    [
+        (APPEND_DSN, "APPEND-PW-placeholder"),
+        ("postgresql://u:p%40ss-placeholder@127.0.0.1:1/db", "p@ss-placeholder"),
+        ("host=127.0.0.1 user=u password='kv pw-placeholder' dbname=db", "kv pw-placeholder"),
+    ],
+)
+def test_emitter_error_never_repeats_a_chain_dsn_or_its_password(
+    monkeypatch, tmp_path, dsn, password
+):
+    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(tmp_path))
+    monkeypatch.setenv("FACTORY_EVENTS_APPEND_DSN", dsn)
+
+    def fake_run(argv, capture_output, text, env, timeout):
+        leak = f"connection to {dsn} failed\nauthentication failed for password {password}\n"
+        return subprocess.CompletedProcess(argv, 1, stdout="", stderr=leak)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
     with pytest.raises(EmitError) as info:
         FactoryEventsEmitter().emit("package.approved", "pkg", {})
-    assert "PW-placeholder" not in str(info.value)
+    message = str(info.value)
+    assert dsn not in message and password not in message
+    assert "<FACTORY_EVENTS_APPEND_DSN redacted>" in message
+
+
+# --- the reader's transaction, with a fake driver --------------------------------------
+
+
+class _FakeConn:
+    def __init__(self, rows):
+        self.rows = rows
+        self.read_only = None
+        self.isolation_level = None
+        self.in_transaction = False
+        self.executed: list[tuple] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    @contextlib.contextmanager
+    def transaction(self):
+        self.in_transaction = True
+        yield
+        self.in_transaction = False
+
+    @contextlib.contextmanager
+    def cursor(self, name):
+        conn = self
+
+        class Cursor:
+            def execute(self, query):
+                conn.executed.append(
+                    (query, conn.read_only, conn.isolation_level, conn.in_transaction)
+                )
+
+            def __iter__(self):
+                assert conn.in_transaction, "rows read outside the transaction"
+                return iter(conn.rows)
+
+        yield Cursor()
+
+
+def test_reader_walks_and_matches_in_one_read_only_repeatable_read_transaction(monkeypatch):
+    event = {"action": "package.approved", "evidence": [{"approved_hash": "h", "revision": 1}]}
+    conn = _FakeConn([(1, "0" * 64, "a" * 64, "ev-1", json.dumps(event))])
+    connects: list[str] = []
+
+    def connect(dsn, **kwargs):
+        connects.append(dsn)
+        return conn
+
+    psycopg = types.SimpleNamespace(
+        connect=connect, IsolationLevel=types.SimpleNamespace(REPEATABLE_READ="repeatable-read")
+    )
+
+    def walk_records(records):
+        records = list(records)  # consumed while the cursor's transaction is open
+        return [], records[-1], len(records)
+
+    store = types.SimpleNamespace(walk_records=walk_records)
+    modules = {"psycopg": psycopg, "factory_events.store": store}
+    monkeypatch.setattr(chain_db, "import_module", modules.__getitem__)
+
+    errors, last, count, matches = chain_db._walk(READ_DSN, "h", 1)
+
+    assert connects == [READ_DSN]
+    assert conn.executed == [(chain_db._WALK, True, "repeatable-read", True)]
+    assert (errors, count, matches) == ([], 1, ["ev-1"])
+    assert last is not None and last["seq"] == 1

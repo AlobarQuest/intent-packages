@@ -11,15 +11,21 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import unquote, urlsplit
 
 from intent_packages import registry
 
 _DEFAULT_ACTOR = "claude-code-interactive"
 EMIT_TIMEOUT_SECONDS = 30
+# FE-1's chain DSN variables (security-standards `factory_events/chain.py`). Each carries a
+# password, so neither may reach an error message.
+CHAIN_DSN_VARS = ("FACTORY_EVENTS_APPEND_DSN", "FACTORY_EVENTS_READ_DSN")
+_CONNINFO_PASSWORD_RE = re.compile(r"password\s*=\s*('(?:[^'\\]|\\.)*'|\S+)")
 
 
 class EmitError(Exception):
@@ -65,6 +71,35 @@ def _parse_event_id(stdout: str) -> str | None:
         return None
     token = tokens[-1]
     return token if len(token) > 3 else None
+
+
+def _dsn_secrets(dsn: str) -> set[str]:
+    """The DSN and its password, in URL form (`postgresql://u:pw@h/db`) or key=value form."""
+    secrets = {dsn}
+    try:
+        password = urlsplit(dsn).password
+    except ValueError:
+        password = None
+    if password:
+        secrets.update({password, unquote(password)})
+    for match in _CONNINFO_PASSWORD_RE.finditer(dsn):
+        secrets.add(match.group(1).strip("'"))
+    return {secret for secret in secrets if secret}
+
+
+def redact_chain_dsns(text: str) -> str:
+    """`text` with every set chain DSN, and its password, replaced by a marker.
+
+    FE-1's `emit` reports a failure by the error's type only; this keeps the rule (Code Brain 5)
+    if any other text from the child ever repeats a DSN.
+    """
+    for name in CHAIN_DSN_VARS:
+        dsn = os.environ.get(name)
+        if not dsn:
+            continue
+        for secret in sorted(_dsn_secrets(dsn), key=len, reverse=True):
+            text = text.replace(secret, f"<{name} redacted>")
+    return text
 
 
 def _security_standards_dir() -> Path:
@@ -132,6 +167,6 @@ class FactoryEventsEmitter:
             raise EmitError(f"factory_events emit timed out after {EMIT_TIMEOUT_SECONDS}s") from exc
 
         if result.returncode != 0:
-            raise EmitError(f"factory_events emit failed: {result.stderr}")
+            raise EmitError(f"factory_events emit failed: {redact_chain_dsns(result.stderr)}")
 
         return _parse_event_id(result.stdout)
