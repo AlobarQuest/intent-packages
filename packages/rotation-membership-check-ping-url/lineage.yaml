@@ -1,0 +1,17 @@
+package_id: rotation-membership-check-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: d756b4dde288a2a130e639ad128b411a3ca252b80449abb386b6b6c51def2611
+  created_at: '2026-11-13T03:44:04Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-13T03:44:04.755820+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-13T03:44:04.755820+00:00'
+  actor: claude-code-interactive
+  event_id: evt-326999cb90db468ca7ad0a48bd0bbaab
+approvals: []
+grants: []
