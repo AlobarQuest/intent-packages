@@ -11,15 +11,21 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import unquote, urlsplit
 
 from intent_packages import registry
 
 _DEFAULT_ACTOR = "claude-code-interactive"
 EMIT_TIMEOUT_SECONDS = 30
+# FE-1's chain DSN variables (security-standards `factory_events/chain.py`). Each carries a
+# password, so neither may reach an error message.
+CHAIN_DSN_VARS = ("FACTORY_EVENTS_APPEND_DSN", "FACTORY_EVENTS_READ_DSN")
+_CONNINFO_PASSWORD_RE = re.compile(r"password\s*=\s*('(?:[^'\\]|\\.)*'|\S+)")
 
 
 class EmitError(Exception):
@@ -67,6 +73,35 @@ def _parse_event_id(stdout: str) -> str | None:
     return token if len(token) > 3 else None
 
 
+def _dsn_secrets(dsn: str) -> set[str]:
+    """The DSN and its password, in URL form (`postgresql://u:pw@h/db`) or key=value form."""
+    secrets = {dsn}
+    try:
+        password = urlsplit(dsn).password
+    except ValueError:
+        password = None
+    if password:
+        secrets.update({password, unquote(password)})
+    for match in _CONNINFO_PASSWORD_RE.finditer(dsn):
+        secrets.add(match.group(1).strip("'"))
+    return {secret for secret in secrets if secret}
+
+
+def redact_chain_dsns(text: str) -> str:
+    """`text` with every set chain DSN, and its password, replaced by a marker.
+
+    FE-1's `emit` reports a failure by the error's type only; this keeps the rule (Code Brain 5)
+    if any other text from the child ever repeats a DSN.
+    """
+    for name in CHAIN_DSN_VARS:
+        dsn = os.environ.get(name)
+        if not dsn:
+            continue
+        for secret in sorted(_dsn_secrets(dsn), key=len, reverse=True):
+            text = text.replace(secret, f"<{name} redacted>")
+    return text
+
+
 def _security_standards_dir() -> Path:
     env_dir = os.environ.get("SECURITY_STANDARDS_DIR")
     if env_dir:
@@ -82,6 +117,18 @@ def _security_standards_dir() -> Path:
 def _events_python(sec_std_dir: Path) -> str:
     venv_python = sec_std_dir / ".venv-events" / "bin" / "python"
     return str(venv_python) if venv_python.exists() else sys.executable
+
+
+def _events_env(sec_std_dir: Path, *extra_paths: Path) -> dict[str, str]:
+    """The whole environment, with security-standards `src` (then `extra_paths`) put first on
+    `PYTHONPATH`. Copying the whole environment is what passes the chain DSNs
+    (`FACTORY_EVENTS_APPEND_DSN`, `FACTORY_EVENTS_READ_DSN`) through to `factory_events`."""
+    env = dict(os.environ)
+    paths = [str(sec_std_dir / "src"), *(str(path) for path in extra_paths)]
+    if env.get("PYTHONPATH"):
+        paths.append(env["PYTHONPATH"])
+    env["PYTHONPATH"] = os.pathsep.join(paths)
+    return env
 
 
 class FactoryEventsEmitter:
@@ -108,21 +155,18 @@ class FactoryEventsEmitter:
             json.dumps(evidence),
         ]
 
-        env = dict(os.environ)
-        src_dir = str(sec_std_dir / "src")
-        existing_pythonpath = env.get("PYTHONPATH")
-        env["PYTHONPATH"] = (
-            f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else src_dir
-        )
-
         try:
             result = subprocess.run(
-                argv, capture_output=True, text=True, env=env, timeout=EMIT_TIMEOUT_SECONDS
+                argv,
+                capture_output=True,
+                text=True,
+                env=_events_env(sec_std_dir),
+                timeout=EMIT_TIMEOUT_SECONDS,
             )
         except subprocess.TimeoutExpired as exc:
             raise EmitError(f"factory_events emit timed out after {EMIT_TIMEOUT_SECONDS}s") from exc
 
         if result.returncode != 0:
-            raise EmitError(f"factory_events emit failed: {result.stderr}")
+            raise EmitError(f"factory_events emit failed: {redact_chain_dsns(result.stderr)}")
 
         return _parse_event_id(result.stdout)
