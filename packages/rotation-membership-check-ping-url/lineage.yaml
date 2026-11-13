@@ -1,5 +1,5 @@
 package_id: rotation-membership-check-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: d756b4dde288a2a130e639ad128b411a3ca252b80449abb386b6b6c51def2611
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-13T03:44:04.755820+00:00'
   actor: claude-code-interactive
   event_id: evt-326999cb90db468ca7ad0a48bd0bbaab
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: d756b4dde288a2a130e639ad128b411a3ca252b80449abb386b6b6c51def2611
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-13T03:44:16.611013+00:00'
+  commit: e5070e4129b471ab111a8534952ecc5d21fee1e1
+  event_id: evt-15f935edda644ea3b6bd6d34dbeca409
 grants: []

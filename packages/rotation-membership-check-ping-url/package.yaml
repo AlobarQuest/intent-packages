@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-membership-check-ping-url
 title: Standing rotation of membership-check-ping-url
 revision: 1
-status: ready_for_review
+status: approved
 created_by: rotation-proposer
 owner: devon
 created_at: '2026-11-13T03:44:04Z'
