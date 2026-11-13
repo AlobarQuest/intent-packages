@@ -20,6 +20,9 @@ dev = [
   "pyyaml>=6.0.3",
   "ruff>=0.17.3",
   "pyright==1.1.414",
+  # The database-chain integration tests' fixture only (scripts/check-integration.sh). The
+  # chain checker itself reads the database under security-standards' events interpreter.
+  "psycopg[binary]>=3.3.6",
 ]
 
 [build-system]
@@ -37,6 +40,11 @@ package-dir = {"" = "src"}
 # equivalent has to be declared explicitly here instead.
 pythonpath = ["src", "."]
 testpaths = ["tests"]
+# The database-chain tests need a disposable Postgres; scripts/check-integration.sh runs them.
+addopts = "-m 'not integration'"
+markers = [
+  "integration: tests requiring external disposable services",
+]
 
 [tool.ruff]
 line-length = 100

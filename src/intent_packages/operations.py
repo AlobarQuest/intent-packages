@@ -16,19 +16,29 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
-from intent_packages import canonical, lifecycle, lineage, registry
+from intent_packages import canonical, chain_db, lifecycle, lineage, registry
 from intent_packages.approval_policy import (
     ApprovalPolicyError,
     is_policy_approver,
     load_policy,
 )
-from intent_packages.emitter import EmitError, Emitter, _events_python, _security_standards_dir
+from intent_packages.emitter import (
+    EmitError,
+    Emitter,
+    _events_env,
+    _events_python,
+    _security_standards_dir,
+)
 from intent_packages.loader import load_package
 from intent_packages.validate import validate_package
 
 _STATUS_LINE_RE = re.compile(r"^(status:)[^#\n]*(?P<comment>\s+#.*)?$", re.MULTILINE)
 _REVISION_LINE_RE = re.compile(r"^revision:.*$", re.MULTILINE)
 _CHAIN_VERIFY_TIMEOUT_SECONDS = 30
+# FE-1's names (security-standards `factory_events/chain.py`). The read DSN selects the database
+# chain; the append DSN alone means a database-mode shell that holds no read credential.
+_READ_DSN_VAR = chain_db.READ_DSN_VAR
+_APPEND_DSN_VAR = "FACTORY_EVENTS_APPEND_DSN"
 
 
 class OperationError(Exception):
@@ -38,7 +48,8 @@ class OperationError(Exception):
 class ChainUnavailable(Exception):
     """Raised by a `chain_checker` when the factory-events chain cannot be
     consulted at all (store or security-standards checkout missing,
-    subprocess failure, chain integrity check failed). `verify_approval`
+    subprocess failure, chain integrity check failed, or under the read DSN
+    any database error). `verify_approval`
     catches this and fails closed rather than letting it bubble up.
     """
 
@@ -434,20 +445,12 @@ def _factory_events_file() -> Path:
 def _verify_chain_integrity(sec_std_dir: Path) -> None:
     """Run `factory_events verify`; raise `ChainUnavailable` unless it
     reports the chain intact (exit 0)."""
-    python = _events_python(sec_std_dir)
-    env = dict(os.environ)
-    src_dir = str(sec_std_dir / "src")
-    existing_pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = (
-        f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else src_dir
-    )
-
     try:
         result = subprocess.run(
-            [python, "-m", "factory_events", "verify"],
+            [_events_python(sec_std_dir), "-m", "factory_events", "verify"],
             capture_output=True,
             text=True,
-            env=env,
+            env=_events_env(sec_std_dir),
             timeout=_CHAIN_VERIFY_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
@@ -457,20 +460,6 @@ def _verify_chain_integrity(sec_std_dir: Path) -> None:
         raise ChainUnavailable(
             f"factory_events verify: chain integrity check failed: {result.stderr}"
         )
-
-
-def _evidence_matches(evidence: object, approved_hash: str, revision: int) -> bool:
-    """True iff any item in `evidence` (a list of evidence records) carries
-    this exact `approved_hash` + `revision`. Guards against a non-list
-    `evidence` or non-dict items."""
-    if not isinstance(evidence, list):
-        return False
-    return any(
-        isinstance(e, dict)
-        and e.get("approved_hash") == approved_hash
-        and e.get("revision") == revision
-        for e in evidence
-    )
 
 
 def _events_file_has_matching_approval(approved_hash: str, revision: int) -> bool:
@@ -502,10 +491,42 @@ def _events_file_has_matching_approval(approved_hash: str, revision: int) -> boo
         ev = obj.get("event", obj)
         if ev.get("action") != "package.approved":
             continue
-        if _evidence_matches(ev.get("evidence"), approved_hash, revision):
+        if chain_db.evidence_matches(ev.get("evidence"), approved_hash, revision):
             return True
 
     return False
+
+
+def _database_chain_has_matching_approval(
+    sec_std_dir: Path, approved_hash: str, revision: int
+) -> bool:
+    """Walk the database chain and match the approval in one snapshot (`chain_db`).
+
+    `chain_db` runs under the events interpreter, which holds psycopg and `factory_events`;
+    this one holds neither. The DSN reaches it through the environment, never argv, and its
+    JSON log records go to this process's stdout. Every outcome but a verified match or a
+    verified no-match raises `ChainUnavailable`, so anything unexpected fails closed.
+    """
+    argv = [
+        _events_python(sec_std_dir),
+        "-m",
+        "intent_packages.chain_db",
+        approved_hash,
+        str(revision),
+    ]
+    env = _events_env(sec_std_dir, Path(chain_db.__file__).resolve().parents[1])
+    try:
+        result = subprocess.run(argv, env=env, timeout=_CHAIN_VERIFY_TIMEOUT_SECONDS, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ChainUnavailable(
+            f"database chain check failed to run ({type(exc).__name__})"
+        ) from exc
+
+    if result.returncode == chain_db.MATCH:
+        return True
+    if result.returncode == chain_db.NO_MATCH:
+        return False
+    raise ChainUnavailable(f"database chain check failed (exit {result.returncode})")
 
 
 def default_chain_checker(approved_hash: str, revision: int) -> bool:
@@ -520,11 +541,24 @@ def default_chain_checker(approved_hash: str, revision: int) -> bool:
     the events file being missing/unreadable. A verified chain that simply
     has no matching event is a genuine "not approved" answer, so that (and
     only that) path returns False rather than raising.
+
+    With `FACTORY_EVENTS_READ_DSN` set, the chain is the database (ADR-0055 amendment 24
+    item 8): the walk and the match run in one read-only snapshot, any error raises
+    `ChainUnavailable`, and the file is never read. With only the append DSN set, the shell
+    is in database mode without a read credential, so it raises rather than verify the
+    database and match the file. With neither set, the file chain is used as before.
     """
     try:
         sec_std_dir = _security_standards_dir()
     except EmitError as exc:
         raise ChainUnavailable(f"cannot locate security-standards: {exc}") from exc
+
+    if os.environ.get(_READ_DSN_VAR):
+        return _database_chain_has_matching_approval(sec_std_dir, approved_hash, revision)
+    if os.environ.get(_APPEND_DSN_VAR):
+        raise ChainUnavailable(
+            f"{_APPEND_DSN_VAR} is set but {_READ_DSN_VAR} isn't: refusing to read the file chain"
+        )
 
     _verify_chain_integrity(sec_std_dir)
     return _events_file_has_matching_approval(approved_hash, revision)

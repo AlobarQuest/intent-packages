@@ -84,6 +84,18 @@ def _events_python(sec_std_dir: Path) -> str:
     return str(venv_python) if venv_python.exists() else sys.executable
 
 
+def _events_env(sec_std_dir: Path, *extra_paths: Path) -> dict[str, str]:
+    """The whole environment, with security-standards `src` (then `extra_paths`) put first on
+    `PYTHONPATH`. Copying the whole environment is what passes the chain DSNs
+    (`FACTORY_EVENTS_APPEND_DSN`, `FACTORY_EVENTS_READ_DSN`) through to `factory_events`."""
+    env = dict(os.environ)
+    paths = [str(sec_std_dir / "src"), *(str(path) for path in extra_paths)]
+    if env.get("PYTHONPATH"):
+        paths.append(env["PYTHONPATH"])
+    env["PYTHONPATH"] = os.pathsep.join(paths)
+    return env
+
+
 class FactoryEventsEmitter:
     """Emits a factory event by shelling out to `python -m factory_events emit`."""
 
@@ -108,16 +120,13 @@ class FactoryEventsEmitter:
             json.dumps(evidence),
         ]
 
-        env = dict(os.environ)
-        src_dir = str(sec_std_dir / "src")
-        existing_pythonpath = env.get("PYTHONPATH")
-        env["PYTHONPATH"] = (
-            f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else src_dir
-        )
-
         try:
             result = subprocess.run(
-                argv, capture_output=True, text=True, env=env, timeout=EMIT_TIMEOUT_SECONDS
+                argv,
+                capture_output=True,
+                text=True,
+                env=_events_env(sec_std_dir),
+                timeout=EMIT_TIMEOUT_SECONDS,
             )
         except subprocess.TimeoutExpired as exc:
             raise EmitError(f"factory_events emit timed out after {EMIT_TIMEOUT_SECONDS}s") from exc

@@ -19,6 +19,11 @@ PYTHONPATH=src python3 -m intent_packages <cmd>   # validate | hash | transition
 - Approval binds to an immutable revision and is verified against a tamper-evident,
   hash-chained factory-events store (a YAML ledger alone is forgeable and not
   sufficient proof).
+- With `FACTORY_EVENTS_READ_DSN` set, `default_chain_checker` reads only the database chain,
+  through `intent_packages.chain_db` run under security-standards' `.venv-events` interpreter
+  (it holds psycopg; this repo's runtime doesn't). With only `FACTORY_EVENTS_APPEND_DSN` set it
+  raises `ChainUnavailable` instead of reading the file. The database tests run with
+  `SECURITY_STANDARDS_DIR=<checkout with FE-1> scripts/check-integration.sh`, not `make check`.
 - Never merge — PRs wait for Devon.
 - The `factory` CLI speaks **HTTP** to the orchestrator API for every API call
   (`intent_packages/factory/api.py::OrchestratorApi`), and shells out to the `orchestrator` CLI
