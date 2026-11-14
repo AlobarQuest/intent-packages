@@ -162,7 +162,7 @@ I didn't change the following findings, for these reasons:
   record and returns `UNAVAILABLE`, which the parent raises as `ChainUnavailable`. Each one
   carries an inline justification.
 - **Code Brain rule 3 (structured JSON logs to stdout).** I added no logging path and no file
-  logging. The `refused` outcome uses the existing JSON-to-stdout `_log`.
+  logging. A refusal logs through the existing JSON-to-stdout `_log` as a `failure`.
 - **Infra Brain 591, 592, 593 (no BWS token in tracked files).** No token appears anywhere. The
   scanner shows 0 BLOCK, and the write-guard didn't fire.
 - **Infra Brain 1032 (`cred.exposure-rotate`).** No tool showed me a credential value. I fetched
