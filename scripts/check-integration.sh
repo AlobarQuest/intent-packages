@@ -6,7 +6,7 @@
 # chain (src/factory_events/db.py) and its .venv-events interpreter (with psycopg). With
 # FACTORY_TEST_DSN set (a superuser on a throwaway cluster), use it. Without it, start a
 # throwaway postgres:16-alpine container on a random 127.0.0.1 port with a random password, run
-# the tests, and remove the container on every exit path. The DSN is never printed.
+# the tests, and remove the container on every exit path. The test DSN is never printed.
 #
 # Never point FACTORY_TEST_DSN at a database you'd keep: the tests create databases and roles.
 set -euo pipefail

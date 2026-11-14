@@ -916,17 +916,23 @@ def member_record(monkeypatch):
     return install
 
 
-_CHAIN_DSN_VARS = (
+_CHAIN_VARS = (
+    "FACTORY_EVENTS_APPEND_PASSWORD",
+    "FACTORY_EVENTS_READ_PASSWORD",
+    "FACTORY_EVENTS_DB_HOST",
+    "FACTORY_EVENTS_DB_PORT",
+    "FACTORY_EVENTS_DB_NAME",
+    "FACTORY_EVENTS_OWNER_DSN",
+    # Retired by ADR-0055 amendment 26; a set one would make every chain test refuse.
     "FACTORY_EVENTS_APPEND_DSN",
     "FACTORY_EVENTS_READ_DSN",
     "FACTORY_EVENTS_IMPORT_DSN",
-    "FACTORY_EVENTS_OWNER_DSN",
 )
 
 
 @pytest.fixture(autouse=True)
-def _no_ambient_chain_dsn(monkeypatch):
-    """A shell holding a real chain DSN must never reach it from a test; tests that need the
-    database chain set a disposable one themselves."""
-    for name in _CHAIN_DSN_VARS:
+def _no_ambient_chain_settings(monkeypatch):
+    """A shell holding a real chain password or setting must never reach it from a test; tests
+    that need the database chain set disposable ones themselves."""
+    for name in _CHAIN_VARS:
         monkeypatch.delenv(name, raising=False)

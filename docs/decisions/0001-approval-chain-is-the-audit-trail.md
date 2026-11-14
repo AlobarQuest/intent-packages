@@ -55,7 +55,10 @@ approval commit that is not an ancestor of `main` is therefore not a defect.
   history.
 - The factory-events chain (`$FACTORY_EVENTS_HOME/events.jsonl`, default
   `~/.factory/events.jsonl`) is the record that must be preserved and backed up. A lost chain
-  cannot be rebuilt from git. When `FACTORY_EVENTS_READ_DSN` is set, the chain is the Postgres
-  chain of record instead (orchestrator ADR-0055 amendment 24): `verify-approval` walks it and
-  matches the approval in one read-only snapshot, never reads the file, and fails closed on any
-  database error. The emitter appends there when `FACTORY_EVENTS_APPEND_DSN` is set.
+  cannot be rebuilt from git. When `FACTORY_EVENTS_READ_PASSWORD` is set, the chain is the
+  Postgres chain of record instead (orchestrator ADR-0055 amendment 24): `verify-approval` walks
+  it and matches the approval in one read-only snapshot, never reads the file, and fails closed
+  on any database error. The emitter appends there when `FACTORY_EVENTS_APPEND_PASSWORD` is set.
+  Each password connects with the non-secret `FACTORY_EVENTS_DB_HOST`, `FACTORY_EVENTS_DB_PORT`
+  and `FACTORY_EVENTS_DB_NAME` settings; the whole-DSN variables these replaced refuse by name
+  (amendment 26).
