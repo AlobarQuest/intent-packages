@@ -16,7 +16,8 @@ code at `3705e0c`, so I wrote no question file.
   `as_kwargs()` to `psycopg.connect` as keyword parameters, with no positional conninfo. The
   import stays lazy (`import_module`), so the top level is still stdlib-only. `READ_DSN_VAR`
   retires. A `ChainError` from `connection_params`, meaning a missing or retired setting, logs
-  `outcome: refused` and prints the refusal's text on stderr. That text names only the variable,
+  `outcome: failure` with `error_type: ChainError`, as before, and prints the refusal's text
+  on stderr. That text names only the variable,
   for example `FACTORY_EVENTS_DB_HOST is not set`. Any later failure stays type-only. A
   security-standards checkout older than amendment 26 (no `connection_params`) reports as a
   logged `failure` (`AttributeError`), not a traceback.
@@ -66,6 +67,8 @@ judgment-only `bws.least-privilege-scope`.
   - Append password alone refuses with no subprocess.
   - All three retired variables refuse, with and without a password set, with no subprocess.
   - A missing setting refuses by name before any connection.
+  - A failed `factory_events` import, through a patched `import_module`, so the test doesn't
+    depend on what's on `PYTHONPATH`.
   - The strict read role.
   - An old checkout reports `AttributeError`.
   - Connect kwargs are exactly host, port, dbname, `user=factory_events_read`, and password, with
@@ -76,7 +79,7 @@ judgment-only `bws.least-privilege-scope`.
   `RETIRED-PW-placeholder-41ab`) are asserted absent from exception text, `caplog`, stdout, and
   stderr.
 - **Integration tests** (`tests/test_chain_db_integration.py`) set the parts. Host and port come
-  from `FACTORY_TEST_DSN`, the database name is the per-test database, and each role gets a
+  from `FACTORY_TEST_DSN` (port defaults to 5432 when it names none), the database name is the per-test database, and each role gets a
   different throwaway password. The tests cover:
   - Unreachable database: the port setting changed to `1`.
   - A refused password: the read role given the append role's password.
@@ -85,6 +88,21 @@ judgment-only `bws.least-privilege-scope`.
 
   `_event_ids` reads through the owner fixture DSN. No test sets a retired variable except to
   prove it refuses.
+
+## Additions beyond the handoff's letter
+
+I made two additions the handoff doesn't spell out. Increment 3's orchestrator reader can mirror
+or drop them:
+
+- **The refusal names the variable on stderr.** `chain_db` prints `factory_events.chain`'s refusal
+  text, for example `chain read refused: FACTORY_EVENTS_DB_HOST is not set`. I read this as
+  settled, not a stop point: amendment item 5 is headed "fails closed, by name" and says "Neither
+  message carries a value". The exit code (`UNAVAILABLE`), the log record (outcome `failure`,
+  error type only, per item 8's "Logging is unchanged"), and the parent's `ChainUnavailable`
+  don't change. Going back to type-only is a one-line change.
+- **Retired values are redacted whole.** Item 8 names only the password variables. The emitter
+  also redacts a set retired variable's whole value, with no parsing, because `_events_env`
+  passes it to the child so the child can refuse it by name.
 
 ## Files changed
 
@@ -127,8 +145,7 @@ I didn't change the following findings, for these reasons:
 - **The integration suite depends on the checkout version.** Against a security-standards
   checkout older than `60ec80f7`, the integration suite fails, as the amendment's "Increments"
   paragraph expects.
-- **One design choice the amendment doesn't settle.** `chain_db` prints `factory_events.chain`'s
-  refusal text on stderr. That's how "refuses by name" reaches an operator. It's safe only because
+- **The stderr refusal text depends on security-standards.** Printing it is safe only because
   `chain.py` at `60ec80f7` builds those messages from variable names alone. If security-standards
   ever puts a value in a `ChainError` raised from `connection_params`, this line would print it.
 - **Scratch directory.** `/tmp/w148-ss.JFC3` (the scratch checkout and its venv) is still there:

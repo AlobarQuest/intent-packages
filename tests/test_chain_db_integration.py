@@ -123,7 +123,9 @@ def chain_db() -> Iterator[ChainDb]:
                     )
                 )
         parts = import_module("psycopg.conninfo").conninfo_to_dict(owner)
-        yield ChainDb(owner=owner, host=str(parts["host"]), port=str(parts["port"]), dbname=name)
+        assert parts.get("host"), "FACTORY_TEST_DSN must name a host"
+        port = str(parts.get("port") or 5432)  # libpq's default when the DSN names none
+        yield ChainDb(owner=owner, host=str(parts["host"]), port=port, dbname=name)
     finally:
         with psycopg.connect(base, autocommit=True) as admin:
             admin.execute(

@@ -198,8 +198,12 @@ def _fake_chain(monkeypatch, refusal: str | None = None, **modules: object) -> l
     return roles
 
 
-def test_reader_without_factory_events_is_unavailable(capsys):
-    # This venv has no factory_events: the lazy import fails, and that is a refusal too.
+def test_reader_without_factory_events_is_unavailable(monkeypatch, capsys):
+    def missing(name):
+        raise ModuleNotFoundError(name)
+
+    monkeypatch.setattr(chain_db, "import_module", missing)
+
     assert chain_db.main(["deadbeef", "1"]) == chain_db.UNAVAILABLE
     record = json.loads(capsys.readouterr().out)
     assert record["outcome"] == "failure" and record["error_type"] == "ModuleNotFoundError"
@@ -222,7 +226,7 @@ def test_reader_refuses_a_missing_setting_by_name_before_any_connection(monkeypa
     assert chain_db.main(["deadbeef", "1"]) == chain_db.UNAVAILABLE
     out, err = capsys.readouterr()
     record = json.loads(out)
-    assert record["outcome"] == "refused" and record["error_type"] == "_ChainError"
+    assert record["outcome"] == "failure" and record["error_type"] == "_ChainError"
     assert "FACTORY_EVENTS_DB_HOST is not set" in err
 
 

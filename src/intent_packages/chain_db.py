@@ -144,9 +144,9 @@ def main(argv: list[str] | None = None) -> int:
         params = connection_params(read_role)  # strictly the read role: no append fallback
     except refusal as exc:
         # Not swallowed: a missing or retired setting, refused before any connection and
-        # reported as UNAVAILABLE. factory_events.chain's refusal names only the variable,
-        # never a value, so its text is printed.
-        _log("refused", error_type=type(exc).__name__)
+        # reported as UNAVAILABLE. Logged as any failure is; factory_events.chain's refusal
+        # names only the variable, never a value (amendment 26 item 5), so its text is printed.
+        _log("failure", error_type=type(exc).__name__)
         print(f"chain read refused: {exc}", file=sys.stderr)
         return UNAVAILABLE
     try:
