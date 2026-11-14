@@ -25,7 +25,7 @@ import sys
 from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from importlib import import_module
-from typing import Any
+from typing import Protocol
 
 MATCH = 0
 NO_MATCH = 10
@@ -90,11 +90,17 @@ def _records(
         }
 
 
+class _ConnectParams(Protocol):
+    """`factory_events.db.ConnectParams`, which this module can't import at its top level."""
+
+    def as_kwargs(self) -> dict[str, str]: ...
+
+
 def _walk(
-    params: Any, approved_hash: str, revision: int
+    params: _ConnectParams, approved_hash: str, revision: int
 ) -> tuple[list[str], dict | None, int, list]:
-    """`params` is a `factory_events.db.ConnectParams`; its kwargs hold the password, so they
-    go straight to `psycopg.connect` and are never logged."""
+    """`params.as_kwargs()` holds the password, so it goes straight to `psycopg.connect` and is
+    never logged."""
     psycopg = import_module("psycopg")
     store = import_module("factory_events.store")
     matches: list[str] = []
@@ -113,33 +119,40 @@ def _walk(
     return errors, last, count, matches
 
 
+def _failed(exc: Exception) -> int:
+    """Log and report a failure by its type only: a driver's text can repeat connection details.
+    Not a swallow: the caller raises UNAVAILABLE as ChainUnavailable."""
+    _log("failure", error_type=type(exc).__name__)
+    print(f"chain read failed ({type(exc).__name__})", file=sys.stderr)
+    return UNAVAILABLE
+
+
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     try:
         approved_hash, revision = args[0], int(args[1])
         chain = import_module("factory_events.chain")
+        # An AttributeError here means a security-standards checkout older than amendment 26.
+        refusal, connection_params, read_role = (
+            chain.db.ChainError,
+            chain.connection_params,
+            chain.READ_ROLE,
+        )
     except Exception as exc:
-        # Not swallowed: logged by type and reported as UNAVAILABLE (ChainUnavailable upstream).
-        _log("failure", error_type=type(exc).__name__)
-        print(f"chain read failed ({type(exc).__name__})", file=sys.stderr)
-        return UNAVAILABLE
+        return _failed(exc)
     try:
-        # Strictly the read role: no fallback to the append password.
-        params = chain.connection_params(chain.READ_ROLE)
-    except chain.db.ChainError as exc:
-        # Not swallowed: a missing or retired setting, refused before any connection. Its text
-        # names only the variable (factory_events.chain carries no value), so it's printed.
+        params = connection_params(read_role)  # strictly the read role: no append fallback
+    except refusal as exc:
+        # Not swallowed: a missing or retired setting, refused before any connection and
+        # reported as UNAVAILABLE. factory_events.chain's refusal names only the variable,
+        # never a value, so its text is printed.
         _log("refused", error_type=type(exc).__name__)
         print(f"chain read refused: {exc}", file=sys.stderr)
         return UNAVAILABLE
     try:
         errors, last, count, matches = _walk(params, approved_hash, revision)
     except Exception as exc:
-        # Not swallowed: logged by type and reported as UNAVAILABLE, which the caller raises as
-        # ChainUnavailable. The text stays out because a driver's can repeat connection details.
-        _log("failure", error_type=type(exc).__name__)
-        print(f"chain read failed ({type(exc).__name__})", file=sys.stderr)
-        return UNAVAILABLE
+        return _failed(exc)
     head = last["hash"][:HEAD_PREFIX] if last else None
     seq = last["seq"] if last else 0
     if errors:

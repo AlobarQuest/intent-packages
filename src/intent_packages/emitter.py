@@ -20,9 +20,18 @@ from intent_packages import registry
 
 _DEFAULT_ACTOR = "claude-code-interactive"
 EMIT_TIMEOUT_SECONDS = 30
-# The chain's password variables (security-standards `factory_events/chain.py`, ADR-0055
-# amendment 26). Each holds only a role's password, so neither value may reach an error message.
-CHAIN_PASSWORD_VARS = ("FACTORY_EVENTS_APPEND_PASSWORD", "FACTORY_EVENTS_READ_PASSWORD")
+# security-standards `factory_events/chain.py`'s names (ADR-0055 amendment 26), as literals:
+# this interpreter can't import `factory_events`. Each password variable holds only a role's
+# password; a retired variable held a whole DSN, and a set one refuses. No value of any of them
+# may reach an error message.
+APPEND_PASSWORD_VAR = "FACTORY_EVENTS_APPEND_PASSWORD"
+READ_PASSWORD_VAR = "FACTORY_EVENTS_READ_PASSWORD"
+RETIRED_CHAIN_VARS = (
+    "FACTORY_EVENTS_APPEND_DSN",
+    "FACTORY_EVENTS_READ_DSN",
+    "FACTORY_EVENTS_IMPORT_DSN",
+)
+_REDACTED_VARS = (APPEND_PASSWORD_VAR, READ_PASSWORD_VAR, *RETIRED_CHAIN_VARS)
 
 
 class EmitError(Exception):
@@ -71,14 +80,15 @@ def _parse_event_id(stdout: str) -> str | None:
 
 
 def redact_chain_passwords(text: str) -> str:
-    """`text` with every set chain password replaced by a marker naming its variable.
+    """`text` with every set chain password, and any set retired variable's whole value, replaced
+    by a marker naming its variable. No value is parsed.
 
     FE-1's `emit` reports a failure by the error's type only; this keeps the rule (Code Brain 5)
-    if any other text from the child ever repeats a password.
+    if any other text from the child ever repeats a value.
     """
-    passwords = {name: os.environ.get(name) for name in CHAIN_PASSWORD_VARS}
-    # Longest first, so a password that contains the other is replaced whole.
-    for name, value in sorted(passwords.items(), key=lambda item: len(item[1] or ""), reverse=True):
+    values = {name: os.environ.get(name) for name in _REDACTED_VARS}
+    # Longest first, so a value that contains another is replaced whole.
+    for name, value in sorted(values.items(), key=lambda item: len(item[1] or ""), reverse=True):
         if value:
             text = text.replace(value, f"<{name} redacted>")
     return text

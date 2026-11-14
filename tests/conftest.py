@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from intent_packages import emitter
+
 # A complete, valid universal intent package (schema_version 1), matching
 # .superpowers/sdd/task-7-valid-package-reference.yaml. package_id is set to
 # "sample-valid-package" to match the valid_package fixture's directory name.
@@ -917,16 +919,13 @@ def member_record(monkeypatch):
 
 
 _CHAIN_VARS = (
-    "FACTORY_EVENTS_APPEND_PASSWORD",
-    "FACTORY_EVENTS_READ_PASSWORD",
+    emitter.APPEND_PASSWORD_VAR,
+    emitter.READ_PASSWORD_VAR,
     "FACTORY_EVENTS_DB_HOST",
     "FACTORY_EVENTS_DB_PORT",
     "FACTORY_EVENTS_DB_NAME",
     "FACTORY_EVENTS_OWNER_DSN",
-    # Retired by ADR-0055 amendment 26; a set one would make every chain test refuse.
-    "FACTORY_EVENTS_APPEND_DSN",
-    "FACTORY_EVENTS_READ_DSN",
-    "FACTORY_EVENTS_IMPORT_DSN",
+    *emitter.RETIRED_CHAIN_VARS,  # a set one would make every chain test refuse
 )
 
 

@@ -205,6 +205,16 @@ def test_reader_without_factory_events_is_unavailable(capsys):
     assert record["outcome"] == "failure" and record["error_type"] == "ModuleNotFoundError"
 
 
+def test_reader_on_a_checkout_older_than_amendment_26_is_unavailable(monkeypatch, capsys):
+    # The FE-1 chain module had no connection_params or READ_ROLE.
+    old_chain = types.SimpleNamespace(db=types.SimpleNamespace(ChainError=_ChainError))
+    monkeypatch.setattr(chain_db, "import_module", {"factory_events.chain": old_chain}.__getitem__)
+
+    assert chain_db.main(["deadbeef", "1"]) == chain_db.UNAVAILABLE
+    record = json.loads(capsys.readouterr().out)
+    assert record["outcome"] == "failure" and record["error_type"] == "AttributeError"
+
+
 def test_reader_refuses_a_missing_setting_by_name_before_any_connection(monkeypatch, capsys):
     _fake_chain(monkeypatch, refusal="FACTORY_EVENTS_DB_HOST is not set")
     monkeypatch.setattr(chain_db, "_walk", lambda *a: pytest.fail("connected after a refusal"))
@@ -343,6 +353,16 @@ def test_emitter_error_never_repeats_a_chain_password(monkeypatch, tmp_path, pas
     message = str(info.value)
     assert password not in message
     assert "<FACTORY_EVENTS_APPEND_PASSWORD redacted>" in message
+
+
+@pytest.mark.parametrize("retired", RETIRED)
+def test_redaction_covers_a_set_retired_variable_whole(monkeypatch, retired):
+    # The child refuses a retired variable by name; this holds even if some text repeated it.
+    monkeypatch.setenv(retired, RETIRED_VALUE)
+
+    text = redact_chain_passwords(f"connection to {RETIRED_VALUE} failed")
+
+    assert text == f"connection to <{retired} redacted> failed"
 
 
 def test_redaction_replaces_the_longer_password_whole(monkeypatch):

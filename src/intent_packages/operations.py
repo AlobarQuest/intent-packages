@@ -23,6 +23,9 @@ from intent_packages.approval_policy import (
     load_policy,
 )
 from intent_packages.emitter import (
+    APPEND_PASSWORD_VAR,
+    READ_PASSWORD_VAR,
+    RETIRED_CHAIN_VARS,
     EmitError,
     Emitter,
     _events_env,
@@ -35,17 +38,6 @@ from intent_packages.validate import validate_package
 _STATUS_LINE_RE = re.compile(r"^(status:)[^#\n]*(?P<comment>\s+#.*)?$", re.MULTILINE)
 _REVISION_LINE_RE = re.compile(r"^revision:.*$", re.MULTILINE)
 _CHAIN_VERIFY_TIMEOUT_SECONDS = 30
-# security-standards `factory_events/chain.py`'s names, as literals: this interpreter can't
-# import `factory_events`. The read password selects the database chain; the append password
-# alone means a database-mode shell that holds no read credential (ADR-0055 amendment 26).
-_READ_PASSWORD_VAR = "FACTORY_EVENTS_READ_PASSWORD"
-_APPEND_PASSWORD_VAR = "FACTORY_EVENTS_APPEND_PASSWORD"
-# Whole-DSN variables, retired by amendment 26. A set one refuses rather than fall to the file.
-_RETIRED_CHAIN_VARS = (
-    "FACTORY_EVENTS_APPEND_DSN",
-    "FACTORY_EVENTS_READ_DSN",
-    "FACTORY_EVENTS_IMPORT_DSN",
-)
 
 
 class OperationError(Exception):
@@ -561,16 +553,19 @@ def default_chain_checker(approved_hash: str, revision: int) -> bool:
     except EmitError as exc:
         raise ChainUnavailable(f"cannot locate security-standards: {exc}") from exc
 
-    for name in _RETIRED_CHAIN_VARS:
+    # The read password selects the database chain; the append password alone means a
+    # database-mode shell with no read credential; a retired variable refuses rather than fall
+    # to the file without a word (ADR-0055 amendment 26 items 4 and 5).
+    for name in RETIRED_CHAIN_VARS:
         if os.environ.get(name):
             raise ChainUnavailable(
                 f"{name} is retired: set the role's password and the DB settings"
             )
-    if os.environ.get(_READ_PASSWORD_VAR):
+    if os.environ.get(READ_PASSWORD_VAR):
         return _database_chain_has_matching_approval(sec_std_dir, approved_hash, revision)
-    if os.environ.get(_APPEND_PASSWORD_VAR):
+    if os.environ.get(APPEND_PASSWORD_VAR):
         raise ChainUnavailable(
-            f"{_APPEND_PASSWORD_VAR} is set but {_READ_PASSWORD_VAR} isn't: "
+            f"{APPEND_PASSWORD_VAR} is set but {READ_PASSWORD_VAR} isn't: "
             "refusing to read the file chain"
         )
 
