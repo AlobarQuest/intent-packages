@@ -22,7 +22,7 @@ dev = [
   "pyright==1.1.414",
   # The database-chain integration tests' fixture only (scripts/check-integration.sh). The
   # chain checker itself reads the database under security-standards' events interpreter.
-  "psycopg[binary]>=3.3.6",
+  "psycopg[binary]>=3.3.8",
 ]
 
 [build-system]
