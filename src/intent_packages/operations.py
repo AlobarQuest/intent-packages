@@ -23,6 +23,9 @@ from intent_packages.approval_policy import (
     load_policy,
 )
 from intent_packages.emitter import (
+    APPEND_PASSWORD_VAR,
+    READ_PASSWORD_VAR,
+    RETIRED_CHAIN_VARS,
     EmitError,
     Emitter,
     _events_env,
@@ -35,10 +38,6 @@ from intent_packages.validate import validate_package
 _STATUS_LINE_RE = re.compile(r"^(status:)[^#\n]*(?P<comment>\s+#.*)?$", re.MULTILINE)
 _REVISION_LINE_RE = re.compile(r"^revision:.*$", re.MULTILINE)
 _CHAIN_VERIFY_TIMEOUT_SECONDS = 30
-# FE-1's names (security-standards `factory_events/chain.py`). The read DSN selects the database
-# chain; the append DSN alone means a database-mode shell that holds no read credential.
-_READ_DSN_VAR = chain_db.READ_DSN_VAR
-_APPEND_DSN_VAR = "FACTORY_EVENTS_APPEND_DSN"
 
 
 class OperationError(Exception):
@@ -48,8 +47,8 @@ class OperationError(Exception):
 class ChainUnavailable(Exception):
     """Raised by a `chain_checker` when the factory-events chain cannot be
     consulted at all (store or security-standards checkout missing,
-    subprocess failure, chain integrity check failed, or under the read DSN
-    any database error). `verify_approval`
+    subprocess failure, chain integrity check failed, a retired chain
+    variable set, or under the read password any database error). `verify_approval`
     catches this and fails closed rather than letting it bubble up.
     """
 
@@ -503,7 +502,7 @@ def _database_chain_has_matching_approval(
     """Walk the database chain and match the approval in one snapshot (`chain_db`).
 
     `chain_db` runs under the events interpreter, which holds psycopg and `factory_events`;
-    this one holds neither. The DSN reaches it through the environment, never argv, and its
+    this one holds neither. The password reaches it through the environment, never argv, and its
     JSON log records go to this process's stdout. Every outcome but a verified match or a
     verified no-match raises `ChainUnavailable`, so anything unexpected fails closed.
     """
@@ -542,22 +541,32 @@ def default_chain_checker(approved_hash: str, revision: int) -> bool:
     has no matching event is a genuine "not approved" answer, so that (and
     only that) path returns False rather than raising.
 
-    With `FACTORY_EVENTS_READ_DSN` set, the chain is the database (ADR-0055 amendment 24
-    item 8): the walk and the match run in one read-only snapshot, any error raises
-    `ChainUnavailable`, and the file is never read. With only the append DSN set, the shell
-    is in database mode without a read credential, so it raises rather than verify the
-    database and match the file. With neither set, the file chain is used as before.
+    With `FACTORY_EVENTS_READ_PASSWORD` set, the chain is the database (ADR-0055 amendment
+    24 item 8): the walk and the match run in one read-only snapshot, any error raises
+    `ChainUnavailable`, and the file is never read. With only the append password set, the
+    shell is in database mode without a read credential, so it raises rather than verify the
+    database and match the file. A set retired whole-DSN variable raises by name (amendment
+    26 item 5). With none of these set, the file chain is used as before.
     """
     try:
         sec_std_dir = _security_standards_dir()
     except EmitError as exc:
         raise ChainUnavailable(f"cannot locate security-standards: {exc}") from exc
 
-    if os.environ.get(_READ_DSN_VAR):
+    # The read password selects the database chain; the append password alone means a
+    # database-mode shell with no read credential; a retired variable refuses rather than fall
+    # to the file without a word (ADR-0055 amendment 26 items 4 and 5).
+    for name in RETIRED_CHAIN_VARS:
+        if os.environ.get(name):
+            raise ChainUnavailable(
+                f"{name} is retired: set the role's password and the DB settings"
+            )
+    if os.environ.get(READ_PASSWORD_VAR):
         return _database_chain_has_matching_approval(sec_std_dir, approved_hash, revision)
-    if os.environ.get(_APPEND_DSN_VAR):
+    if os.environ.get(APPEND_PASSWORD_VAR):
         raise ChainUnavailable(
-            f"{_APPEND_DSN_VAR} is set but {_READ_DSN_VAR} isn't: refusing to read the file chain"
+            f"{APPEND_PASSWORD_VAR} is set but {READ_PASSWORD_VAR} isn't: "
+            "refusing to read the file chain"
         )
 
     _verify_chain_integrity(sec_std_dir)

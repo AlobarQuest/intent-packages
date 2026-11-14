@@ -11,21 +11,27 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Protocol
-from urllib.parse import unquote, urlsplit
 
 from intent_packages import registry
 
 _DEFAULT_ACTOR = "claude-code-interactive"
 EMIT_TIMEOUT_SECONDS = 30
-# FE-1's chain DSN variables (security-standards `factory_events/chain.py`). Each carries a
-# password, so neither may reach an error message.
-CHAIN_DSN_VARS = ("FACTORY_EVENTS_APPEND_DSN", "FACTORY_EVENTS_READ_DSN")
-_CONNINFO_PASSWORD_RE = re.compile(r"password\s*=\s*('(?:[^'\\]|\\.)*'|\S+)")
+# security-standards `factory_events/chain.py`'s names (ADR-0055 amendment 26), as literals:
+# this interpreter can't import `factory_events`. Each password variable holds only a role's
+# password; a retired variable held a whole DSN, and a set one refuses. No value of any of them
+# may reach an error message.
+APPEND_PASSWORD_VAR = "FACTORY_EVENTS_APPEND_PASSWORD"
+READ_PASSWORD_VAR = "FACTORY_EVENTS_READ_PASSWORD"
+RETIRED_CHAIN_VARS = (
+    "FACTORY_EVENTS_APPEND_DSN",
+    "FACTORY_EVENTS_READ_DSN",
+    "FACTORY_EVENTS_IMPORT_DSN",
+)
+_REDACTED_VARS = (APPEND_PASSWORD_VAR, READ_PASSWORD_VAR, *RETIRED_CHAIN_VARS)
 
 
 class EmitError(Exception):
@@ -73,32 +79,18 @@ def _parse_event_id(stdout: str) -> str | None:
     return token if len(token) > 3 else None
 
 
-def _dsn_secrets(dsn: str) -> set[str]:
-    """The DSN and its password, in URL form (`postgresql://u:pw@h/db`) or key=value form."""
-    secrets = {dsn}
-    try:
-        password = urlsplit(dsn).password
-    except ValueError:
-        password = None
-    if password:
-        secrets.update({password, unquote(password)})
-    for match in _CONNINFO_PASSWORD_RE.finditer(dsn):
-        secrets.add(match.group(1).strip("'"))
-    return {secret for secret in secrets if secret}
-
-
-def redact_chain_dsns(text: str) -> str:
-    """`text` with every set chain DSN, and its password, replaced by a marker.
+def redact_chain_passwords(text: str) -> str:
+    """`text` with every set chain password, and any set retired variable's whole value, replaced
+    by a marker naming its variable. No value is parsed.
 
     FE-1's `emit` reports a failure by the error's type only; this keeps the rule (Code Brain 5)
-    if any other text from the child ever repeats a DSN.
+    if any other text from the child ever repeats a value.
     """
-    for name in CHAIN_DSN_VARS:
-        dsn = os.environ.get(name)
-        if not dsn:
-            continue
-        for secret in sorted(_dsn_secrets(dsn), key=len, reverse=True):
-            text = text.replace(secret, f"<{name} redacted>")
+    values = {name: os.environ.get(name) for name in _REDACTED_VARS}
+    # Longest first, so a value that contains another is replaced whole.
+    for name, value in sorted(values.items(), key=lambda item: len(item[1] or ""), reverse=True):
+        if value:
+            text = text.replace(value, f"<{name} redacted>")
     return text
 
 
@@ -121,8 +113,9 @@ def _events_python(sec_std_dir: Path) -> str:
 
 def _events_env(sec_std_dir: Path, *extra_paths: Path) -> dict[str, str]:
     """The whole environment, with security-standards `src` (then `extra_paths`) put first on
-    `PYTHONPATH`. Copying the whole environment is what passes the chain DSNs
-    (`FACTORY_EVENTS_APPEND_DSN`, `FACTORY_EVENTS_READ_DSN`) through to `factory_events`."""
+    `PYTHONPATH`. Copying the whole environment is what passes the chain's passwords and its
+    three settings (`FACTORY_EVENTS_DB_HOST`, `_PORT`, `_NAME`) through to `factory_events`,
+    and a set retired DSN variable too, so the child refuses it by name."""
     env = dict(os.environ)
     paths = [str(sec_std_dir / "src"), *(str(path) for path in extra_paths)]
     if env.get("PYTHONPATH"):
@@ -167,6 +160,6 @@ class FactoryEventsEmitter:
             raise EmitError(f"factory_events emit timed out after {EMIT_TIMEOUT_SECONDS}s") from exc
 
         if result.returncode != 0:
-            raise EmitError(f"factory_events emit failed: {redact_chain_dsns(result.stderr)}")
+            raise EmitError(f"factory_events emit failed: {redact_chain_passwords(result.stderr)}")
 
         return _parse_event_id(result.stdout)

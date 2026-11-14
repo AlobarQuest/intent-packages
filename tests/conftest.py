@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from intent_packages import emitter
+
 # A complete, valid universal intent package (schema_version 1), matching
 # .superpowers/sdd/task-7-valid-package-reference.yaml. package_id is set to
 # "sample-valid-package" to match the valid_package fixture's directory name.
@@ -916,17 +918,20 @@ def member_record(monkeypatch):
     return install
 
 
-_CHAIN_DSN_VARS = (
-    "FACTORY_EVENTS_APPEND_DSN",
-    "FACTORY_EVENTS_READ_DSN",
-    "FACTORY_EVENTS_IMPORT_DSN",
+_CHAIN_VARS = (
+    emitter.APPEND_PASSWORD_VAR,
+    emitter.READ_PASSWORD_VAR,
+    "FACTORY_EVENTS_DB_HOST",
+    "FACTORY_EVENTS_DB_PORT",
+    "FACTORY_EVENTS_DB_NAME",
     "FACTORY_EVENTS_OWNER_DSN",
+    *emitter.RETIRED_CHAIN_VARS,  # a set one would make every chain test refuse
 )
 
 
 @pytest.fixture(autouse=True)
-def _no_ambient_chain_dsn(monkeypatch):
-    """A shell holding a real chain DSN must never reach it from a test; tests that need the
-    database chain set a disposable one themselves."""
-    for name in _CHAIN_DSN_VARS:
+def _no_ambient_chain_settings(monkeypatch):
+    """A shell holding a real chain password or setting must never reach it from a test; tests
+    that need the database chain set disposable ones themselves."""
+    for name in _CHAIN_VARS:
         monkeypatch.delenv(name, raising=False)

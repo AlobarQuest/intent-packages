@@ -29,7 +29,10 @@ from intent_packages.operations import ChainUnavailable, default_chain_checker
 
 pytestmark = pytest.mark.integration
 
-ROLE_PASSWORD = secrets.token_hex(16)  # throwaway, for this run's disposable cluster only
+# Throwaway, for this run's disposable cluster only. Different per role, so a role or password
+# mix-up fails rather than passes.
+APPEND_PASSWORD = secrets.token_hex(16)
+READ_PASSWORD = secrets.token_hex(16)
 
 
 def _psycopg() -> Any:
@@ -52,9 +55,21 @@ def _conninfo(base: str, **overrides: str) -> Dsn:
 
 @dataclass(frozen=True)
 class ChainDb:
+    """The owner's DSN (a test fixture, for setup and inspection), and the three settings every
+    role connects with (ADR-0055 amendment 26: no whole-DSN variable for the append or read
+    role, tests included)."""
+
     owner: Dsn
-    append: Dsn
-    read: Dsn
+    host: str
+    port: str
+    dbname: str
+
+    def settings(self) -> dict[str, str]:
+        return {
+            "FACTORY_EVENTS_DB_HOST": self.host,
+            "FACTORY_EVENTS_DB_PORT": self.port,
+            "FACTORY_EVENTS_DB_NAME": self.dbname,
+        }
 
 
 def _setup_schema(owner: Dsn) -> None:
@@ -98,17 +113,19 @@ def chain_db() -> Iterator[ChainDb]:
     try:
         _setup_schema(owner)
         with psycopg.connect(owner, autocommit=True) as conn:
-            for role in ("factory_events_append", "factory_events_read"):
+            for role, password in (
+                ("factory_events_append", APPEND_PASSWORD),
+                ("factory_events_read", READ_PASSWORD),
+            ):
                 conn.execute(
                     sql.SQL("ALTER ROLE {} PASSWORD {}").format(
-                        sql.Identifier(role), sql.Literal(ROLE_PASSWORD)
+                        sql.Identifier(role), sql.Literal(password)
                     )
                 )
-        yield ChainDb(
-            owner=owner,
-            append=_conninfo(owner, user="factory_events_append", password=ROLE_PASSWORD),
-            read=_conninfo(owner, user="factory_events_read", password=ROLE_PASSWORD),
-        )
+        parts = import_module("psycopg.conninfo").conninfo_to_dict(owner)
+        assert parts.get("host"), "FACTORY_TEST_DSN must name a host"
+        port = str(parts.get("port") or 5432)  # libpq's default when the DSN names none
+        yield ChainDb(owner=owner, host=str(parts["host"]), port=port, dbname=name)
     finally:
         with psycopg.connect(base, autocommit=True) as admin:
             admin.execute(
@@ -116,61 +133,82 @@ def chain_db() -> Iterator[ChainDb]:
             )
 
 
-def _emit(monkeypatch, append_dsn: str, action: str, evidence: dict) -> str | None:
-    monkeypatch.setenv("FACTORY_EVENTS_APPEND_DSN", append_dsn)
+def _set_role(monkeypatch, db: ChainDb, password_var: str, password: str, **settings: str) -> None:
+    """Set one role's password and the three settings, `settings` overriding any by name."""
+    monkeypatch.setenv(password_var, password)
+    for name, value in {**db.settings(), **settings}.items():
+        monkeypatch.setenv(name, value)
+
+
+def _emit(
+    monkeypatch, db: ChainDb, action: str, evidence: dict, password: str = APPEND_PASSWORD
+) -> str | None:
+    _set_role(monkeypatch, db, "FACTORY_EVENTS_APPEND_PASSWORD", password)
     try:
         return FactoryEventsEmitter().emit(action, "intent-packages-it", evidence)
     finally:
-        monkeypatch.delenv("FACTORY_EVENTS_APPEND_DSN")
+        monkeypatch.delenv("FACTORY_EVENTS_APPEND_PASSWORD")
 
 
 def _approve(monkeypatch, db: ChainDb, approved_hash: str, revision: int) -> str | None:
-    _emit(monkeypatch, db.append, "package.transitioned", {"to": "ready_for_review"})
+    _emit(monkeypatch, db, "package.transitioned", {"to": "ready_for_review"})
     return _emit(
         monkeypatch,
-        db.append,
+        db,
         "package.approved",
         {"approved_hash": approved_hash, "revision": revision, "approver": "devon"},
     )
 
 
-def _event_ids(dsn: str) -> list[str]:
-    with _psycopg().connect(dsn) as conn:
+def _event_ids(db: ChainDb) -> list[str]:
+    with _psycopg().connect(db.owner) as conn:
         return [row[0] for row in conn.execute("SELECT event_id FROM factory_events ORDER BY seq")]
 
 
-def _check_under_read_dsn(monkeypatch, db: ChainDb, approved_hash: str, revision: int) -> bool:
-    monkeypatch.setenv("FACTORY_EVENTS_READ_DSN", db.read)
+def _check_under_read_password(
+    monkeypatch,
+    db: ChainDb,
+    approved_hash: str,
+    revision: int,
+    password: str = READ_PASSWORD,
+    **settings: str,
+) -> bool:
+    _set_role(monkeypatch, db, "FACTORY_EVENTS_READ_PASSWORD", password, **settings)
     return default_chain_checker(approved_hash, revision)
 
 
-def test_emitter_appends_through_the_append_dsn_and_returns_the_id(monkeypatch, chain_db):
+def _assert_no_password(*texts: str) -> None:
+    joined = "\n".join(texts)
+    assert APPEND_PASSWORD not in joined and READ_PASSWORD not in joined
+
+
+def test_emitter_appends_through_the_append_password_and_returns_the_id(monkeypatch, chain_db):
     event_id = _approve(monkeypatch, chain_db, "h1", 1)
 
     assert event_id is not None
-    assert _event_ids(chain_db.read)[-1] == event_id  # _parse_event_id read emit's own id
+    assert _event_ids(chain_db)[-1] == event_id  # _parse_event_id read emit's own id
     assert not (Path(os.environ["FACTORY_EVENTS_HOME"]) / "events.jsonl").exists()
 
 
 def test_checker_matches_the_approval_in_the_database(monkeypatch, chain_db, capfd):
     event_id = _approve(monkeypatch, chain_db, "h1", 1)
 
-    assert _check_under_read_dsn(monkeypatch, chain_db, "h1", 1) is True
-    out = capfd.readouterr().out
-    record = json.loads(out.strip().splitlines()[-1])
+    assert _check_under_read_password(monkeypatch, chain_db, "h1", 1) is True
+    captured = capfd.readouterr()
+    record = json.loads(captured.out.strip().splitlines()[-1])
     assert record["outcome"] == "match" and record["event_id"] == event_id
-    assert ROLE_PASSWORD not in out
+    _assert_no_password(captured.out, captured.err)
 
 
 def test_checker_no_match_returns_false(monkeypatch, chain_db):
     _approve(monkeypatch, chain_db, "h1", 1)
 
-    assert _check_under_read_dsn(monkeypatch, chain_db, "h1", 2) is False
-    assert _check_under_read_dsn(monkeypatch, chain_db, "h2", 1) is False
+    assert _check_under_read_password(monkeypatch, chain_db, "h1", 2) is False
+    assert _check_under_read_password(monkeypatch, chain_db, "h2", 1) is False
 
 
 def test_checker_on_an_empty_chain_returns_false(monkeypatch, chain_db):
-    assert _check_under_read_dsn(monkeypatch, chain_db, "h1", 1) is False
+    assert _check_under_read_password(monkeypatch, chain_db, "h1", 1) is False
 
 
 def test_checker_broken_chain_raises_even_with_the_match_present(monkeypatch, chain_db):
@@ -183,40 +221,53 @@ def test_checker_broken_chain_raises_even_with_the_match_present(monkeypatch, ch
         )
 
     with pytest.raises(ChainUnavailable):
-        _check_under_read_dsn(monkeypatch, chain_db, "h1", 1)
+        _check_under_read_password(monkeypatch, chain_db, "h1", 1)
 
 
-def test_checker_unreachable_database_raises_without_the_dsn(monkeypatch, chain_db, capfd):
-    closed_port = _conninfo(chain_db.read, host="127.0.0.1", port="1")
-    monkeypatch.setenv("FACTORY_EVENTS_READ_DSN", closed_port)
+def test_checker_unreachable_database_raises_without_the_password(
+    monkeypatch, chain_db, capfd, caplog
+):
+    with pytest.raises(ChainUnavailable) as info:
+        _check_under_read_password(monkeypatch, chain_db, "h1", 1, FACTORY_EVENTS_DB_PORT="1")
+    captured = capfd.readouterr()
+    _assert_no_password(str(info.value), captured.out, captured.err, caplog.text)
+
+
+def test_checker_refused_password_raises_without_it(monkeypatch, chain_db, capfd):
+    _approve(monkeypatch, chain_db, "h1", 1)
+
+    with pytest.raises(ChainUnavailable) as info:
+        _check_under_read_password(monkeypatch, chain_db, "h1", 1, password=APPEND_PASSWORD)
+    captured = capfd.readouterr()
+    _assert_no_password(str(info.value), captured.out, captured.err)
+
+
+def test_checker_missing_setting_refuses_by_name(monkeypatch, chain_db, capfd):
+    _approve(monkeypatch, chain_db, "h1", 1)
+    _set_role(monkeypatch, chain_db, "FACTORY_EVENTS_READ_PASSWORD", READ_PASSWORD)
+    monkeypatch.delenv("FACTORY_EVENTS_DB_HOST")
 
     with pytest.raises(ChainUnavailable) as info:
         default_chain_checker("h1", 1)
     captured = capfd.readouterr()
-    assert ROLE_PASSWORD not in str(info.value) + captured.out + captured.err
+    assert "FACTORY_EVENTS_DB_HOST is not set" in captured.err  # factory_events.chain's refusal
+    _assert_no_password(str(info.value), captured.out, captured.err)
 
 
-def test_checker_refused_role_raises(monkeypatch, chain_db):
-    monkeypatch.setenv("FACTORY_EVENTS_READ_DSN", _conninfo(chain_db.read, password="wrong"))
-
-    with pytest.raises(ChainUnavailable):
-        default_chain_checker("h1", 1)
-
-
-def test_read_dsn_set_never_reads_the_file(monkeypatch, chain_db, tmp_path):
+def test_read_password_set_never_reads_the_file(monkeypatch, chain_db, tmp_path):
     # The file chain holds the approval (a real FE-1 file append); the database doesn't.
     FactoryEventsEmitter().emit(
         "package.approved", "intent-packages-it", {"approved_hash": "h1", "revision": 1}
     )
     assert (tmp_path / "factory" / "events.jsonl").is_file()
-    assert default_chain_checker("h1", 1) is True  # neither DSN set: the file answers
+    assert default_chain_checker("h1", 1) is True  # no password set: the file answers
 
-    assert _check_under_read_dsn(monkeypatch, chain_db, "h1", 1) is False
+    assert _check_under_read_password(monkeypatch, chain_db, "h1", 1) is False
 
 
-def test_failed_append_raises_emit_error_without_the_dsn(monkeypatch, chain_db):
-    # The read role can't INSERT: the append is refused, writes nothing, and raises.
+def test_failed_append_raises_emit_error_without_the_password(monkeypatch, chain_db):
+    # The append role refuses the read role's password: nothing is written, and it raises.
     with pytest.raises(EmitError) as info:
-        _emit(monkeypatch, chain_db.read, "package.approved", {"approved_hash": "h1"})
-    assert ROLE_PASSWORD not in str(info.value)
-    assert _event_ids(chain_db.read) == []
+        _emit(monkeypatch, chain_db, "package.approved", {"approved_hash": "h1"}, READ_PASSWORD)
+    _assert_no_password(str(info.value))
+    assert _event_ids(chain_db) == []
