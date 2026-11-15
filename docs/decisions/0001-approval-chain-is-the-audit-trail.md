@@ -27,7 +27,7 @@ An approval is proven by two things, and `verify_approval` checks both:
 1. **The ledger.** `lineage.yaml` holds an approval entry whose `approved_hash` equals the
    hash of the package as it stands now, from a recognised approver.
 2. **The chain.** The tamper-evident factory-events chain holds a `package.approved` event
-   for that exact hash and revision, and the chain verifies (`factory_events verify`).
+   for that exact hash and revision, and the chain verifies.
 
 Neither check reads git. The recorded `commit` is provenance: it says where the approver was
 standing. `verify_approval` does not read it, and nothing else may treat it as proof. An
@@ -53,12 +53,13 @@ approval commit that is not an ancestor of `main` is therefore not a defect.
 - To answer "was this revision approved?", run
   `PYTHONPATH=src python3 -m intent_packages verify-approval <path>`. Do not reason about git
   history.
-- The factory-events chain (`$FACTORY_EVENTS_HOME/events.jsonl`, default
-  `~/.factory/events.jsonl`) is the record that must be preserved and backed up. A lost chain
-  cannot be rebuilt from git. When `FACTORY_EVENTS_READ_PASSWORD` is set, the chain is the
-  Postgres chain of record instead (orchestrator ADR-0055 amendment 24): `verify-approval` walks
-  it and matches the approval in one read-only snapshot, never reads the file, and fails closed
-  on any database error. The emitter appends there when `FACTORY_EVENTS_APPEND_PASSWORD` is set.
-  Each password connects with the non-secret `FACTORY_EVENTS_DB_HOST`, `FACTORY_EVENTS_DB_PORT`
-  and `FACTORY_EVENTS_DB_NAME` settings; the whole-DSN variables these replaced refuse by name
-  (amendment 26).
+- The factory-events chain of record is the Postgres database (orchestrator ADR-0055
+  amendment 24), and it is the record that must be preserved and backed up. A lost chain cannot
+  be rebuilt from git. `verify-approval` reads it under `FACTORY_EVENTS_READ_PASSWORD`, walking
+  the chain and matching the approval in one read-only snapshot, and fails closed on any database
+  error. Without the read password it fails closed too: it never reads a file. The emitter
+  appends under `FACTORY_EVENTS_APPEND_PASSWORD`. Each password connects with the non-secret
+  `FACTORY_EVENTS_DB_HOST`, `FACTORY_EVENTS_DB_PORT` and `FACTORY_EVENTS_DB_NAME` settings; the
+  whole-DSN variables these replaced refuse by name (amendment 26). The sealed
+  `~/.factory/events.sealed.jsonl` is the chain's pre-cut-over copy, imported at the FE-5
+  cut-over; it is history, and nothing reads it as proof.
