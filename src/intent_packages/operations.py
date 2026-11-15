@@ -9,7 +9,6 @@ blocks the operation, it just records `event_id: null`.
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import subprocess
@@ -46,10 +45,10 @@ class OperationError(Exception):
 
 class ChainUnavailable(Exception):
     """Raised by a `chain_checker` when the factory-events chain cannot be
-    consulted at all (store or security-standards checkout missing,
-    subprocess failure, chain integrity check failed, a retired chain
-    variable set, or under the read password any database error). `verify_approval`
-    catches this and fails closed rather than letting it bubble up.
+    consulted at all (security-standards checkout missing, no read password,
+    a retired chain variable set, or any reader or database error).
+    `verify_approval` catches this and fails closed rather than letting it
+    bubble up.
     """
 
 
@@ -426,76 +425,6 @@ def do_supersede(
     set_status_in_file(pkg_dir, "superseded")
 
 
-def _factory_events_file() -> Path:
-    """Locate the tamper-evident factory-events JSONL store.
-
-    Must resolve to the SAME path the `factory_events` store itself uses
-    (`factory_events.store.events_path()`: `$FACTORY_EVENTS_HOME/events.jsonl`,
-    defaulting to `~/.factory/events.jsonl`) — otherwise `_verify_chain_integrity`
-    (which shells `factory_events verify`, honoring `FACTORY_EVENTS_HOME`) and
-    this JSONL scan could read two different files (split-brain). There is no
-    separate override env var here; `FACTORY_EVENTS_HOME` is the only knob,
-    exactly as the store defines it.
-    """
-    home = Path(os.environ.get("FACTORY_EVENTS_HOME", str(Path.home() / ".factory")))
-    return home / "events.jsonl"
-
-
-def _verify_chain_integrity(sec_std_dir: Path) -> None:
-    """Run `factory_events verify`; raise `ChainUnavailable` unless it
-    reports the chain intact (exit 0)."""
-    try:
-        result = subprocess.run(
-            [_events_python(sec_std_dir), "-m", "factory_events", "verify"],
-            capture_output=True,
-            text=True,
-            env=_events_env(sec_std_dir),
-            timeout=_CHAIN_VERIFY_TIMEOUT_SECONDS,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ChainUnavailable(f"factory_events verify failed to run: {exc}") from exc
-
-    if result.returncode != 0:
-        raise ChainUnavailable(
-            f"factory_events verify: chain integrity check failed: {result.stderr}"
-        )
-
-
-def _events_file_has_matching_approval(approved_hash: str, revision: int) -> bool:
-    """Scan the factory-events JSONL store for a `package.approved` event
-    carrying this exact `approved_hash` + `revision`.
-
-    Each line is a factory-event record with the real fields nested under a
-    top-level `"event"` key (defensively, an unwrapped line is also tolerated),
-    and `evidence` is a LIST of records — the approval fields can live in any
-    item, so every item is scanned rather than assuming `evidence[0]`.
-    """
-    events_file = _factory_events_file()
-    if not events_file.is_file():
-        raise ChainUnavailable(f"factory events file not found: {events_file}")
-
-    try:
-        text = events_file.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise ChainUnavailable(f"could not read factory events file: {exc}") from exc
-
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        ev = obj.get("event", obj)
-        if ev.get("action") != "package.approved":
-            continue
-        if chain_db.evidence_matches(ev.get("evidence"), approved_hash, revision):
-            return True
-
-    return False
-
-
 def _database_chain_has_matching_approval(
     sec_std_dir: Path, approved_hash: str, revision: int
 ) -> bool:
@@ -531,46 +460,33 @@ def _database_chain_has_matching_approval(
 def default_chain_checker(approved_hash: str, revision: int) -> bool:
     """Default `chain_checker` for `verify_approval` (spec §4.4).
 
-    True iff the tamper-evident factory-events chain verifies AND contains a
-    `package.approved` event whose evidence carries this exact
-    `approved_hash` + `revision`. Raises `ChainUnavailable` — never returns
-    False silently — for anything that stops the chain from being consulted
-    at all: security-standards/registry missing, the `factory_events verify`
-    subprocess failing to run or reporting a broken chain (nonzero exit), or
-    the events file being missing/unreadable. A verified chain that simply
-    has no matching event is a genuine "not approved" answer, so that (and
-    only that) path returns False rather than raising.
+    The chain is the database (ADR-0055 amendment 24 item 8). True iff the chain verifies and
+    holds a `package.approved` event whose evidence carries this exact `approved_hash` +
+    `revision`; the walk and the match run in one read-only snapshot under
+    `FACTORY_EVENTS_READ_PASSWORD`. A verified chain with no matching event is the one genuine
+    "not approved" answer, so that path alone returns False.
 
-    With `FACTORY_EVENTS_READ_PASSWORD` set, the chain is the database (ADR-0055 amendment
-    24 item 8): the walk and the match run in one read-only snapshot, any error raises
-    `ChainUnavailable`, and the file is never read. With only the append password set, the
-    shell is in database mode without a read credential, so it raises rather than verify the
-    database and match the file. A set retired whole-DSN variable raises by name (amendment
-    26 item 5). With none of these set, the file chain is used as before.
+    Anything that stops the chain from being consulted raises `ChainUnavailable`, never a
+    silent False: security-standards missing, a set retired whole-DSN variable (amendment 26
+    item 5), no read password (the append password can't read), or any reader failure. No path
+    reads `events.jsonl`: the sealed file is the chain's pre-cut-over copy, not a fallback.
     """
     try:
         sec_std_dir = _security_standards_dir()
     except EmitError as exc:
         raise ChainUnavailable(f"cannot locate security-standards: {exc}") from exc
 
-    # The read password selects the database chain; the append password alone means a
-    # database-mode shell with no read credential; a retired variable refuses rather than fall
-    # to the file without a word (ADR-0055 amendment 26 items 4 and 5).
     for name in RETIRED_CHAIN_VARS:
         if os.environ.get(name):
             raise ChainUnavailable(
                 f"{name} is retired: set the role's password and the DB settings"
             )
-    if os.environ.get(READ_PASSWORD_VAR):
-        return _database_chain_has_matching_approval(sec_std_dir, approved_hash, revision)
-    if os.environ.get(APPEND_PASSWORD_VAR):
+    if not os.environ.get(READ_PASSWORD_VAR):
         raise ChainUnavailable(
-            f"{APPEND_PASSWORD_VAR} is set but {READ_PASSWORD_VAR} isn't: "
-            "refusing to read the file chain"
+            f"{READ_PASSWORD_VAR} isn't set: the chain is the database, and only the read "
+            f"role can read it ({APPEND_PASSWORD_VAR} can't)"
         )
-
-    _verify_chain_integrity(sec_std_dir)
-    return _events_file_has_matching_approval(approved_hash, revision)
+    return _database_chain_has_matching_approval(sec_std_dir, approved_hash, revision)
 
 
 def verify_approval(

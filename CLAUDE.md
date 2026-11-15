@@ -19,16 +19,18 @@ PYTHONPATH=src python3 -m intent_packages <cmd>   # validate | hash | transition
 - Approval binds to an immutable revision and is verified against a tamper-evident,
   hash-chained factory-events store (a YAML ledger alone is forgeable and not
   sufficient proof).
-- With `FACTORY_EVENTS_READ_PASSWORD` set, `default_chain_checker` reads only the database
-  chain, through `intent_packages.chain_db` run under security-standards' `.venv-events`
-  interpreter (it holds psycopg; this repo's runtime doesn't). `chain_db` connects as the read
-  role through `factory_events.chain.connection_params`, from the password plus
-  `FACTORY_EVENTS_DB_HOST`, `FACTORY_EVENTS_DB_PORT` and `FACTORY_EVENTS_DB_NAME`; a missing
-  setting refuses by name. With only `FACTORY_EVENTS_APPEND_PASSWORD` set it raises
-  `ChainUnavailable` instead of reading the file, and so does any set retired whole-DSN variable
-  (`FACTORY_EVENTS_APPEND_DSN`, `_READ_DSN`, `_IMPORT_DSN`; orchestrator ADR-0055 amendment 26).
-  The database tests run with
-  `SECURITY_STANDARDS_DIR=<checkout with FE-1> scripts/check-integration.sh`, not `make check`.
+- The approval chain is the database; there is no file mode. `default_chain_checker` reads it
+  only under `FACTORY_EVENTS_READ_PASSWORD`, through `intent_packages.chain_db` run under
+  security-standards' `.venv-events` interpreter (it holds psycopg; this repo's runtime doesn't).
+  `chain_db` connects as the read role through `factory_events.chain.connection_params`, from the
+  password plus `FACTORY_EVENTS_DB_HOST`, `FACTORY_EVENTS_DB_PORT` and `FACTORY_EVENTS_DB_NAME`;
+  a missing setting refuses by name. Without the read password (the append password alone
+  included) it raises `ChainUnavailable` and opens no `events.jsonl`, and so does any set retired
+  whole-DSN variable (`FACTORY_EVENTS_APPEND_DSN`, `_READ_DSN`, `_IMPORT_DSN`; orchestrator
+  ADR-0055 amendment 26). `verify_approval` turns every `ChainUnavailable` into False, so the CLI
+  exits 1 with no message. The database tests run with
+  `SECURITY_STANDARDS_DIR=<checkout with connection_params> scripts/check-integration.sh`, not
+  `make check`; a checkout older than amendment 26 fails 7 of them.
 - Never merge — PRs wait for Devon.
 - The `factory` CLI speaks **HTTP** to the orchestrator API for every API call
   (`intent_packages/factory/api.py::OrchestratorApi`), and shells out to the `orchestrator` CLI

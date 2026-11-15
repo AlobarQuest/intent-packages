@@ -109,116 +109,57 @@ def test_verify_approval_false_on_hash_mismatch_after_edit(
     assert verify_approval(valid_package, ledger_only=True) is False
 
 
-def test_default_chain_checker_true_when_event_matches(tmp_path, monkeypatch, fake_registry):
-    events_home = tmp_path / "factory-home"
-    events_home.mkdir()
-    events_file = events_home / "events.jsonl"
-    events_file.write_text(
-        json.dumps(
-            {
-                "event": {
-                    "action": "package.approved",
-                    "actor": "devon",
-                    "evidence": [
-                        {
-                            "approved_hash": "deadbeef",
-                            "approver": "devon",
-                            "commit": "abc1234",
-                            "revision": 1,
-                        }
-                    ],
-                    "source": {"ref": "ws-2.2-domain-profiles", "system": "direct"},
-                    "schema": "factory-event/v1",
-                    "event_id": "evt-1",
-                },
-                "hash": "hash1",
-                "prev_hash": "hash0",
-                "seq": 1,
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+def _stub_database_chain(monkeypatch, fake_registry, answer) -> list[tuple]:
+    """Read-password mode with `_database_chain_has_matching_approval` stubbed: the real
+    reader's subprocess is covered in test_chain_checker_database_mode.py and its database in
+    test_chain_db_integration.py."""
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(events_home))
-    monkeypatch.setattr(
-        "intent_packages.operations.subprocess.run",
-        lambda *a, **k: subprocess.CompletedProcess(args=a, returncode=0, stdout="", stderr=""),
-    )
+    monkeypatch.setenv("FACTORY_EVENTS_READ_PASSWORD", "READ-PW-placeholder")
+    calls: list[tuple] = []
 
-    assert default_chain_checker("deadbeef", 1) is True
+    def stub(sec_std_dir, approved_hash, revision):
+        calls.append((sec_std_dir, approved_hash, revision))
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr("intent_packages.operations._database_chain_has_matching_approval", stub)
+    return calls
 
 
-def test_default_chain_checker_no_matching_event_returns_false(
-    tmp_path, monkeypatch, fake_registry
+@pytest.mark.parametrize("answer", [True, False])
+def test_default_chain_checker_returns_the_database_answer(monkeypatch, fake_registry, answer):
+    calls = _stub_database_chain(monkeypatch, fake_registry, answer)
+
+    assert default_chain_checker("deadbeef", 1) is answer
+    assert calls == [(fake_registry, "deadbeef", 1)]
+
+
+def test_default_chain_checker_database_failure_raises(monkeypatch, fake_registry):
+    _stub_database_chain(monkeypatch, fake_registry, ChainUnavailable("chain tampered"))
+
+    with pytest.raises(ChainUnavailable, match="chain tampered"):
+        default_chain_checker("deadbeef", 1)
+
+
+def test_verify_approval_default_checker_false_with_no_chain_variable(
+    valid_package, tmp_path, monkeypatch, fake_registry
 ):
-    events_home = tmp_path / "factory-home"
-    events_home.mkdir()
-    events_file = events_home / "events.jsonl"
-    events_file.write_text(
-        json.dumps(
-            {
-                "event": {
-                    "action": "package.approved",
-                    "actor": "devon",
-                    "evidence": [
-                        {
-                            "approved_hash": "some-other-hash",
-                            "approver": "devon",
-                            "commit": "abc1234",
-                            "revision": 1,
-                        }
-                    ],
-                    "source": {"ref": "ws-2.2-domain-profiles", "system": "direct"},
-                    "schema": "factory-event/v1",
-                    "event_id": "evt-2",
-                },
-                "hash": "hash2",
-                "prev_hash": "hash1",
-                "seq": 2,
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(events_home))
+    # A matching approval in an events file is never consulted (FE-5 R-IP).
+    _approve(valid_package, monkeypatch, fake_registry)
+    home = tmp_path / "factory-home"
+    home.mkdir()
+    h = canonical.package_hash(loader.load_package(valid_package))
+    event = {"action": "package.approved", "evidence": [{"approved_hash": h, "revision": 1}]}
+    (home / "events.jsonl").write_text(json.dumps({"seq": 1, "event": event}) + "\n")
+    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(home))
+    monkeypatch.delenv("FACTORY_EVENTS_READ_PASSWORD", raising=False)
     monkeypatch.setattr(
         "intent_packages.operations.subprocess.run",
         lambda *a, **k: subprocess.CompletedProcess(args=a, returncode=0, stdout="", stderr=""),
     )
 
-    assert default_chain_checker("deadbeef", 1) is False
-
-
-def test_default_chain_checker_missing_events_file_raises(tmp_path, monkeypatch, fake_registry):
-    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(tmp_path / "empty-home"))
-    monkeypatch.setattr(
-        "intent_packages.operations.subprocess.run",
-        lambda *a, **k: subprocess.CompletedProcess(args=a, returncode=0, stdout="", stderr=""),
-    )
-
-    with pytest.raises(ChainUnavailable):
-        default_chain_checker("deadbeef", 1)
-
-
-def test_default_chain_checker_chain_verify_failure_raises(tmp_path, monkeypatch, fake_registry):
-    events_home = tmp_path / "factory-home"
-    events_home.mkdir()
-    events_file = events_home / "events.jsonl"
-    events_file.write_text("", encoding="utf-8")
-    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(events_home))
-    monkeypatch.setattr(
-        "intent_packages.operations.subprocess.run",
-        lambda *a, **k: subprocess.CompletedProcess(
-            args=a, returncode=1, stdout="", stderr="chain tampered"
-        ),
-    )
-
-    with pytest.raises(ChainUnavailable):
-        default_chain_checker("deadbeef", 1)
+    assert verify_approval(valid_package) is False
 
 
 def test_default_chain_checker_no_registry_raises(tmp_path, monkeypatch):

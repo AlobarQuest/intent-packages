@@ -254,14 +254,15 @@ def test_checker_missing_setting_refuses_by_name(monkeypatch, chain_db, capfd):
     _assert_no_password(str(info.value), captured.out, captured.err)
 
 
-def test_read_password_set_never_reads_the_file(monkeypatch, chain_db, tmp_path):
-    # The file chain holds the approval (a real FE-1 file append); the database doesn't.
-    FactoryEventsEmitter().emit(
-        "package.approved", "intent-packages-it", {"approved_hash": "h1", "revision": 1}
-    )
-    assert (tmp_path / "factory" / "events.jsonl").is_file()
-    assert default_chain_checker("h1", 1) is True  # no password set: the file answers
+def test_the_file_never_answers_with_or_without_the_read_password(monkeypatch, chain_db, tmp_path):
+    # A file chain holds the approval; the database doesn't (FE-5 R-IP: no file mode).
+    home = tmp_path / "factory"
+    home.mkdir()
+    event = {"action": "package.approved", "evidence": [{"approved_hash": "h1", "revision": 1}]}
+    (home / "events.jsonl").write_text(json.dumps({"seq": 1, "event": event}) + "\n")
 
+    with pytest.raises(ChainUnavailable, match="FACTORY_EVENTS_READ_PASSWORD isn't set"):
+        default_chain_checker("h1", 1)
     assert _check_under_read_password(monkeypatch, chain_db, "h1", 1) is False
 
 

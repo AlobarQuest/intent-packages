@@ -3,6 +3,7 @@ amendments 24 and 26), with `subprocess.run` faked. The real database paths are 
 test_chain_db_integration.py."""
 
 import contextlib
+import io
 import json
 import os
 import subprocess
@@ -120,7 +121,10 @@ def test_append_password_without_read_password_raises_and_reads_nothing(monkeypa
     monkeypatch.setenv("FACTORY_EVENTS_APPEND_PASSWORD", APPEND_PASSWORD)
     calls = _fake_reader(monkeypatch, 0)
 
-    with pytest.raises(ChainUnavailable, match="refusing to read the file chain") as info:
+    with pytest.raises(
+        ChainUnavailable,
+        match="FACTORY_EVENTS_READ_PASSWORD isn't set.*FACTORY_EVENTS_APPEND_PASSWORD",
+    ) as info:
         default_chain_checker("deadbeef", 1)
     _assert_no_secret(str(info.value))
     assert calls == []
@@ -131,7 +135,7 @@ def test_append_password_without_read_password_raises_and_reads_nothing(monkeypa
 def test_a_set_retired_variable_refuses_by_name_and_reads_nothing(
     monkeypatch, read_mode, retired, with_password
 ):
-    if not with_password:  # without a password the file would answer True: it must not
+    if not with_password:  # the retired variable, not the missing password, must refuse
         monkeypatch.delenv("FACTORY_EVENTS_READ_PASSWORD")
     monkeypatch.setenv(retired, RETIRED_VALUE)
     calls = _fake_reader(monkeypatch, chain_db.MATCH)
@@ -142,16 +146,31 @@ def test_a_set_retired_variable_refuses_by_name_and_reads_nothing(
     assert calls == []
 
 
-def test_neither_password_keeps_the_file_path(tmp_path, monkeypatch, fake_registry):
+def test_no_chain_variable_refuses_and_opens_no_file(tmp_path, monkeypatch, fake_registry):
+    # The file chain holds the approval, so any file read would answer True (FE-5 R-IP).
     monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
-    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(tmp_path / "factory-home"))
-    _matching_events_file(tmp_path / "factory-home")
+    home = tmp_path / "factory-home"
+    monkeypatch.setenv("FACTORY_EVENTS_HOME", str(home))
+    _matching_events_file(home)
+    for name in ("FACTORY_EVENTS_READ_PASSWORD", "FACTORY_EVENTS_APPEND_PASSWORD", *RETIRED):
+        monkeypatch.delenv(name, raising=False)
     _set_settings(monkeypatch)  # the settings alone select nothing
     calls = _fake_reader(monkeypatch, 0)
+    opened: list[str] = []
+    real_open = io.open
 
-    assert default_chain_checker("deadbeef", 1) is True
-    [call] = calls
-    assert call["argv"][1:] == ["-m", "factory_events", "verify"]
+    def spy_open(file, *args, **kwargs):
+        if str(file).startswith(str(home)):
+            opened.append(str(file))
+        return real_open(file, *args, **kwargs)
+
+    monkeypatch.setattr(io, "open", spy_open)
+    monkeypatch.setattr("builtins.open", spy_open)
+
+    with pytest.raises(ChainUnavailable, match="FACTORY_EVENTS_READ_PASSWORD isn't set"):
+        default_chain_checker("deadbeef", 1)
+    assert calls == []
+    assert opened == []
 
 
 # --- the reader's own reporting, with a fake factory_events.chain -----------------------
