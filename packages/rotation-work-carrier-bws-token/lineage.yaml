@@ -1,5 +1,5 @@
 package_id: rotation-work-carrier-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: a7396c054a57a8aa6e72d2c1f518609262061192390b6e596335adaefb19e861
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-17T00:13:34.999355+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: a7396c054a57a8aa6e72d2c1f518609262061192390b6e596335adaefb19e861
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-17T00:13:57.939301+00:00'
+  commit: 5f1590baab4773413700e9fc4c98bc4e21c23924
+  event_id: evt-28f58734287d41418ec79ad576de569c
 grants: []
