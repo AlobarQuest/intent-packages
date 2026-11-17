@@ -1,0 +1,17 @@
+package_id: rotation-work-carrier-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: f248c5f75722647caa22d42de3bc8409727c741a1de8e01ada8f1348af5519c5
+  created_at: '2026-11-17T13:19:29Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-17T13:19:29.663916+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-17T13:19:29.663916+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
