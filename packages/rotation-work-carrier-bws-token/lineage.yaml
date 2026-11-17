@@ -1,0 +1,17 @@
+package_id: rotation-work-carrier-bws-token
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: a7396c054a57a8aa6e72d2c1f518609262061192390b6e596335adaefb19e861
+  created_at: '2026-11-17T00:13:34Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-17T00:13:34.999355+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-17T00:13:34.999355+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
