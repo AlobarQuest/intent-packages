@@ -1,5 +1,5 @@
 package_id: rotation-work-carrier-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: f248c5f75722647caa22d42de3bc8409727c741a1de8e01ada8f1348af5519c5
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-17T13:19:29.663916+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: f248c5f75722647caa22d42de3bc8409727c741a1de8e01ada8f1348af5519c5
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-17T13:19:48.715945+00:00'
+  commit: 4fbeabf3b5ec53fb8b761dc1620812c46f9e7354
+  event_id: evt-2262dd97316342d3a1a5005694d0efeb
 grants: []
