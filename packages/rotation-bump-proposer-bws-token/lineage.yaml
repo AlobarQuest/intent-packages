@@ -1,5 +1,5 @@
 package_id: rotation-bump-proposer-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 096520a6d01b7ac4ad86a215ab899e4461df2325f51fe72f8c9154c7852c029e
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-18T23:05:06.947185+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 096520a6d01b7ac4ad86a215ab899e4461df2325f51fe72f8c9154c7852c029e
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-18T23:05:27.118653+00:00'
+  commit: 5ee5525a935f00c47be78ac4113afea7f597e7e9
+  event_id: evt-3a5e492f95044c65874f750907e92563
 grants: []
