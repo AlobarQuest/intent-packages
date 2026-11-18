@@ -1,0 +1,17 @@
+package_id: rotation-rotation-proposer-bws-token
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: bafb3fcf29798697991745187df6705c562c82e96bf8608bc98468d537e89c2c
+  created_at: '2026-11-18T23:05:08Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-18T23:05:09.327341+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-18T23:05:09.327341+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
