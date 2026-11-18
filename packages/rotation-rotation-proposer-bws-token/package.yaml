@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-rotation-proposer-bws-token
 title: Standing rotation of rotation-proposer-bws-token
 revision: 1
-status: ready_for_review
+status: approved
 created_by: rotation-proposer
 owner: devon
 created_at: '2026-11-18T23:05:08Z'
