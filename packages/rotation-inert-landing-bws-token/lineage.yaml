@@ -1,0 +1,17 @@
+package_id: rotation-inert-landing-bws-token
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 671740d316b7ea3208d4647e3dd02a2c771bfbce96d902d01fc96c5b931c1e14
+  created_at: '2026-11-19T19:40:26Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-19T19:40:28.553382+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-19T19:40:28.553382+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
