@@ -1,0 +1,17 @@
+package_id: rotation-rotation-proposer-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 2409fc61d9e2e81ba0361c8c02a0915f111107922ecaca07ca7b89463468c46d
+  created_at: '2026-11-19T00:54:35Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-19T00:54:35.626509+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-19T00:54:35.626509+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
