@@ -1,5 +1,5 @@
 package_id: rotation-rotation-proposer-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 2409fc61d9e2e81ba0361c8c02a0915f111107922ecaca07ca7b89463468c46d
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-19T00:54:35.626509+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 2409fc61d9e2e81ba0361c8c02a0915f111107922ecaca07ca7b89463468c46d
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-19T00:56:32.250260+00:00'
+  commit: 12036d2738ff02de1a7a4d26a4969ffd7486e928
+  event_id: evt-5471c52634934087bac813f9af3b991b
 grants: []
