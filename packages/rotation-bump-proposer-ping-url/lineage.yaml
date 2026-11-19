@@ -1,0 +1,17 @@
+package_id: rotation-bump-proposer-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 0cf284faca11594d1d120444d0d1ecb43e3a37942f8d37530a2c7d43d949d53d
+  created_at: '2026-11-19T00:54:32Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-19T00:54:33.204505+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-19T00:54:33.204505+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
