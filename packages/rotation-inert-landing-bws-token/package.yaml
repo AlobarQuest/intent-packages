@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-inert-landing-bws-token
 title: Standing rotation of inert-landing-bws-token
 revision: 1
-status: ready_for_review
+status: approved
 created_by: rotation-proposer
 owner: devon
 created_at: '2026-11-19T19:40:26Z'
