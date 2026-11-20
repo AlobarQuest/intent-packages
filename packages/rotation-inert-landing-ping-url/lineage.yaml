@@ -1,5 +1,5 @@
 package_id: rotation-inert-landing-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 1e3b3f7989cc2c65b5d0e7cb3fcedb11d13c41284e758e12e150337af4d42332
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-20T13:57:44.321410+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 1e3b3f7989cc2c65b5d0e7cb3fcedb11d13c41284e758e12e150337af4d42332
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-20T13:58:04.463538+00:00'
+  commit: de97ac0aab6a2a38310157c9b0ce1a5276e8654b
+  event_id: evt-85f8d00ddb6a422c81c46ac6381f6225
 grants: []
