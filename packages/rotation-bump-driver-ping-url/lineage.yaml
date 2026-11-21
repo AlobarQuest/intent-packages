@@ -1,5 +1,5 @@
 package_id: rotation-bump-driver-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 7c390a7904458b0b84a98153e2a5e21367eff9b6e63ffe330d258bdec6238f37
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-21T15:17:51.589137+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 7c390a7904458b0b84a98153e2a5e21367eff9b6e63ffe330d258bdec6238f37
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-21T15:18:11.523880+00:00'
+  commit: d2617a4f183d5827fac991fa8eaf55f5df3ab0ce
+  event_id: evt-9c226a8746b845ea904990d186b67339
 grants: []
