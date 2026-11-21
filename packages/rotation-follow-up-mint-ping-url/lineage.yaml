@@ -1,0 +1,17 @@
+package_id: rotation-follow-up-mint-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 71a5ae7791b27ecc01523016055c83d7f2554051e766f7946938c65286726006
+  created_at: '2026-11-21T22:31:38Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-21T22:31:40.877356+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-21T22:31:40.877356+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
