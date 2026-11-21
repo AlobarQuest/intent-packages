@@ -1,0 +1,17 @@
+package_id: rotation-bump-driver-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 7c390a7904458b0b84a98153e2a5e21367eff9b6e63ffe330d258bdec6238f37
+  created_at: '2026-11-21T15:17:49Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-21T15:17:51.589137+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-21T15:17:51.589137+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
