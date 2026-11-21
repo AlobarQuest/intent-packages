@@ -1,0 +1,17 @@
+package_id: rotation-estate-landing-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: d5d88503dc8eb632b20e569cd709183fdde8c74ebf3f944fb5d2bf6fdf97c79b
+  created_at: '2026-11-21T01:24:34Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-21T01:24:37.337207+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-21T01:24:37.337207+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
