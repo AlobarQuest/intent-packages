@@ -1,5 +1,5 @@
 package_id: rotation-estate-landing-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: d5d88503dc8eb632b20e569cd709183fdde8c74ebf3f944fb5d2bf6fdf97c79b
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-21T01:24:37.337207+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: d5d88503dc8eb632b20e569cd709183fdde8c74ebf3f944fb5d2bf6fdf97c79b
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-21T01:24:57.283903+00:00'
+  commit: 7844f70dcaf5031576df56fb09b099dbafe2df64
+  event_id: evt-5ca60e1ef8264951a878113e79fe207e
 grants: []
