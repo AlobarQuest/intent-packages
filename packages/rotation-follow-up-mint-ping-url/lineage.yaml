@@ -1,5 +1,5 @@
 package_id: rotation-follow-up-mint-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 71a5ae7791b27ecc01523016055c83d7f2554051e766f7946938c65286726006
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-21T22:31:40.877356+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 71a5ae7791b27ecc01523016055c83d7f2554051e766f7946938c65286726006
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-21T22:32:00.276060+00:00'
+  commit: 521a6f9aa74aecf3b4443a464553906e398b7070
+  event_id: evt-f388fc9ba55a4d0cb36a2e08007422bb
 grants: []
