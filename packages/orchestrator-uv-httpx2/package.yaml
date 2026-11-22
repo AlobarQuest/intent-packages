@@ -1,7 +1,7 @@
 schema_version: 1
 package_id: orchestrator-uv-httpx2
 title: Adopt the proposed uv update of httpx2 in orchestrator
-revision: 1
+revision: 2
 status: approved
 created_by: create-standing
 owner: devon
@@ -13,8 +13,8 @@ profile: dependency-update
 profile_fields:
   target_repo: AlobarQuest/orchestrator
   package: httpx2
-  from_version: 2.13.1
-  to_version: 2.16.0
+  from_version: '2.13.1'
+  to_version: '2.16.2'
   standing: true
 outcome:
   what: orchestrator's httpx2 dependency moves to the version named in profile_fields.to_version.
