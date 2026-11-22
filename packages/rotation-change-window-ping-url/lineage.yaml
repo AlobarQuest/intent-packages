@@ -1,0 +1,17 @@
+package_id: rotation-change-window-ping-url
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 7f65d415e69f4b164a7512b31f482dd2fd1564e5599f69ea967a9709283d9ff6
+  created_at: '2026-11-22T17:09:32Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-22T17:09:35.166462+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-22T17:09:35.166462+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
