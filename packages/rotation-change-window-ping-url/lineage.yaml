@@ -1,5 +1,5 @@
 package_id: rotation-change-window-ping-url
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 7f65d415e69f4b164a7512b31f482dd2fd1564e5599f69ea967a9709283d9ff6
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-22T17:09:35.166462+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 7f65d415e69f4b164a7512b31f482dd2fd1564e5599f69ea967a9709283d9ff6
+  approver: policy:non-software-operational@v4
+  approved_at: '2026-11-22T17:09:58.472987+00:00'
+  commit: b9e843a8c2e00f38d1cdfd146f78bb51aa76b666
+  event_id: evt-e68a2253ac424d41a53cccebfd624320
 grants: []
