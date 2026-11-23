@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-rotation-decomposer-bws-token
 title: Standing rotation of rotation-decomposer-bws-token
-revision: 1
-status: approved
+revision: 2
+status: ready_for_review
 created_by: rotation-proposer
 owner: devon
 created_at: '2026-11-13T21:12:22Z'
@@ -15,27 +15,28 @@ profile_fields:
   owner: devon
   operating_procedure: 'The rotation executor (orchestrator src/rotation_worker/)
     works this rotation with its bws-lane-token adapter and the plan derived from
-    the type''s capabilities and this credential''s registry row: units store. A person''s
-    acts, each announced by an alert and observed by the executor: mint. Evidence
-    carries fingerprints, probe status codes and notes only.'
+    the type''s capabilities and this credential''s registry row: units store, verify,
+    confirm. A person''s acts, each announced by an alert and observed by the executor:
+    mint, revoke. Evidence carries fingerprints, probe status codes and notes only.'
   external_systems:
   - rotation-decomposer-bws-token, the credential's provider
   standing: true
   credential_id: rotation-decomposer-bws-token
-  occurrence: 2026-11-13-requested
+  occurrence: '2026-11-23-requested'
   destinations:
-  - bws-secret uuid="623e61a6-d613-4e89-9626-b501013afbeb"
-  - coolify-env instance="prod" resource_type="service" uuid="hcghb8xli5qqo6kl8enuu080"
-    key="ROTATION_DECOMPOSER_BWS_ACCESS_TOKEN" redeploy=false
-  - provider name="bws-lane-token"
+  - 'bws-secret uuid="623e61a6-d613-4e89-9626-b501013afbeb"'
+  - 'coolify-env instance="prod" resource_type="service" uuid="hcghb8xli5qqo6kl8enuu080" key="ROTATION_DECOMPOSER_BWS_ACCESS_TOKEN" redeploy=false'
+  - 'provider name="bws-lane-token"'
 outcome:
-  what: 'rotation-decomposer-bws-token (rotation-decomposer-bws-token) is issued:
-    its keeper and every destination the registry names hold the new value.'
-  why: The credential is due for rotation (2026-11-13-requested), and the registry
+  what: rotation-decomposer-bws-token (rotation-decomposer-bws-token) is replaced
+    by a new value, every destination the registry names holds it, and the old value
+    is proved dead.
+  why: The credential is due for rotation (2026-11-23-requested), and the registry
     hands its rotation to the SDS.
   beneficiary: Devon, whose credentials the SDS rotates.
   success_signal: Every unit completes, the keeper holds a value different from the
-    one it started with and infraops reports no rotation finding for rotation-decomposer-bws-token.
+    one it started with, the old value is refused, and infraops reports no rotation
+    finding for rotation-decomposer-bws-token.
 scope:
   included:
   - The bws-lane-token plan's units, worked by the rotation executor.
@@ -85,8 +86,7 @@ acceptance:
     rotation executor.'
   approver: devon
 - id: AC-002
-  condition: The executor read the empty marker in the keeper before writing it, and
-    the keeper reads back the new value; nothing is quarantined.
+  condition: The old value is quarantined and the keeper reads back the new one.
   evidence_type: external_attestation
   evidence: 'external: the store step''s rotation-step/1 evidence, filed by the rotation
     executor.'
@@ -98,11 +98,18 @@ acceptance:
     rotation executor.'
   approver: devon
 - id: AC-004
-  condition: Every consumer the registry names holds the new value, and the staging
-    secret is deleted.
+  condition: Every consumer the registry names holds the new value, or has run on
+    it since it was stored.
   evidence_type: external_attestation
   evidence: 'external: the verify_consumers step''s rotation-step/1 evidence, filed
     by the rotation executor.'
+  approver: devon
+- id: AC-005
+  condition: The old value is refused and the new one answers live, each beside a
+    refused known-bad value, and the staging and quarantine secrets are deleted.
+  evidence_type: external_attestation
+  evidence: 'external: the confirm_dead step''s rotation-step/1 evidence, filed by
+    the rotation executor.'
   approver: devon
 authority:
   allowed:
@@ -121,7 +128,7 @@ authority:
     max_llm_calls: null
 deliverables:
   artifacts:
-  - An issued credential in its keeper, and terminal work units carrying each step's
+  - A rotated credential in its keeper, and terminal work units carrying each step's
     evidence.
   destination: the production ledger
   recipient: devon
@@ -147,12 +154,12 @@ risk:
   failure_modes:
   - A contract refusal fails a unit partway; the executor resumes from its store on
     a retry after a requeue.
-  max_impact: A destination holds no value it can use until the issue completes; nothing
-    is revoked, because no value was there before.
+  max_impact: A destination holds a value it can't use until the rotation completes
+    or is undone; the old value stays valid until it is revoked.
   stop_conditions:
   - A value appears anywhere it should not.
-  rollback: 'Nothing is revoked, so nothing needs restoring: until store the keeper
-    holds the empty marker, and after it recovery is forward, with a new value.'
+  rollback: 'Before the revoke the old value stays valid and is quarantined; after
+    it, the recovery is forward: a new value and the rotation run again.'
   escalation_target: devon
 verification:
   independent_review:

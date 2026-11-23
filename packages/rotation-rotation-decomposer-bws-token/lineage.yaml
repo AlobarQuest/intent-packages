@@ -1,11 +1,16 @@
 package_id: rotation-rotation-decomposer-bws-token
-current_state: approved
+current_state: ready_for_review
 revisions:
 - revision: 1
   hash: 1e330f5aaefa8d120fd401b9af3ce4be2015af84b066f53d0d9b216fa2f8e5f4
   created_at: '2026-11-13T21:12:22Z'
   author: claude-code-interactive
   snapshotted_at: '2026-11-13T21:12:23.297500+00:00'
+- revision: 2
+  hash: a7e1dbe69091a7c8e41db23f2edcc2d8d902513f9744a7149833047fa720e9cb
+  created_at: '2026-11-23T16:05:17.674904+00:00'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-23T16:05:21.904780+00:00'
 transitions:
 - kind: transition
   from: draft
@@ -13,6 +18,18 @@ transitions:
   at: '2026-11-13T21:12:23.297500+00:00'
   actor: claude-code-interactive
   event_id: evt-928730990b5447738a7f1f0eb8fd8fcb
+- kind: revision
+  from: approved
+  to: draft
+  at: '2026-11-23T16:05:17.674904+00:00'
+  actor: claude-code-interactive
+  event_id: null
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-23T16:05:21.904780+00:00'
+  actor: claude-code-interactive
+  event_id: null
 approvals:
 - revision: 1
   approved_hash: 1e330f5aaefa8d120fd401b9af3ce4be2015af84b066f53d0d9b216fa2f8e5f4
