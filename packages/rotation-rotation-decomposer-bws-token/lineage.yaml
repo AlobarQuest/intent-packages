@@ -1,5 +1,5 @@
 package_id: rotation-rotation-decomposer-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 1e330f5aaefa8d120fd401b9af3ce4be2015af84b066f53d0d9b216fa2f8e5f4
@@ -37,4 +37,10 @@ approvals:
   approved_at: '2026-11-13T21:12:40.773663+00:00'
   commit: cb4cd6d5c4e181672a9182fb48b8f3c441599172
   event_id: evt-175a346ebe054b32b5ad48fd3a615ae7
+- revision: 2
+  approved_hash: a7e1dbe69091a7c8e41db23f2edcc2d8d902513f9744a7149833047fa720e9cb
+  approver: devon
+  approved_at: '2026-11-23T16:14:07.649205+00:00'
+  commit: 27c7a2e680271beb33e5c86a662e96da02229ee2
+  event_id: evt-3e1491a519b74eadb380765923e78c12
 grants: []
