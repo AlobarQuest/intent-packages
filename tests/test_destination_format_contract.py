@@ -16,7 +16,7 @@ import pytest
 from intent_packages.destination_format import BOOLEAN_FIELDS, IDENTITY_FIELDS, destination_error
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "rotation_destination_format.json"
-DESTINATION_FORMAT_SHA256 = "3c81cc3d22882598efa0486af4bf980f620f482243198ae1912f0134c0453f41"
+DESTINATION_FORMAT_SHA256 = "24f0db4325ea10b2ac435c49cd900545e80e558912c7485ce45f1587432d3539"
 FORMAT = json.loads(FIXTURE.read_text(encoding="utf-8"))
 
 
