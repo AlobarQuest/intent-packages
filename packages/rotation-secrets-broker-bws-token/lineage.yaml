@@ -1,0 +1,17 @@
+package_id: rotation-secrets-broker-bws-token
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: f311159a895a8de85bfec8476f137efca1cff4d2fa994ca4e0e182332c705fc4
+  created_at: '2026-11-27T18:42:13Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-27T18:42:15.863556+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-27T18:42:15.863556+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
