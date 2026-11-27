@@ -1,5 +1,5 @@
 package_id: rotation-secrets-broker-bws-token
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: f311159a895a8de85bfec8476f137efca1cff4d2fa994ca4e0e182332c705fc4
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-27T18:42:15.863556+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: f311159a895a8de85bfec8476f137efca1cff4d2fa994ca4e0e182332c705fc4
+  approver: devon
+  approved_at: '2026-11-27T20:11:42.027956+00:00'
+  commit: 39d6c6412dd0ac59a2aee27363a96fee55abd66d
+  event_id: evt-c8af50681a094cda94db484e25827d24
 grants: []
