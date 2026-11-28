@@ -1,5 +1,5 @@
 package_id: rotation-anthropic-change-window-key
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: f0e1a17539259e1508bc77230f2d4b3f8bce3fd348dadd49cfd16819ee09f587
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-28T14:23:53.198270+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: f0e1a17539259e1508bc77230f2d4b3f8bce3fd348dadd49cfd16819ee09f587
+  approver: devon
+  approved_at: '2026-11-28T15:15:37.411737+00:00'
+  commit: 54b4f818df4861861389958b2112c2f9b01e57d1
+  event_id: evt-3090b2b0a37b4c18943eb921fd6559e4
 grants: []
