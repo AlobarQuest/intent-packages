@@ -39,6 +39,15 @@ no ``human_review`` criterion. It needs the lineage, so :meth:`ApprovalPolicy.re
 it, and a missing or unreadable lineage is a refusal. The orchestrator re-renders the package from
 the registry; this module can't read the registry, so it checks only the shape it can see.
 
+**Schema 5 lets the rotation grant cover a reissue** (orchestrator ADR-0055 amendment 39, D-88 A).
+A grant that carries ``reissue_types`` also withholds its objections from revision 2 or later of a
+standing package whose provider is one of those types: revision 1 approved by a person on
+``reissue_revision_1_approvers``, the tip unapproved, ``created_by`` one of
+``reissue_created_by``, every destination of a kind the type allows, an authority equal to one of
+the type's sets, and no ``human_review`` criterion. ``types`` and ``reissue_types`` are separate
+maps, each read by one branch, so a reissue type's revision 1 still refuses. A grant without
+``reissue_types`` (every schema-4 document) refuses every reissue as it always did.
+
 **THE SAME LITERAL IS SPELLED IN THE ORCHESTRATOR**
 (``orchestrator.package_sources``), which re-verifies the approval before an intake and
 which imports nothing from this repository. Both sides carry a test naming the shape, so
@@ -70,13 +79,14 @@ POLICY_APPROVER_RE: Final = re.compile(r"^policy:([a-z0-9][a-z0-9-]*)@v([1-9][0-
 # The versions this loader understands. An exact set, never a floor: an older process
 # meeting a newer document would silently ignore whatever narrowing the new version
 # introduced, which is the permissive reading of a version skew.
-SUPPORTED_SCHEMA_VERSIONS: Final[frozenset[int]] = frozenset({1, 2, 3, 4})
+SUPPORTED_SCHEMA_VERSIONS: Final[frozenset[int]] = frozenset({1, 2, 3, 4, 5})
 
 # Schema 2 replaces a grant's hand-kept `target_repositories` with `targets_from`, which names a
 # service in the SDS member record. A document at schema 1 must still carry the list, and a
 # document at schema 2 must not: each version has exactly one source for the targets. Schema 3
 # keeps `targets_from` and changes the reach: `reach_options` (a list of sets) replaces `reach`.
-# Schema 4 keeps schema 3's grant shape and adds the rotation grant (`RotationGrant`).
+# Schema 4 keeps schema 3's grant shape and adds the rotation grant (`RotationGrant`). Schema 5
+# keeps both and lets the rotation grant carry its reissue fields.
 TARGETS_FROM_PREFIX: Final = "sds-member-record:"
 
 # Why policy objects. The whole output vocabulary of this module.
@@ -100,6 +110,11 @@ LINEAGE_HAS_APPROVAL: Final = "lineage_has_approval"
 NOT_PROPOSER_GENERATED: Final = "not_proposer_generated"
 ROTATION_TYPE_NOT_PERMITTED: Final = "rotation_type_not_permitted"
 DESTINATIONS_NOT_PERMITTED: Final = "destinations_not_permitted"
+# The reissue branch's own refusals (schema 5), each about the lineage.
+LINEAGE_NOT_REVISIONS_1_TO_N: Final = "lineage_not_revisions_1_to_n"
+REVISION_ALREADY_APPROVED: Final = "revision_already_approved"
+REVISION_ONE_NOT_APPROVED: Final = "revision_one_not_approved"
+REVISION_ONE_APPROVER_NOT_PERMITTED: Final = "revision_one_approver_not_permitted"
 
 _ROW_REQUIRED_FIELDS: Final = frozenset({"rationale", "decided"})
 _ROW_OPTIONAL_FIELDS: Final = frozenset({"grant"})
@@ -108,10 +123,17 @@ _TARGET_FIELD_BY_SCHEMA: Final = {
     2: "targets_from",
     3: "targets_from",
     4: "targets_from",
+    5: "targets_from",
 }
 # Each schema has exactly one reach field: `reach` (one set) before schema 3, `reach_options`
 # (any one of several sets) from it.
-_REACH_FIELD_BY_SCHEMA: Final = {1: "reach", 2: "reach", 3: "reach_options", 4: "reach_options"}
+_REACH_FIELD_BY_SCHEMA: Final = {
+    1: "reach",
+    2: "reach",
+    3: "reach_options",
+    4: "reach_options",
+    5: "reach_options",
+}
 _GRANT_FIELDS: Final = frozenset(
     {
         "rationale",
@@ -134,6 +156,12 @@ ROTATION_GRANT_PROFILE: Final = "non-software-operational"
 ROTATION_GRANT_MIN_SCHEMA: Final = 4
 _ROTATION_GRANT_FIELDS: Final = frozenset({"rationale", "decided", "created_by", "types"})
 _ROTATION_TYPE_FIELDS: Final = frozenset({"destinations", "authority_options"})
+# The reissue fields (schema 5): all three or none. At schema 4 each is an unknown grant field.
+REISSUE_MIN_SCHEMA: Final = 5
+_REISSUE_FIELDS: Final = frozenset(
+    {"reissue_types", "reissue_created_by", "reissue_revision_1_approvers"}
+)
+_REISSUE_TYPE_FIELDS: Final = frozenset({"destinations_allowed", "authority_options"})
 _AUTHORITY_SET_FIELDS: Final = frozenset(
     {"allowed", "requires_approval", "prohibited", "max_attempts"}
 )
@@ -212,16 +240,30 @@ class RotationType:
 
 
 @dataclass(frozen=True)
-class RotationGrant:
-    """The shape a lane credential's proposer-generated revision 1 may be approved by (schema 4).
+class ReissueType:
+    """A reissue type's bounds (schema 5): the destination kinds a revision may list, any count
+    of each, and the authority sets it may declare."""
 
-    ``types`` is keyed by the name the package's ``provider name=`` destination carries.
+    destinations_allowed: frozenset[str]
+    authority_options: tuple[AuthoritySet, ...]
+
+
+@dataclass(frozen=True)
+class RotationGrant:
+    """The shapes a rotation package may be approved by: a lane credential's proposer-generated
+    revision 1 (schema 4), and a reissue type's revision 2 or later (schema 5).
+
+    ``types`` and ``reissue_types`` are keyed by the name the package's ``provider name=``
+    destination carries. An empty ``reissue_types`` covers no reissue.
     """
 
     rationale: str
     decided: str
     created_by: str
     types: dict[str, RotationType]
+    reissue_types: dict[str, ReissueType]
+    reissue_created_by: frozenset[str]
+    reissue_revision_1_approvers: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -341,23 +383,45 @@ def _row(name: str, table: object, version: int) -> Grant | RotationGrant | None
             raise ApprovalPolicyError(
                 f"{where}.grant: only {ROTATION_GRANT_PROFILE} may carry a rotation grant"
             )
-        return _rotation_grant(f"{where}.grant", grant)
+        return _rotation_grant(f"{where}.grant", grant, version)
     return _grant(f"{where}.grant", grant, version)
 
 
-def _rotation_grant(where: str, table: dict) -> RotationGrant:
-    _exact_fields(table, _ROTATION_GRANT_FIELDS, where)
-    types = table["types"]
-    if not isinstance(types, dict) or not types:
-        raise ApprovalPolicyError(f"{where}: types must be a non-empty table")
+def _rotation_grant(where: str, table: dict, version: int) -> RotationGrant:
+    reissue = version >= REISSUE_MIN_SCHEMA and bool(_REISSUE_FIELDS & set(table))
+    _exact_fields(table, _ROTATION_GRANT_FIELDS | (_REISSUE_FIELDS if reissue else set()), where)
     return RotationGrant(
         rationale=_text(table, "rationale", where),
         decided=_text(table, "decided", where),
         created_by=_text(table, "created_by", where),
         types={
-            name: _rotation_type(f"{where}.types.{name}", entry) for name, entry in types.items()
+            name: _rotation_type(f"{where}.types.{name}", entry)
+            for name, entry in _named_tables(table, "types", where).items()
         },
+        reissue_types=(
+            {
+                name: _reissue_type(f"{where}.reissue_types.{name}", entry)
+                for name, entry in _named_tables(table, "reissue_types", where).items()
+            }
+            if reissue
+            else {}
+        ),
+        reissue_created_by=(
+            frozenset(_strings(table, "reissue_created_by", where)) if reissue else frozenset()
+        ),
+        reissue_revision_1_approvers=(
+            frozenset(_strings(table, "reissue_revision_1_approvers", where))
+            if reissue
+            else frozenset()
+        ),
     )
+
+
+def _named_tables(table: dict, key: str, where: str) -> dict:
+    value = table[key]
+    if not isinstance(value, dict) or not value:
+        raise ApprovalPolicyError(f"{where}: {key} must be a non-empty table")
+    return value
 
 
 def _rotation_type(where: str, table: object) -> RotationType:
@@ -374,6 +438,27 @@ def _rotation_type(where: str, table: object) -> RotationType:
     options = _tables(table, "authority_options", where)
     return RotationType(
         destinations=destinations,
+        authority_options=tuple(
+            _authority_set(f"{where}.authority_options", option) for option in options
+        ),
+    )
+
+
+def _reissue_type(where: str, table: object) -> ReissueType:
+    if not isinstance(table, dict):
+        raise ApprovalPolicyError(f"{where}: must be a table")
+    _exact_fields(table, _REISSUE_TYPE_FIELDS, where)
+    kinds = _strings(table, "destinations_allowed", where)
+    unknown = sorted(set(kinds) - set(IDENTITY_FIELDS))
+    if unknown:
+        raise ApprovalPolicyError(f"{where}: {unknown} are no destination kinds")
+    if len(set(kinds)) != len(kinds):
+        raise ApprovalPolicyError(f"{where}: destinations_allowed repeats a kind")
+    if _PROVIDER_KIND not in kinds:
+        raise ApprovalPolicyError(f"{where}: destinations_allowed must include the provider")
+    options = _tables(table, "authority_options", where)
+    return ReissueType(
+        destinations_allowed=frozenset(kinds),
         authority_options=tuple(
             _authority_set(f"{where}.authority_options", option) for option in options
         ),
@@ -654,10 +739,20 @@ def _impact_refusal(package: dict[str, Any], grant: Grant) -> str | None:
     return None
 
 
-# --- the rotation grant (schema 4) ---------------------------------------------------
+# --- the rotation grant (schemas 4 and 5) --------------------------------------------
 
 
 def _rotation_refusals(
+    package: dict[str, Any], lineage: dict[str, Any] | None, grant: RotationGrant
+) -> tuple[str, ...]:
+    """Revision 2 or later takes the reissue branch when the grant has one; anything else, a
+    grant without `reissue_types` included, takes the revision-1 branch, which refuses it."""
+    if grant.reissue_types and _is_int(package.get("revision")) and package["revision"] >= 2:
+        return _reissue_refusals(package, lineage, grant)
+    return _first_issue_refusals(package, lineage, grant)
+
+
+def _first_issue_refusals(
     package: dict[str, Any], lineage: dict[str, Any] | None, grant: RotationGrant
 ) -> tuple[str, ...]:
     """Every condition of ADR-0055 amendment 22's grant, each refused on its own.
@@ -665,7 +760,8 @@ def _rotation_refusals(
     The destinations and authority checks need the type, so they are skipped when the type
     refusal already stands: one wrong provider then reads as one refusal, not three.
     """
-    rotation_type = _granted_type(package, grant)
+    name = _provider_name(package)
+    rotation_type = grant.types.get(name) if name is not None else None
     return tuple(
         refusal
         for refusal in (
@@ -680,6 +776,88 @@ def _rotation_refusals(
         )
         if refusal is not None
     )
+
+
+def _reissue_refusals(
+    package: dict[str, Any], lineage: dict[str, Any] | None, grant: RotationGrant
+) -> tuple[str, ...]:
+    """Every condition of ADR-0055 amendment 39's reissue grant (R3), each refused on its own.
+
+    It reads only `reissue_types`, so a lane type at revision 2 refuses on its type. As on the
+    revision-1 branch, the destinations and authority checks are skipped once the type refuses.
+    """
+    name = _provider_name(package)
+    reissue_type = grant.reissue_types.get(name) if name is not None else None
+    created_by = package.get("created_by")
+    return tuple(
+        refusal
+        for refusal in (
+            _standing_refusal(package),
+            _reissue_lineage_refusal(package["revision"], lineage, grant),
+            None
+            if isinstance(created_by, str) and created_by in grant.reissue_created_by
+            else NOT_PROPOSER_GENERATED,
+            None if reissue_type is not None else ROTATION_TYPE_NOT_PERMITTED,
+            None if reissue_type is None else _reissue_destinations_refusal(package, reissue_type),
+            None if reissue_type is None else _rotation_authority_refusal(package, reissue_type),
+            _human_review_refusal(package),
+        )
+        if refusal is not None
+    )
+
+
+def _is_int(value: object) -> TypeGuard[int]:
+    """An int that isn't a bool: `True == 1` in Python."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _reissue_lineage_refusal(
+    tip: int, lineage: dict[str, Any] | None, grant: RotationGrant
+) -> str | None:
+    """R1's `reissue_lineage` rule, as this repository can see it.
+
+    The lineage lists revisions 1 to the tip, no approval is on the tip, and revision 1 is
+    approved, by people on the grant's fixed list only. A revision between them may be
+    approved by anyone or by nobody: the reissue is compared with the last approved revision,
+    which the orchestrator's command reads. An approval entry this can't read refuses.
+    """
+    if not _readable_lineage(lineage):
+        return LINEAGE_UNREADABLE
+    listed = [
+        entry.get("revision") if isinstance(entry, dict) else None for entry in lineage["revisions"]
+    ]
+    in_order = all(_is_int(r) and r == i for i, r in enumerate(listed, start=1))
+    if len(listed) != tip or not in_order:
+        return LINEAGE_NOT_REVISIONS_1_TO_N
+    approvals = lineage["approvals"]
+    readable = all(
+        isinstance(a, dict)
+        and _is_int(a.get("revision"))
+        and 1 <= a["revision"] <= tip
+        and isinstance(a.get("approver"), str)
+        for a in approvals
+    )
+    if not readable:
+        return LINEAGE_UNREADABLE
+    if any(a["revision"] == tip for a in approvals):
+        return REVISION_ALREADY_APPROVED
+    first = [a["approver"] for a in approvals if a["revision"] == 1]
+    if not first:
+        return REVISION_ONE_NOT_APPROVED
+    if not set(first) <= grant.reissue_revision_1_approvers:
+        return REVISION_ONE_APPROVER_NOT_PERMITTED
+    return None
+
+
+def _reissue_destinations_refusal(package: dict[str, Any], reissue_type: ReissueType) -> str | None:
+    """Every destination parsed and of a kind the type allows, any count of each. The single
+    `provider name=` destination is `_provider_name`'s to require."""
+    parsed = _parsed_destinations(package)
+    if parsed is None:
+        return DESTINATIONS_NOT_PERMITTED
+    if any(d["kind"] not in reissue_type.destinations_allowed for d in parsed):
+        return DESTINATIONS_NOT_PERMITTED
+    return None
 
 
 def _readable_lineage(lineage: object) -> TypeGuard[dict[str, Any]]:
@@ -736,8 +914,8 @@ def _parsed_destinations(package: dict[str, Any]) -> list[dict[str, object]] | N
         return None
 
 
-def _granted_type(package: dict[str, Any], grant: RotationGrant) -> RotationType | None:
-    """The granted type the package's one `provider name=` destination names, or None.
+def _provider_name(package: dict[str, Any]) -> str | None:
+    """The name the package's one `provider name=` destination carries, or None.
 
     Reads only the provider strings, so a malformed keeper or copy is the destinations
     refusal's to report, not this one's.
@@ -755,7 +933,7 @@ def _granted_type(package: dict[str, Any], grant: RotationGrant) -> RotationType
         name = parse(providers[0])["name"]
     except DestinationFormatError:
         return None
-    return grant.types.get(name) if isinstance(name, str) else None
+    return name if isinstance(name, str) else None
 
 
 def _destinations_refusal(package: dict[str, Any], rotation_type: RotationType) -> str | None:
@@ -773,7 +951,9 @@ def _destinations_refusal(package: dict[str, Any], rotation_type: RotationType) 
     return None
 
 
-def _rotation_authority_refusal(package: dict[str, Any], rotation_type: RotationType) -> str | None:
+def _rotation_authority_refusal(
+    package: dict[str, Any], rotation_type: RotationType | ReissueType
+) -> str | None:
     """Equal to one of the type's sets, compared whole: the three lists and both budgets."""
     authority = package.get("authority")
     if not isinstance(authority, dict):

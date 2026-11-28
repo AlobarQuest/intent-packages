@@ -195,9 +195,10 @@ def _authorize_approver(package: dict, approver: str, lineage: dict) -> None:
       caller reading an empty objection list as consent would turn a broken document into
       a standing approval for everything.
 
-    ``lineage`` is the one `do_approve` already read. The rotation grant (schema 4) refuses
-    on it: a lane credential's revision 1 may be policy-approved only while its lineage
-    holds no approval.
+    ``lineage`` is the one `do_approve` already read. The rotation grant refuses on it: a lane
+    credential's revision 1 may be policy-approved only while its lineage holds no approval
+    (schema 4), and a reissue only while its tip is unapproved and a listed person approved
+    its revision 1 (schema 5).
     """
     if registry.is_human_operator(approver):
         return

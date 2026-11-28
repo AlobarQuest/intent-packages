@@ -1,0 +1,40 @@
+package_id: rotation-orchestrator-operator-bearer
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 852ca67e4fbd5771191828124376ca3a6f393d93dc1215e3b8e037ed36db4472
+  created_at: '2026-10-15T14:06:54Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-10-15T14:07:53.815986+00:00'
+- revision: 2
+  hash: 0ac76523227d8920c3cb221549abd48d9e0ccf1c8ea8b0d8eb207dc749ce671e
+  created_at: '2026-11-28T15:56:05.135204+00:00'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-28T15:56:08.989459+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-10-15T14:07:53.815986+00:00'
+  actor: claude-code-interactive
+  event_id: evt-f1b1c1bad18a4e94a6016a23b868fec3
+- kind: revision
+  from: approved
+  to: draft
+  at: '2026-11-28T15:56:05.135204+00:00'
+  actor: claude-code-interactive
+  event_id: null
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-28T15:56:08.989459+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals:
+- revision: 1
+  approved_hash: 852ca67e4fbd5771191828124376ca3a6f393d93dc1215e3b8e037ed36db4472
+  approver: devon
+  approved_at: '2026-10-15T14:20:02.149931+00:00'
+  commit: ac6e49a43c37423eb8d3d924388b9cb5536ef91b
+  event_id: evt-3033de5c9118479999b6423d157f7bd9
+grants: []
