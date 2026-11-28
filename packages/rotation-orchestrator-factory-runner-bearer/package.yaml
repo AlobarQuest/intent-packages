@@ -2,7 +2,7 @@ schema_version: 1
 package_id: rotation-orchestrator-factory-runner-bearer
 title: Standing rotation of orchestrator-factory-runner-bearer
 revision: 1
-status: ready_for_review
+status: approved
 created_by: rotation-proposer
 owner: devon
 created_at: '2026-11-28T15:55:48Z'
