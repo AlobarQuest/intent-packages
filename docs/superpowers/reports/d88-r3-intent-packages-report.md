@@ -8,8 +8,9 @@ amendment's R3 text matches the handoff, so no stop point applied.
 - **PR:** [AlobarQuest/intent-packages#207](https://github.com/AlobarQuest/intent-packages/pull/207),
   branch `hq/d88-r3-reissue-grant`. It's open and not merged.
 - **Base:** `origin/main` `c0cb0a930391911e010f2fa28ce7fbaa79c6e0e2`.
-- **Code head:** `ef59959` (the grant) and `2c4b7dc` (the `created_by` type guard). This
-  report is committed after them on the same branch.
+- **Code commits:** `ef59959` (the grant) and `2c4b7dc` (the `created_by` type guard), then one
+  commit updating the `README.md` and `operations.py` prose. The PR head is the last commit on
+  the branch. The commits after that prose commit touch only this report.
 
 ## What I built
 
@@ -93,6 +94,9 @@ I measured the live packages with the shipped document. These are the copies in
 - **`tests/test_approval_policy_rotation.py`:** 166 tests pass.
 - **`code-standards risk --repo .`:** the verdict is `normal`, so `vendor-review` didn't apply.
 - **Security scanner** (`--category security`, from the repo root): 0 BLOCK findings.
+- **CI-only steps, run locally:** `scripts/check_routing_policy_compatibility.py` passes (it reads
+  `routing-policy.toml` and the pinned runner, not this file). `intent_packages validate --all`
+  exits 0.
 - **`/code-review` (high):** it found five issues. I fixed one, and the remaining four are listed
   under Self-review.
 
@@ -180,6 +184,8 @@ handoff directs, the orchestrator command and the carrier (R1 and R2) hold that 
 - `tests/test_approval_policy_rotation.py`
 - `tests/test_approval_policy.py`, `tests/test_create_standing.py` and
   `tests/test_op_approve_by_policy.py` (the version string only)
+- `README.md` (the policy approval section) and `src/intent_packages/operations.py` (the
+  `_authorize_approver` docstring): prose that described only revision 1
 - `tests/fixtures/approval-policy-schema-4.toml` (new)
 - `tests/fixtures/standing_reissue/<9 packages>/{package,lineage}.yaml` (new copies). Nothing under
   `packages/` was edited, approved or transitioned.
@@ -209,9 +215,13 @@ handoff directs, the orchestrator command and the carrier (R1 and R2) hold that 
 - **Checks R3 doesn't make here:** the reach, the hand-rotated identities (`orchestrator-system`,
   `orchestrator-verifier` and `rotation-executor` entry prefixes, which are visible in
   `coolify-env-hash`), and infraops' `last_rotated`. Per amendment 39, R1 and R2 hold these. I
-  didn't add them, so as not to widen R3 beyond its text. Until R1 and R2 merge, this grant alone
-  would withhold objections from a SYSTEM-bearer reissue that matched the shape. The approval path
-  still requires the orchestrator command, as the rationale says.
+  didn't add them, so as not to widen R3 beyond its text. This module never refuses a
+  hand-rotated identity, before or after R1 and R2 merge: a SYSTEM-bearer reissue that matched
+  the shape draws no objection here. The orchestrator command, the work carrier and the
+  decomposition gate refuse it, and the amendment's order puts R1 and R2 before R3.
+- **GitHub calls beyond the handoff's two:** besides `git push` and `gh pr create`, I ran
+  `gh pr view 207` twice and `gh pr edit 207` once, to correct the collected count in the PR
+  body. None changed anything but that body text. I made no further `gh` calls.
 - **Two fields beyond the amendment's named fields:** `reissue_created_by` and
   `reissue_revision_1_approvers` aren't named in the amendment. They carry HQ's settled change 1
   and amendment 39 reading 1 in the document, so that narrowing either stays a one-file edit.
