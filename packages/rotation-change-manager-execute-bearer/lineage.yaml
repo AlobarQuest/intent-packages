@@ -1,5 +1,5 @@
 package_id: rotation-change-manager-execute-bearer
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: e1a0bc26b9534d0a81d00b40ea75fefe00a0c11512e683d434b02861d0f179cf
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-28T16:17:35.175431+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: e1a0bc26b9534d0a81d00b40ea75fefe00a0c11512e683d434b02861d0f179cf
+  approver: devon
+  approved_at: '2026-11-28T17:27:59.703561+00:00'
+  commit: c0cb0a930391911e010f2fa28ce7fbaa79c6e0e2
+  event_id: evt-fae8793b57994cc18fd1e1d2b1e1c0ce
 grants: []

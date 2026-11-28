@@ -1,5 +1,5 @@
 package_id: rotation-orchestrator-factory-runner-bearer
-current_state: ready_for_review
+current_state: approved
 revisions:
 - revision: 1
   hash: 05d93adb41ee77e90fed0d2b722b9ed5ad95621e99353bc2dc5fe03ffd2e1421
@@ -13,5 +13,11 @@ transitions:
   at: '2026-11-28T15:55:50.715336+00:00'
   actor: claude-code-interactive
   event_id: null
-approvals: []
+approvals:
+- revision: 1
+  approved_hash: 05d93adb41ee77e90fed0d2b722b9ed5ad95621e99353bc2dc5fe03ffd2e1421
+  approver: devon
+  approved_at: '2026-11-28T17:28:00.652405+00:00'
+  commit: c0cb0a930391911e010f2fa28ce7fbaa79c6e0e2
+  event_id: evt-04286302e5884cd894bf845bfd543942
 grants: []
