@@ -1,11 +1,16 @@
 package_id: rotation-change-manager-propose-bearer
-current_state: approved
+current_state: ready_for_review
 revisions:
 - revision: 1
   hash: 2d8eaec39c62919ebfd47e2e8d9b2b35701951d6e9ce612377de581479146cbf
   created_at: '2026-10-20T14:58:27Z'
   author: claude-code-interactive
   snapshotted_at: '2026-10-20T15:02:02.362425+00:00'
+- revision: 2
+  hash: 8334cf05e1e2c502df4ccf16f34f2d62f84b5839ab81c734f9fe6fea98942273
+  created_at: '2026-11-28T16:09:14.679252+00:00'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-28T16:09:18.081823+00:00'
 transitions:
 - kind: transition
   from: draft
@@ -13,6 +18,18 @@ transitions:
   at: '2026-10-20T15:02:02.362425+00:00'
   actor: claude-code-interactive
   event_id: evt-4d4b3e77ff8a4be7938ac7f3ff8d008f
+- kind: revision
+  from: approved
+  to: draft
+  at: '2026-11-28T16:09:14.679252+00:00'
+  actor: claude-code-interactive
+  event_id: null
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-28T16:09:18.081823+00:00'
+  actor: claude-code-interactive
+  event_id: null
 approvals:
 - revision: 1
   approved_hash: 2d8eaec39c62919ebfd47e2e8d9b2b35701951d6e9ce612377de581479146cbf
