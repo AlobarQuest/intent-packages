@@ -20,6 +20,7 @@
   "pre-phase4-foundation-cleanliness": "b66d56799e8e0709d73e57b36d56f344f54b9a8bb6cb5c0b0f4e2823042a1824",
   "project-standards-ruff-bump": "0cb7b0fd36ece7b1d05028c67444b2b063b64d6ceb2785f756d6d319e5f19047",
   "rotation-alobar-id-postgres": "99db40ae190af899cde0f5a2534bf15fcb1913e094990ca5ffec72a465dfe391",
+  "rotation-anthropic-change-window-key": "f0e1a17539259e1508bc77230f2d4b3f8bce3fd348dadd49cfd16819ee09f587",
   "rotation-bitbucket-mirror-token": "53d600d976b0589c8811c2cfe3094b562fc094395bae441bba529dceb259f847",
   "rotation-bump-driver-ping-url": "7c390a7904458b0b84a98153e2a5e21367eff9b6e63ffe330d258bdec6238f37",
   "rotation-bump-proposer-bws-token": "096520a6d01b7ac4ad86a215ab899e4461df2325f51fe72f8c9154c7852c029e",

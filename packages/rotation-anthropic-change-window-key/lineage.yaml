@@ -1,0 +1,17 @@
+package_id: rotation-anthropic-change-window-key
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: f0e1a17539259e1508bc77230f2d4b3f8bce3fd348dadd49cfd16819ee09f587
+  created_at: '2026-11-28T14:23:50Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-28T14:23:53.198270+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-28T14:23:53.198270+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
