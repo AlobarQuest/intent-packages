@@ -2,12 +2,12 @@
 name = "intent-packages"
 version = "0.1.0"
 requires-python = ">=3.14"
-dependencies = ["httpx>=0.28.1", "pyyaml>=6.0.3"]
+dependencies = ["httpx>=0.28.1", "pyyaml>=6.0.4"]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=9.2.0",
-    "pyyaml>=6.0.3",
+    "pyyaml>=6.0.4",
     "ruff>=0.17.6",
 ]
 
@@ -17,7 +17,7 @@ factory = "intent_packages.factory_cli:main"
 [dependency-groups]
 dev = [
   "pytest>=9.2.0",
-  "pyyaml>=6.0.3",
+  "pyyaml>=6.0.4",
   "ruff>=0.17.6",
   "pyright==1.1.414",
   # The database-chain integration tests' fixture only (scripts/check-integration.sh). The
