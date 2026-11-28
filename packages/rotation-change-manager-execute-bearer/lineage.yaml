@@ -1,0 +1,17 @@
+package_id: rotation-change-manager-execute-bearer
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: e1a0bc26b9534d0a81d00b40ea75fefe00a0c11512e683d434b02861d0f179cf
+  created_at: '2026-11-28T16:17:32Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-28T16:17:35.175431+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-28T16:17:35.175431+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
