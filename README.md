@@ -65,12 +65,19 @@ a grant, and every other profile's revisions need a named person:
 
 - `dependency-update`: a standing package's revision for one bump, on a repository the SDS member
   record grants `dependency_updates`.
-- `non-software-operational`: only a lane credential's revision 1 that the rotation proposer
-  generated (orchestrator ADR-0055 amendment 22). The package is standing, its lineage holds
-  revision 1 and no approval, it names `bws-lane-token` or `healthchecks-ping-url` by its
-  `provider name=` destination, its destinations are that type's kinds, its authority is the
-  type's standard set, and no criterion is `human_review`. Revision 2 and later, and every
-  other rotation, need Devon.
+- `non-software-operational`: two rotation shapes, and every other rotation needs Devon.
+  - A lane credential's revision 1 that the rotation proposer generated (orchestrator ADR-0055
+    amendment 22). The package is standing, its lineage holds revision 1 and no approval, it
+    names `bws-lane-token` or `healthchecks-ping-url` by its `provider name=` destination, its
+    destinations are that type's kinds, its authority is the type's standard set, and no
+    criterion is `human_review`.
+  - A reissue: revision 2 or later of an `orchestrator` or `change-manager` bearer (schema 5,
+    amendment 39, D-88 A). The package is standing. Its lineage lists revisions 1 to the tip,
+    the tip is unapproved, and revision 1 is approved only by a person on
+    `reissue_revision_1_approvers`. Its `created_by` is on `reissue_created_by`, every
+    destination is of a kind the type allows, its authority is the type's standard set, and no
+    criterion is `human_review`. A reissue type's revision 1 is a first hand-over and needs
+    Devon.
 
 ## Design
 
