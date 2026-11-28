@@ -80,7 +80,7 @@ def _infraops_is_granted(member_record):
 
 def test_the_shipped_artifact_loads_and_covers_every_registered_profile(policy) -> None:
     assert set(policy.grants) == set(PROFILES)
-    assert policy.version == 4
+    assert policy.version == 5
 
 
 def test_a_conformant_revision_draws_no_objection(policy) -> None:
@@ -89,13 +89,14 @@ def test_a_conformant_revision_draws_no_objection(policy) -> None:
     assert policy.refusals_for(CONFORMANT) == ()
 
 
-def test_approver_is_v4(policy) -> None:
+def test_approver_is_v5(policy) -> None:
     """Kills: the approver string reading a stale version. Approvals already recorded at @v2
-    and @v3 stay recognised, because `is_policy_approver` matches any version."""
-    assert policy.approver_for("dependency-update") == "policy:dependency-update@v4"
-    assert policy.approver_for("non-software-operational") == "policy:non-software-operational@v4"
+    to @v4 stay recognised, because `is_policy_approver` matches any version."""
+    assert policy.approver_for("dependency-update") == "policy:dependency-update@v5"
+    assert policy.approver_for("non-software-operational") == "policy:non-software-operational@v5"
     assert is_policy_approver("policy:dependency-update@v2")
     assert is_policy_approver("policy:dependency-update@v3")
+    assert is_policy_approver("policy:dependency-update@v4")
 
 
 # --- what the grant refuses -------------------------------------------------------
@@ -370,8 +371,8 @@ def test_a_row_for_an_unknown_profile_stops_the_document_loading(tmp_path) -> No
 def test_an_unknown_schema_version_is_refused(tmp_path) -> None:
     """Kills: accepting any version. An older process meeting a newer document would
     silently ignore whatever narrowing that version introduced."""
-    with pytest.raises(ApprovalPolicyError, match="schema version 5"):
-        load_policy(_write(tmp_path, "version = 5\n" + _rows()))
+    with pytest.raises(ApprovalPolicyError, match="schema version 6"):
+        load_policy(_write(tmp_path, "version = 6\n" + _rows()))
 
 
 def test_an_unreadable_document_raises_rather_than_yielding_an_empty_policy(tmp_path) -> None:

@@ -1,14 +1,20 @@
-"""The rotation grant (approval-policy.toml schema 4, orchestrator ADR-0055 amendment 22).
+"""The rotation grant (approval-policy.toml schemas 4 and 5, orchestrator ADR-0055 amendments 22
+and 39).
 
-It lets the policy approver `policy:non-software-operational@v4` approve a lane credential's
-proposer-generated revision 1. Like the dependency-update grant's tests, these are mostly
-REFUSALS, one per condition, each changing one thing and asserting the one refusal it draws: a
-test that only proved the fixtures pass would pass against a grant that approves everything.
+It lets the policy approver `policy:non-software-operational@v5` approve a lane credential's
+proposer-generated revision 1 and, at schema 5, a reissue of an `orchestrator` or
+`change-manager` bearer (the reissue sections at the end). Like the dependency-update grant's
+tests, these are mostly REFUSALS, one per condition, each changing one thing and asserting the one
+refusal it draws: a test that only proved the fixtures pass would pass against a grant that
+approves everything.
 
 THE SUBJECTS are copies of the two proposer-generated revision 1 packages on `main` when the
 grant shipped (`tests/fixtures/standing_approval/`, from intent-packages 4f57bef and 2191e86),
 and the orchestrator's issue-plan fixtures `test_create_rotation` pins. They are copies so that
-the live packages' lifecycle can move without moving these tests.
+the live packages' lifecycle can move without moving these tests. The reissue subjects are copies
+of the eight packages amendment 39 measured, and the execute bearer, at intent-packages c0cb0a9
+(`tests/fixtures/standing_reissue/`), and `approval-policy-schema-4.toml` is the document as it
+stood before schema 5.
 """
 
 from __future__ import annotations
@@ -31,7 +37,7 @@ FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 STANDING = FIXTURES / "standing_approval"
 PING_URL = "rotation-deploy-watcher-ping-url"
 LANE_TOKEN = "rotation-revision-watcher-bws-token"
-APPROVER = "policy:non-software-operational@v4"
+APPROVER = "policy:non-software-operational@v5"
 NOW = "2026-11-11T12:00:00Z"
 
 
@@ -104,9 +110,10 @@ def test_a_package_not_declared_standing_is_refused(policy, standing) -> None:
     assert policy.refusals_for(package, _lineage()) == ("not_a_standing_package",)
 
 
-@pytest.mark.parametrize("revision", [2, 0, True, "1"])
+@pytest.mark.parametrize("revision", [0, True, "1", "2"])
 def test_a_revision_other_than_1_is_refused(policy, revision) -> None:
-    """Kills: dropping the revision check. `True` is refused by type, because `True == 1`."""
+    """Kills: dropping the revision check. `True` is refused by type, because `True == 1`, and
+    `"2"` by type, so a string revision never reaches the reissue branch."""
     package = _lane_token(revision=revision)
     assert policy.refusals_for(package, _lineage()) == ("not_revision_one",)
 
@@ -304,7 +311,7 @@ def test_no_readable_criteria_is_refused(policy, acceptance) -> None:
 
 
 def test_every_refusal_is_reported_not_just_the_first(policy) -> None:
-    package = _lane_token(revision=2, created_by="someone")
+    package = _lane_token(revision=0, created_by="someone")
     package["profile_fields"]["standing"] = False
     package["authority"]["budgets"]["max_attempts"] = 9
     package["profile_fields"]["destinations"] = [_KEEPER, _LANE_PROVIDER]
@@ -328,8 +335,9 @@ def test_the_shipped_grant_is_the_rotation_grant(policy) -> None:
     grant = policy.grants["non-software-operational"]
     assert isinstance(grant, RotationGrant)
     assert grant.created_by == "rotation-proposer"
-    assert grant.decided == "2026-11-10"
+    assert grant.decided == "2026-11-28"
     assert sorted(grant.types) == ["bws-lane-token", "healthchecks-ping-url"]
+    assert sorted(grant.reissue_types) == ["change-manager", "orchestrator"]
 
 
 # --- loading ----------------------------------------------------------------------------
@@ -535,7 +543,456 @@ def test_do_approve_refuses_another_policy_version(ready) -> None:
         do_approve(
             ready,
             emitter=StubEmitter(),
-            approver="policy:non-software-operational@v3",
+            approver="policy:non-software-operational@v4",
             commit="abc1234",
             now=NOW,
         )
+
+
+# --- the reissue grant (schema 5) -------------------------------------------------------
+
+REISSUE = FIXTURES / "standing_reissue"
+COVERED = [
+    "rotation-orchestrator-operator-bearer",
+    "rotation-orchestrator-observer-bearer",
+    "rotation-orchestrator-drift-reporter-bearer",
+    "rotation-change-manager-full-bearer",
+    "rotation-change-manager-read-bearer",
+    "rotation-change-manager-propose-bearer",
+    "rotation-change-manager-observe-bearer",
+]
+FIRST_HAND_OVERS = [
+    "rotation-orchestrator-factory-runner-bearer",
+    "rotation-change-manager-execute-bearer",
+]
+OPERATOR = "rotation-orchestrator-operator-bearer"  # revision 2, revision 1 approved by devon
+OBSERVER = "rotation-orchestrator-observer-bearer"  # revision 3, revisions 1 and 2 by devon
+CM_FULL = "rotation-change-manager-full-bearer"
+
+
+def _reissue(name: str) -> tuple[dict, dict]:
+    """A fresh read of a fixture's package and lineage."""
+
+    def read(part: str) -> dict:
+        return yaml.safe_load((REISSUE / name / f"{part}.yaml").read_text(encoding="utf-8"))
+
+    return read("package"), read("lineage")
+
+
+def _operator(**changes) -> dict:
+    package, _ = _reissue(OPERATOR)
+    package.update(changes)
+    return package
+
+
+def _operator_lineage() -> dict:
+    return _reissue(OPERATOR)[1]
+
+
+def _approval(revision: object, approver: object = "devon") -> dict:
+    return {"revision": revision, "approved_hash": "1" * 64, "approver": approver}
+
+
+@pytest.mark.parametrize("name", COVERED)
+def test_each_covered_reissue_draws_no_objection(policy, name) -> None:
+    """The positive case, on all seven packages amendment 39 covers, both types."""
+    assert policy.refusals_for(*_reissue(name)) == ()
+
+
+@pytest.mark.parametrize("name", FIRST_HAND_OVERS)
+def test_a_reissue_type_s_revision_1_is_refused(policy, name) -> None:
+    """Kills: one map for both branches. A reissue type's revision 1 is a first hand-over and
+    stays Devon's (D88-A): `types` lists neither reissue type."""
+    assert policy.refusals_for(*_reissue(name)) == ("rotation_type_not_permitted",)
+
+
+def test_a_lane_type_at_revision_2_is_refused(policy) -> None:
+    """Kills: the reissue branch reading `types`. A lane credential's revision 2 refuses."""
+    package = _lane_token(revision=2)
+    lineage = _lineage(revisions=(1, 2), approvals=[_approval(1)])
+    assert policy.refusals_for(package, lineage) == ("rotation_type_not_permitted",)
+
+
+@pytest.mark.parametrize("provider", ["openrouter", "postgres-role", "github-pat"])
+def test_a_type_not_in_reissue_types_is_refused(policy, provider) -> None:
+    """Kills: a reissue grant that accepts any provider (amendment 39 reading 4)."""
+    package = _operator()
+    package["profile_fields"]["destinations"][2] = f'provider name="{provider}"'
+    assert policy.refusals_for(package, _operator_lineage()) == ("rotation_type_not_permitted",)
+
+
+def test_two_providers_are_refused_on_a_reissue(policy) -> None:
+    package = _operator()
+    package["profile_fields"]["destinations"].append('provider name="change-manager"')
+    assert policy.refusals_for(package, _operator_lineage()) == ("rotation_type_not_permitted",)
+
+
+def test_a_reissue_not_declared_standing_is_refused(policy) -> None:
+    package = _operator()
+    package["profile_fields"]["standing"] = False
+    assert policy.refusals_for(package, _operator_lineage()) == ("not_a_standing_package",)
+
+
+@pytest.mark.parametrize("revisions", [(1,), (1, 3), (2,), (1, 2, 3), (2, 1), (True, 2)])
+def test_a_lineage_not_listing_revisions_1_to_the_tip_is_refused(policy, revisions) -> None:
+    """Kills: dropping the 1-to-N check, or accepting `True` for revision 1."""
+    lineage = _operator_lineage()
+    lineage["revisions"] = [{"revision": r, "hash": "0" * 64} for r in revisions]
+    assert policy.refusals_for(_operator(), lineage) == ("lineage_not_revisions_1_to_n",)
+
+
+def test_a_tip_already_approved_is_refused(policy) -> None:
+    """Kills: dropping the unapproved-tip check, so a replay of a policy approval refuses and
+    waits for a person, as on the revision-1 branch."""
+    lineage = _operator_lineage()
+    lineage["approvals"].append(_approval(2, APPROVER))
+    assert policy.refusals_for(_operator(), lineage) == ("revision_already_approved",)
+
+
+@pytest.mark.parametrize(
+    "approvals",
+    [[], [_approval(2, "devon")]],
+    ids=["no-approval", "only-revision-2-approved"],
+)
+def test_a_revision_1_never_approved_is_refused(policy, approvals) -> None:
+    """Kills: dropping the revision-1 approval check. Revision 2 approved alone still refuses,
+    on the observer's revision 3."""
+    package, lineage = _reissue(OBSERVER)
+    lineage["approvals"] = approvals
+    assert policy.refusals_for(package, lineage) == ("revision_one_not_approved",)
+
+
+@pytest.mark.parametrize(
+    "approvers",
+    [
+        [APPROVER],
+        ["policy:non-software-operational@v4"],
+        ["claude-code-interactive"],
+        ["Devon"],
+        ["devon", APPROVER],
+    ],
+    ids=["policy-v5", "policy-v4", "an-agent", "case-differs", "devon-and-a-policy"],
+)
+def test_a_revision_1_approver_not_on_the_list_is_refused(policy, approvers) -> None:
+    """Kills: reading "not `policy:`" instead of the fixed list, or accepting any one listed
+    approver among others. HQ's settled change 1."""
+    lineage = _operator_lineage()
+    lineage["approvals"] = [_approval(1, approver) for approver in approvers]
+    assert policy.refusals_for(_operator(), lineage) == ("revision_one_approver_not_permitted",)
+
+
+@pytest.mark.parametrize(
+    "lineage",
+    [
+        None,
+        {"revisions": [{"revision": 1}, {"revision": 2}]},
+        {"revisions": [{"revision": 1}, {"revision": 2}], "approvals": [None]},
+        {"revisions": [{"revision": 1}, {"revision": 2}], "approvals": [_approval(1, 7)]},
+        {"revisions": [{"revision": 1}, {"revision": 2}], "approvals": [_approval(True)]},
+        {"revisions": [{"revision": 1}, {"revision": 2}], "approvals": [_approval(3)]},
+        {"revisions": [{"revision": 1}, {"revision": 2}], "approvals": [{"approver": "devon"}]},
+    ],
+    ids=[
+        "none",
+        "no-approvals",
+        "approval-not-a-table",
+        "approver-not-a-string",
+        "approval-revision-a-bool",
+        "approval-past-the-tip",
+        "approval-without-revision",
+    ],
+)
+def test_an_unreadable_reissue_lineage_is_refused(policy, lineage) -> None:
+    """Kills: skipping an approval entry it can't read. A check that can't be made refuses."""
+    assert policy.refusals_for(_operator(), lineage) == ("lineage_unreadable",)
+
+
+def test_a_revision_between_approved_by_policy_passes(policy) -> None:
+    """The steady state after the first D-88 approval: revision 2 approved by policy, revision 3
+    waiting. Kills: tightening the rule to "every earlier approver is a person"."""
+    package, lineage = _reissue(OBSERVER)
+    lineage["approvals"][1]["approver"] = APPROVER
+    assert policy.refusals_for(package, lineage) == ()
+
+
+def test_a_revision_between_never_approved_passes(policy) -> None:
+    """A revision rejected before a later one doesn't refuse (R1's `reissue_lineage` rule).
+    Kills: tightening the rule to "every revision approved"."""
+    package, lineage = _reissue(OBSERVER)
+    lineage["approvals"] = lineage["approvals"][:1]
+    assert policy.refusals_for(package, lineage) == ()
+
+
+@pytest.mark.parametrize("created_by", ["claude-code-interactive", None, ""])
+def test_a_reissue_by_another_author_is_refused(policy, created_by) -> None:
+    package = _operator(created_by=created_by)
+    assert policy.refusals_for(package, _operator_lineage()) == ("not_proposer_generated",)
+
+
+def test_a_reissue_the_proposer_wrote_passes(policy) -> None:
+    """Both `created_by` values pass (amendment 39 reading 1)."""
+    package = _operator(created_by="rotation-proposer")
+    assert policy.refusals_for(package, _operator_lineage()) == ()
+
+
+_CM_HELD = (
+    'coolify-env-held instance="prod" resource_type="application" uuid="eqj5l7k705fhi12x9i74fqf0" '
+    'key="EXAMPLE_TOKEN"'
+)
+_GH_COPY = 'gh-actions-secret repo="AlobarQuest/x" name="T"'
+_RUNTIME = 'runtime-fetch repo="orchestrator" ref="scripts/run-example.sh"'
+
+
+@pytest.mark.parametrize(
+    ("name", "added"),
+    [
+        (OPERATOR, _LANE_ENV.format(redeploy="false")),
+        (OPERATOR, 'keychain service="s" account="a"'),
+        (OPERATOR, 'shell-export file="~/.zshenv" var="T"'),
+        (OPERATOR, _CM_HELD),
+        (CM_FULL, _GH_COPY),
+        (CM_FULL, _LANE_ENV.format(redeploy="true")),
+        (OPERATOR, 'runtime-fetch repo="orchestrator"'),
+    ],
+    ids=[
+        "orchestrator+coolify-env",
+        "orchestrator+keychain",
+        "orchestrator+shell-export",
+        "orchestrator+coolify-env-held",
+        "change-manager+gh-actions-secret",
+        "change-manager+coolify-env",
+        "malformed",
+    ],
+)
+def test_a_destination_of_a_kind_the_type_does_not_allow_is_refused(policy, name, added) -> None:
+    """Kills: dropping or widening `destinations_allowed`. Each type's set is its own."""
+    package, lineage = _reissue(name)
+    package["profile_fields"]["destinations"].append(added)
+    assert policy.refusals_for(package, lineage) == ("destinations_not_permitted",)
+
+
+@pytest.mark.parametrize(
+    ("name", "added"),
+    [(OPERATOR, _RUNTIME), (OPERATOR, _GH_COPY), (CM_FULL, _CM_HELD), (OPERATOR, _KEEPER)],
+    ids=["runtime-fetch", "orchestrator-gh-copy", "change-manager-held", "second-keeper"],
+)
+def test_an_allowed_kind_passes_at_any_count(policy, name, added) -> None:
+    """Any count of an allowed kind passes: whether a written copy is new is the command's
+    `no_new_copy` to decide, against the last approved revision this module can't read."""
+    package, lineage = _reissue(name)
+    package["profile_fields"]["destinations"].append(added)
+    assert policy.refusals_for(package, lineage) == ()
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda p: _move(p, "repository_write", into="allowed", out_of="prohibited"),
+        lambda p: _move(p, "infra_mutation", into="prohibited", out_of="allowed"),
+        lambda p: _move(p, "credential_revoke", into="requires_approval", out_of="allowed"),
+        lambda p: p["authority"]["prohibited"].remove("email_send") or p,
+        lambda p: p["authority"]["budgets"].update(max_attempts=4) or p,
+        lambda p: p["authority"]["budgets"].update(max_llm_calls=10) or p,
+        lambda p: p.update(authority=copy.deepcopy(_shipped(LANE_TOKEN)["authority"])) or p,
+    ],
+    ids=[
+        "+repository_write",
+        "-infra_mutation",
+        "asks-revoke",
+        "drops-a-prohibition",
+        "four-attempts",
+        "an-llm-budget",
+        "the-lane-token-s-set",
+    ],
+)
+def test_a_reissue_authority_other_than_the_standard_set_is_refused(policy, mutate) -> None:
+    """Kills: dropping the authority check on the reissue branch, or comparing as a subset."""
+    package = mutate(_operator())
+    assert policy.refusals_for(package, _operator_lineage()) == ("authority_terms_not_permitted",)
+
+
+def test_a_reissue_with_a_human_review_criterion_is_refused(policy) -> None:
+    package = _operator()
+    package["acceptance"][0]["evidence_type"] = "human_review"
+    assert policy.refusals_for(package, _operator_lineage()) == ("acceptance_not_permitted",)
+
+
+def test_every_reissue_refusal_is_reported(policy) -> None:
+    package = _operator(created_by="someone")
+    package["profile_fields"]["standing"] = False
+    package["profile_fields"]["destinations"].append(_GH_COPY.replace("gh-actions", "nope"))
+    package["authority"]["budgets"]["max_attempts"] = 9
+    package["acceptance"][0]["evidence_type"] = "human_review"
+    lineage = _operator_lineage()
+    lineage["approvals"] = []
+    assert policy.refusals_for(package, lineage) == (
+        "not_a_standing_package",
+        "revision_one_not_approved",
+        "not_proposer_generated",
+        "destinations_not_permitted",
+        "authority_terms_not_permitted",
+        "acceptance_not_permitted",
+    )
+
+
+# --- a document without the reissue fields refuses every reissue -----------------------
+
+_REFUSED_BEFORE_SCHEMA_5 = (
+    "not_revision_one",
+    "lineage_has_approval",
+    "not_proposer_generated",
+    "rotation_type_not_permitted",
+)
+
+
+@pytest.mark.parametrize("name", COVERED)
+def test_the_schema_4_document_still_loads_and_refuses_every_reissue(name) -> None:
+    """The document as it stood before schema 5 draws the same refusals it did then."""
+    schema_4 = load_policy(FIXTURES / "approval-policy-schema-4.toml")
+    assert schema_4.version == 4
+    assert schema_4.refusals_for(*_reissue(name)) == _REFUSED_BEFORE_SCHEMA_5
+
+
+def _without_reissue_fields(text: str) -> str:
+    """The shipped document with its three reissue fields deleted, as the rationale says."""
+    head, _, rest = text.partition("[profile.non-software-operational.grant.reissue_types")
+    _, _, tail = rest.partition("[profile.dependency-update]")
+    head = "\n".join(line for line in head.splitlines() if not line.startswith("reissue_"))
+    return f"{head}\n[profile.dependency-update]{tail}"
+
+
+@pytest.mark.parametrize("name", COVERED)
+def test_deleting_the_reissue_fields_refuses_every_reissue(tmp_path, name) -> None:
+    """Kills: a reissue path that doesn't depend on `reissue_types`. The switch is the field."""
+    text = _without_reissue_fields((FIXTURES.parent.parent / "approval-policy.toml").read_text())
+    loaded = _load(tmp_path, text)
+    grant = loaded.grants["non-software-operational"]
+    assert isinstance(grant, RotationGrant)
+    assert loaded.version == 5
+    assert grant.reissue_types == {}
+    assert loaded.refusals_for(*_reissue(name)) == _REFUSED_BEFORE_SCHEMA_5
+
+
+# --- loading the reissue fields ---------------------------------------------------------
+
+_REISSUE_FIELDS = """reissue_created_by = ["factory-create"]
+reissue_revision_1_approvers = ["devon"]
+"""
+_REISSUE_TYPE = """
+[profile.non-software-operational.grant.reissue_types.orchestrator]
+destinations_allowed = [{kinds}]
+authority_options = [
+  {{ allowed = ["secret_read"], requires_approval = [], prohibited = ["email_send"], \
+max_attempts = 3{extra} }},
+]
+"""
+
+
+def _reissue_document(
+    version: int = 5,
+    *,
+    fields: str = _REISSUE_FIELDS,
+    kinds: str = '"bws-secret", "provider"',
+    extra: str = "",
+) -> str:
+    text = _document(version).replace(
+        'created_by = "rotation-proposer"\n', f'created_by = "rotation-proposer"\n{fields}'
+    )
+    return text + _REISSUE_TYPE.format(kinds=kinds, extra=extra)
+
+
+def test_a_reissue_grant_loads_at_schema_5(tmp_path) -> None:
+    grant = _load(tmp_path, _reissue_document()).grants["non-software-operational"]
+    assert isinstance(grant, RotationGrant)
+    assert sorted(grant.reissue_types) == ["orchestrator"]
+    assert grant.reissue_types["orchestrator"].destinations_allowed == {"bws-secret", "provider"}
+    assert grant.reissue_created_by == {"factory-create"}
+    assert grant.reissue_revision_1_approvers == {"devon"}
+
+
+def test_the_reissue_fields_at_schema_4_stop_the_document_loading(tmp_path) -> None:
+    """Kills: a schema-4 document acquiring a reissue grant."""
+    with pytest.raises(ApprovalPolicyError, match="unknown fields"):
+        _load(tmp_path, _reissue_document(4))
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        'reissue_created_by = ["factory-create"]\n',
+        'reissue_revision_1_approvers = ["devon"]\n',
+        "",
+    ],
+    ids=["no-approvers", "no-created-by", "types-alone"],
+)
+def test_a_partial_reissue_grant_stops_the_document_loading(tmp_path, fields) -> None:
+    """All three reissue fields or none: a reissue grant with no approver list is no grant."""
+    with pytest.raises(ApprovalPolicyError, match="missing"):
+        _load(tmp_path, _reissue_document(fields=fields))
+
+
+@pytest.mark.parametrize(
+    ("parts", "message"),
+    [
+        ({"kinds": '"bws-secret"'}, "must include the provider"),
+        ({"kinds": '"bws-secret", "bws-secret", "provider"'}, "repeats a kind"),
+        ({"kinds": '"nonsense", "provider"'}, "no destination kinds"),
+        ({"kinds": ""}, "non-empty list"),
+        ({"extra": ", max_llm_calls = 10"}, "unknown fields"),
+        (
+            {"fields": 'reissue_created_by = []\nreissue_revision_1_approvers = ["devon"]\n'},
+            "non-empty",
+        ),
+        (
+            {"fields": 'reissue_created_by = ["x"]\nreissue_revision_1_approvers = []\n'},
+            "non-empty",
+        ),
+    ],
+    ids=[
+        "no-provider",
+        "repeated-kind",
+        "unknown-kind",
+        "no-kinds",
+        "authority-extra-field",
+        "empty-created-by",
+        "empty-approvers",
+    ],
+)
+def test_a_malformed_reissue_grant_stops_the_document_loading(tmp_path, parts, message) -> None:
+    with pytest.raises(ApprovalPolicyError, match=message):
+        _load(tmp_path, _reissue_document(**parts))
+
+
+# --- a reissue through do_approve -------------------------------------------------------
+
+
+@pytest.fixture
+def ready_reissue(tmp_path, monkeypatch, fake_registry):
+    """A copy of the operator bearer's revision 2, `ready_for_review`, revision 1 by devon."""
+    (fake_registry / "registry" / "capabilities.yaml").write_text(_CAPABILITIES, encoding="utf-8")
+    monkeypatch.setenv("SECURITY_STANDARDS_DIR", str(fake_registry))
+    pkg_dir = tmp_path / OPERATOR
+    shutil.copytree(REISSUE / OPERATOR, pkg_dir)
+    return pkg_dir
+
+
+def test_do_approve_takes_the_policy_approval_for_a_reissue(ready_reissue) -> None:
+    emitter = StubEmitter()
+    do_approve(ready_reissue, emitter=emitter, approver=APPROVER, commit="abc1234", now=NOW)
+
+    lineage = ln.read(ready_reissue)
+    assert lineage["current_state"] == "approved"
+    assert [(a["revision"], a["approver"]) for a in lineage["approvals"]] == [
+        (1, "devon"),
+        (2, APPROVER),
+    ]
+    assert emitter.calls[0][2]["revision"] == 2
+
+
+def test_a_repeated_policy_approval_of_a_reissue_refuses(ready_reissue) -> None:
+    do_approve(ready_reissue, emitter=StubEmitter(), approver=APPROVER, commit="abc1234", now=NOW)
+    emitter = StubEmitter()
+    with pytest.raises(OperationError, match="revision_already_approved"):
+        do_approve(ready_reissue, emitter=emitter, approver=APPROVER, commit="abc1234", now=NOW)
+    assert emitter.calls == []
+    assert len(ln.read(ready_reissue)["approvals"]) == 2

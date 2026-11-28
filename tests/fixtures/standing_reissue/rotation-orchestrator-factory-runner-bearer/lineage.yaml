@@ -1,0 +1,17 @@
+package_id: rotation-orchestrator-factory-runner-bearer
+current_state: ready_for_review
+revisions:
+- revision: 1
+  hash: 05d93adb41ee77e90fed0d2b722b9ed5ad95621e99353bc2dc5fe03ffd2e1421
+  created_at: '2026-11-28T15:55:48Z'
+  author: claude-code-interactive
+  snapshotted_at: '2026-11-28T15:55:50.715336+00:00'
+transitions:
+- kind: transition
+  from: draft
+  to: ready_for_review
+  at: '2026-11-28T15:55:50.715336+00:00'
+  actor: claude-code-interactive
+  event_id: null
+approvals: []
+grants: []
