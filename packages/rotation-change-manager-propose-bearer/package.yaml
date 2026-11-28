@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-change-manager-propose-bearer
 title: Standing rotation of the change-manager propose bearer (change-manager-propose-bearer)
-revision: 1
-status: approved
+revision: 2
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-20T14:58:27Z'
@@ -49,7 +49,7 @@ profile_fields:
     last runs of sds-bump-proposer, sds-change-proposer, sds-rotation-proposer, sds-work-carrier
   standing: true
   credential_id: change-manager-propose-bearer
-  occurrence: '2026-10-20-requested'
+  occurrence: '2026-11-28-requested'
   destinations:
   - 'bws-secret uuid="acccb346-4baa-43ec-a1d4-b4a400c048ee"'
   - 'coolify-env-hash instance="prod" resource_type="application" uuid="re45tafypao3nly3qa9a79dp" key="M2M_TOKEN_PROPOSE" entry="propose"'

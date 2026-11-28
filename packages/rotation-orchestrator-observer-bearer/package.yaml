@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-orchestrator-observer-bearer
 title: Standing rotation of the orchestrator observer bearer (orchestrator-observer-bearer)
-revision: 2
-status: approved
+revision: 3
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-18T15:35:36Z'
@@ -47,21 +47,22 @@ profile_fields:
     check, read before retire to confirm the reader ran since the keeper's revision
   standing: true
   credential_id: orchestrator-observer-bearer
-  occurrence: '2026-10-18-requested'
+  occurrence: '2026-11-28-requested'
   destinations:
   - 'bws-secret uuid="f793576f-e9aa-4f9d-8089-b4a000b9e2d5"'
   - 'coolify-env-hash instance="prod" resource_type="application" uuid="eqj5l7k705fhi12x9i74fqf0" key="ORCHESTRATOR_M2M_CREDENTIALS" entry="orchestrator-observer"'
   - 'provider name="orchestrator"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-activation-sweep.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-bump-proposer.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-change-proposer.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-deploy-watcher.sh"'
-  - 'runtime-fetch repo="orchestrator" ref="scripts/run-fork-harden.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-execution-watch.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-landing-ledger.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-membership-check.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-pin-watcher.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-revision-watcher.sh"'
   - 'runtime-fetch repo="orchestrator" ref="scripts/run-rotation-proposer.sh"'
-  - 'runtime-fetch repo="orchestrator" ref="scripts/run-tool-installer.sh"'
+  - 'runtime-fetch repo="orchestrator" ref="scripts/run-work-carrier.sh"'
   - 'runtime-fetch repo="project-standards" ref="integrations/portfolio-scan.sh"'
 outcome:
   what: >-
