@@ -88,8 +88,8 @@ I measured the live packages with the shipped document. These are the copies in
 
 ## Tests and checks
 
-- **`make check`:** ruff, format, pyright (0 errors) and pytest. pytest collected 1501 items,
-  deselected 10, and passed 1493.
+- **`make check`:** ruff, format, pyright (0 errors) and pytest. pytest collected 1503 items,
+  deselected 10, and passed all 1493 selected.
 - **`tests/test_approval_policy_rotation.py`:** 166 tests pass.
 - **`code-standards risk --repo .`:** the verdict is `normal`, so `vendor-review` didn't apply.
 - **Security scanner** (`--category security`, from the repo root): 0 BLOCK findings.
