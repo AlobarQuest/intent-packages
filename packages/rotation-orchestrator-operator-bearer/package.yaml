@@ -1,8 +1,8 @@
 schema_version: 1
 package_id: rotation-orchestrator-operator-bearer
 title: Standing rotation of the orchestrator operator bearer (orchestrator-operator-bearer)
-revision: 1
-status: approved
+revision: 2
+status: ready_for_review
 created_by: factory-create
 owner: devon
 created_at: '2026-10-15T14:06:54Z'
@@ -38,7 +38,7 @@ profile_fields:
     secrets in Rotation / Work, and the Coolify token in Rotation / Coolify
   standing: true
   credential_id: orchestrator-operator-bearer
-  occurrence: '2026-10-15-requested'
+  occurrence: '2026-11-28-requested'
   destinations:
   - 'bws-secret uuid="bd71bed1-4aac-4af8-9094-b4970180bc59"'
   - 'coolify-env-hash instance="prod" resource_type="application" uuid="eqj5l7k705fhi12x9i74fqf0" key="ORCHESTRATOR_M2M_CREDENTIALS" entry="orchestrator-operator"'
