@@ -723,8 +723,11 @@ def test_a_revision_between_never_approved_passes(policy) -> None:
     assert policy.refusals_for(package, lineage) == ()
 
 
-@pytest.mark.parametrize("created_by", ["claude-code-interactive", None, ""])
+@pytest.mark.parametrize(
+    "created_by", ["claude-code-interactive", None, "", ["factory-create"], {"a": 1}]
+)
 def test_a_reissue_by_another_author_is_refused(policy, created_by) -> None:
+    """Kills: a membership test that raises on an unhashable value instead of refusing."""
     package = _operator(created_by=created_by)
     assert policy.refusals_for(package, _operator_lineage()) == ("not_proposer_generated",)
 

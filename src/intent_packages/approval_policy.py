@@ -794,7 +794,9 @@ def _reissue_refusals(
         for refusal in (
             _standing_refusal(package),
             _reissue_lineage_refusal(package["revision"], lineage, grant),
-            None if created_by in grant.reissue_created_by else NOT_PROPOSER_GENERATED,
+            None
+            if isinstance(created_by, str) and created_by in grant.reissue_created_by
+            else NOT_PROPOSER_GENERATED,
             None if reissue_type is not None else ROTATION_TYPE_NOT_PERMITTED,
             None if reissue_type is None else _reissue_destinations_refusal(package, reissue_type),
             None if reissue_type is None else _rotation_authority_refusal(package, reissue_type),
